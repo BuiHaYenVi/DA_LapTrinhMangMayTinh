@@ -162,6 +162,15 @@ public class MainFrame extends JFrame {
                         client.sendCommand("GET_ONLINE_USERS");
                     }
                     case "ERROR" -> JOptionPane.showMessageDialog(this, ProtocolHandler.decode(p[1]), "Thông báo", JOptionPane.WARNING_MESSAGE);
+                    case "REQUEST_TIMEOUT" -> {
+                        status.setText("Quá thời gian chờ phản hồi: " + (p.length > 2 ? p[2] : "request"));
+                    }
+                    case "PROTOCOL_ERROR" -> {
+                        status.setText("Lỗi giao thức");
+                        JOptionPane.showMessageDialog(this,
+                                p.length > 1 ? ProtocolHandler.decode(p[1]) : "Gói tin không hợp lệ.",
+                                "Lỗi giao thức", JOptionPane.WARNING_MESSAGE);
+                    }
                     case "CLIENT_DISCONNECTED" -> status.setText("Mất kết nối Server");
                 }
             } catch (Exception ex) { ex.printStackTrace(); }

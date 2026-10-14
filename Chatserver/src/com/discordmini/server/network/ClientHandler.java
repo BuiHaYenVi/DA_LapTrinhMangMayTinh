@@ -5,6 +5,7 @@ import com.discordmini.server.model.Room;
 import com.discordmini.server.model.User;
 import com.discordmini.server.protocol.MessageType;
 import com.discordmini.server.protocol.ProtocolHandler;
+import com.discordmini.server.protocol.ProtocolErrorCode;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -16,6 +17,9 @@ public class ClientHandler implements Runnable {
     private volatile boolean running = true;
     private User user;
     private Integer currentRoomId;
+    /** Request metadata is scoped to the single reader thread for this client. */
+    private String activeRequestId;
+    private boolean requestFailed;
 
     public ClientHandler(Socket socket, ChatServer server) throws IOException {
         this.connection = new ClientConnection(socket);
@@ -42,8 +46,11 @@ public class ClientHandler implements Runnable {
     }
 
     private void handle(String line) {
+        activeRequestId = null;
+        requestFailed = false;
         try {
             String[] parts = ProtocolHandler.split(line);
+            activeRequestId = ProtocolHandler.requestId(parts);
             MessageType type = MessageType.valueOf(parts[0]);
             switch (type) {
                 case REGISTER -> handleRegister(parts);
@@ -60,7 +67,14 @@ public class ClientHandler implements Runnable {
                 case PING -> connection.send("PONG");
             }
         } catch (Exception e) {
-            connection.send("ERROR|" + ProtocolHandler.encode(e.getMessage() == null ? "Unknown error" : e.getMessage()));
+            sendError(classifyError(e), e.getMessage() == null ? "Unknown protocol or server error." : e.getMessage());
+        } finally {
+            // ACK means the application handler completed successfully; it is
+            // not a TCP ACK and does not imply that a recipient read the data.
+            if (activeRequestId != null && !requestFailed) {
+                connection.send("ACK|" + activeRequestId + "|OK");
+            }
+            activeRequestId = null;
         }
     }
 
@@ -68,16 +82,16 @@ public class ClientHandler implements Runnable {
         requireArgs(parts, 4);
         User created = server.getAuthService().register(
                 ProtocolHandler.decode(parts[1]), ProtocolHandler.decode(parts[2]), ProtocolHandler.decode(parts[3]));
-        if (created == null) sendError("Username đã tồn tại hoặc dữ liệu không hợp lệ.");
+        if (created == null) sendError(ProtocolErrorCode.USERNAME_TAKEN, "Username đã tồn tại hoặc dữ liệu không hợp lệ.");
         else connection.send("OK|REGISTERED|" + ProtocolHandler.encode("Đăng ký thành công."));
     }
 
     private void handleLogin(String[] parts) {
         requireArgs(parts, 3);
-        if (user != null) { sendError("Bạn đã đăng nhập."); return; }
+        if (user != null) { sendError(ProtocolErrorCode.ALREADY_AUTHENTICATED, "Bạn đã đăng nhập."); return; }
         User found = server.getAuthService().login(ProtocolHandler.decode(parts[1]), ProtocolHandler.decode(parts[2]));
-        if (found == null) { sendError("Sai username hoặc password."); return; }
-        if (server.getClientManager().get(found.getId()) != null) { sendError("Tài khoản đang được đăng nhập ở nơi khác."); return; }
+        if (found == null) { sendError(ProtocolErrorCode.AUTH_FAILED, "Sai username hoặc password."); return; }
+        if (server.getClientManager().get(found.getId()) != null) { sendError(ProtocolErrorCode.ALREADY_ONLINE, "Tài khoản đang được đăng nhập ở nơi khác."); return; }
         user = found;
         user.setOnline(true);
         server.getClientManager().add(user, this);
@@ -89,9 +103,9 @@ public class ClientHandler implements Runnable {
         requireLogin();
         requireArgs(parts, 2);
         String name = ProtocolHandler.decode(parts[1]).trim();
-        if (name.isBlank()) { sendError("Tên phòng không được rỗng."); return; }
+        if (name.isBlank()) { sendError(ProtocolErrorCode.INVALID_ROOM_NAME, "Tên phòng không được rỗng."); return; }
         Room room = server.getRoomService().createRoom(name, user.getId());
-        if (room == null) sendError("Tên phòng đã tồn tại.");
+        if (room == null) sendError(ProtocolErrorCode.ROOM_NAME_TAKEN, "Tên phòng đã tồn tại.");
         else {
             connection.send("OK|ROOM_CREATED|" + room.getId() + "|" + ProtocolHandler.encode(room.getName()));
             sendRooms();
@@ -103,7 +117,7 @@ public class ClientHandler implements Runnable {
         requireArgs(parts, 2);
         int roomId = Integer.parseInt(parts[1]);
         Room room = server.getRoomService().findRoom(roomId);
-        if (room == null) { sendError("Không tìm thấy phòng."); return; }
+        if (room == null) { sendError(ProtocolErrorCode.ROOM_NOT_FOUND, "Không tìm thấy phòng."); return; }
         leaveCurrentRoom(false);
         currentRoomId = roomId;
         server.getRoomService().joinRoom(roomId, user.getId());
@@ -122,7 +136,7 @@ public class ClientHandler implements Runnable {
 
     private void handleSendMessage(String[] parts) throws Exception {
         requireLogin();
-        if (currentRoomId == null) { sendError("Bạn chưa vào phòng."); return; }
+        if (currentRoomId == null) { sendError(ProtocolErrorCode.NOT_IN_ROOM, "Bạn chưa vào phòng."); return; }
         requireArgs(parts, 2);
         String content = ProtocolHandler.decode(parts[1]).trim();
         if (content.isBlank()) return;
@@ -142,7 +156,7 @@ public class ClientHandler implements Runnable {
             String content = ProtocolHandler.decode(parts[2]).trim();
             if (content.isBlank()) return;
             if (user != null && targetUserId == user.getId()) {
-                sendError("Không thể tự gửi tin nhắn cho chính mình.");
+                sendError(ProtocolErrorCode.INVALID_RECIPIENT, "Không thể tự gửi tin nhắn cho chính mình.");
                 return;
             }
             String timeStr = java.time.LocalTime.now().toString();
@@ -153,18 +167,18 @@ public class ClientHandler implements Runnable {
                     + ProtocolHandler.encode(timeStr);
             boolean sent = server.getClientManager().sendToUser(targetUserId, packet);
             if (!sent) {
-                sendError("Người dùng này hiện không online.");
+                sendError(ProtocolErrorCode.USER_OFFLINE, "Người dùng này hiện không online.");
             } else {
                 connection.send("PRIVATE_MESSAGE_SENT|" + targetUserId);
             }
         } catch (NumberFormatException e) {
-            sendError("ID người nhận không hợp lệ.");
+            sendError(ProtocolErrorCode.BAD_REQUEST, "ID người nhận không hợp lệ.");
         }
     }
 
     private void handleHistory() {
         requireLogin();
-        if (currentRoomId == null) { sendError("Bạn chưa vào phòng."); return; }
+        if (currentRoomId == null) { sendError(ProtocolErrorCode.NOT_IN_ROOM, "Bạn chưa vào phòng."); return; }
         List<Message> history = server.getChatService().history(currentRoomId);
         connection.send("HISTORY_BEGIN|" + currentRoomId);
         for (Message m : history) {
@@ -246,5 +260,22 @@ public class ClientHandler implements Runnable {
         if (parts.length < count) throw new IllegalArgumentException("Thiếu tham số.");
     }
 
-    private void sendError(String message) { connection.send("ERROR|" + ProtocolHandler.encode(message)); }
+    private void sendError(ProtocolErrorCode code, String message) {
+        requestFailed = true;
+        String requestId = activeRequestId == null ? "" : activeRequestId;
+        connection.send("ERROR|" + ProtocolHandler.encode(message) + "|" + requestId + "|" + code.name());
+    }
+
+    private ProtocolErrorCode classifyError(Exception error) {
+        if (error instanceof NumberFormatException || error instanceof IllegalArgumentException) {
+            return ProtocolErrorCode.BAD_REQUEST;
+        }
+        if (error instanceof IllegalStateException) {
+            String message = error.getMessage();
+            if (message != null && message.contains("chưa đăng nhập")) return ProtocolErrorCode.AUTH_REQUIRED;
+            return ProtocolErrorCode.INVALID_STATE;
+        }
+        if (error instanceof java.sql.SQLException) return ProtocolErrorCode.DATABASE_ERROR;
+        return ProtocolErrorCode.INTERNAL_ERROR;
+    }
 }

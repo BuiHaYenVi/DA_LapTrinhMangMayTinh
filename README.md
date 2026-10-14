@@ -31,3 +31,8 @@ Server tự tạo thư mục `data` trong thư mục chạy server:
 - messages.txt
 
 Đây là bản MVP để chạy ổn định trước. Sau khi phần TCP/chat hoàn chỉnh, có thể thay DataStore bằng PostgreSQL/JDBC mà không cần thay đổi phần GUI.
+
+
+## Application Protocol & Reliability
+
+The Client–Server wire contract, request IDs, ACK/error format, heartbeat, timeout policy and protocol test instructions are documented in [`docs/PROTOCOL.md`](docs/PROTOCOL.md). Vi's implementation summary is in [`docs/VI_WORKLOG.md`](docs/VI_WORKLOG.md).
