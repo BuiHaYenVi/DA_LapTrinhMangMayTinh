@@ -24,6 +24,7 @@ public class ClientHandler implements Runnable {
 
     public User getUser() { return user; }
     public Integer getCurrentRoomId() { return currentRoomId; }
+    public void sendPacket(String packet) { connection.send(packet); }
 
     @Override
     public void run() {
@@ -53,6 +54,7 @@ public class ClientHandler implements Runnable {
                 case JOIN_ROOM -> handleJoinRoom(parts);
                 case LEAVE_ROOM -> handleLeaveRoom();
                 case SEND_MESSAGE -> handleSendMessage(parts);
+                case SEND_PRIVATE_MESSAGE -> handleSendPrivateMessage(parts);
                 case GET_HISTORY -> handleHistory();
                 case GET_ONLINE_USERS -> sendOnlineUsers();
                 case PING -> connection.send("PONG");
@@ -130,6 +132,34 @@ public class ClientHandler implements Runnable {
                 + ProtocolHandler.encode(message.getContent()) + "|"
                 + ProtocolHandler.encode(message.getTimestamp());
         broadcastRoom(packet, true);
+    }
+
+    private void handleSendPrivateMessage(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+        try {
+            int targetUserId = Integer.parseInt(parts[1]);
+            String content = ProtocolHandler.decode(parts[2]).trim();
+            if (content.isBlank()) return;
+            if (user != null && targetUserId == user.getId()) {
+                sendError("Không thể tự gửi tin nhắn cho chính mình.");
+                return;
+            }
+            String timeStr = java.time.LocalTime.now().toString();
+            if (timeStr.length() > 8) timeStr = timeStr.substring(0, 8);
+            String packet = "NEW_PRIVATE_MESSAGE|" + user.getId() + "|"
+                    + ProtocolHandler.encode(user.getDisplayName()) + "|"
+                    + ProtocolHandler.encode(content) + "|"
+                    + ProtocolHandler.encode(timeStr);
+            boolean sent = server.getClientManager().sendToUser(targetUserId, packet);
+            if (!sent) {
+                sendError("Người dùng này hiện không online.");
+            } else {
+                connection.send("PRIVATE_MESSAGE_SENT|" + targetUserId);
+            }
+        } catch (NumberFormatException e) {
+            sendError("ID người nhận không hợp lệ.");
+        }
     }
 
     private void handleHistory() {
