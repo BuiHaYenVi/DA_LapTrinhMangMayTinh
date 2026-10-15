@@ -24,6 +24,12 @@ public class DatabaseConnection {
     }
 
     private static synchronized void loadProperties() {
+        // 1. Kiểm tra cấu hình qua biến môi trường (ưu tiên cao nhất)
+        String envUrl = System.getenv("DB_URL");
+        String envUser = System.getenv("DB_USER");
+        String envPass = System.getenv("DB_PASSWORD");
+        String envDriver = System.getenv("DB_DRIVER");
+
         Properties props = new Properties();
         String[] candidatePaths = {
             "config/db.properties",
@@ -35,7 +41,7 @@ public class DatabaseConnection {
         for (String path : candidatePaths) {
             input = DatabaseConnection.class.getClassLoader().getResourceAsStream(path);
             if (input != null) {
-                System.out.println("[DB CONFIG] Da tim thấy file cau hinh: " + path);
+                System.out.println("[DB CONFIG] Đã tìm thấy file cấu hình: " + path);
                 break;
             }
         }
@@ -43,18 +49,17 @@ public class DatabaseConnection {
         if (input != null) {
             try (InputStream is = input) {
                 props.load(is);
-                url = props.getProperty("db.url", "jdbc:postgresql://localhost:5432/discord_mini");
-                user = props.getProperty("db.user", "postgres");
-                password = props.getProperty("db.password", "2026");
-                driver = props.getProperty("db.driver", "org.postgresql.Driver");
             } catch (Exception e) {
-                System.err.println("[DB ERROR] Lỗi doc db.properties: " + e.getMessage() + ". Sử dụng cấu hình mặc định.");
-                setDefaultProperties();
+                System.err.println("[DB ERROR] Lỗi đọc db.properties: " + e.getMessage() + ". Sử dụng cấu hình mặc định.");
             }
         } else {
-            System.err.println("[DB WARNING] Không tìm thấy file db.properties trên ClassLoader. Sử dụng cấu hình mặc định.");
-            setDefaultProperties();
+            System.err.println("[DB WARNING] Không tìm thấy file db.properties trên ClassLoader. Sử dụng cấu hình cơ bản.");
         }
+
+        url = envUrl != null ? envUrl : props.getProperty("db.url", "jdbc:postgresql://localhost:5432/discord_mini");
+        user = envUser != null ? envUser : props.getProperty("db.user", "postgres");
+        password = envPass != null ? envPass : props.getProperty("db.password", "");
+        driver = envDriver != null ? envDriver : props.getProperty("db.driver", "org.postgresql.Driver");
 
         try {
             Class.forName(driver);
@@ -68,7 +73,7 @@ public class DatabaseConnection {
     private static void setDefaultProperties() {
         url = "jdbc:postgresql://localhost:5432/discord_mini";
         user = "postgres";
-        password = "2026";
+        password = "";
         driver = "org.postgresql.Driver";
     }
 

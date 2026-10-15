@@ -41,4 +41,13 @@ public class RoomService {
             System.err.println("Lỗi vào phòng Database: " + e.getMessage());
         }
     }
+
+    public boolean removeMember(int roomId, int userId) {
+        try {
+            return roomDAO.removeMember(roomId, userId);
+        } catch (Exception e) {
+            System.err.println("Lỗi xóa thành viên Database: " + e.getMessage());
+            return false;
+        }
+    }
 }
