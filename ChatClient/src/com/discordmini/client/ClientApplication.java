@@ -10,17 +10,18 @@ public class ClientApplication {
     public static final int DEFAULT_PORT = 5000;
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
+        // Thực hiện kết nối mạng trên background thread, không chặn Swing Event Dispatch Thread (EDT)
+        new Thread(() -> {
             SocketClient client = new SocketClient();
             try {
                 client.connect(DEFAULT_HOST, DEFAULT_PORT);
-                new LoginFrame(client).setVisible(true);
+                SwingUtilities.invokeLater(() -> new LoginFrame(client).setVisible(true));
             } catch (Exception e) {
-                JOptionPane.showMessageDialog(null,
+                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null,
                         "Không kết nối được ChatServer tại " + DEFAULT_HOST + ":" + DEFAULT_PORT +
-                        "\nHãy chạy ChatServer trước.\n\n" + e.getMessage(),
-                        "Connection Error", JOptionPane.ERROR_MESSAGE);
+                        "\nHãy kiểm tra ChatServer đã được khởi động chưa.\n\nChi tiết: " + e.getMessage(),
+                        "Lỗi kết nối", JOptionPane.ERROR_MESSAGE));
             }
-        });
+        }, "Client-InitThread").start();
     }
 }

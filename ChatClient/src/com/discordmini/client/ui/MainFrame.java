@@ -39,7 +39,18 @@ public class MainFrame extends JFrame {
         this.client = client;
         this.displayName = displayName;
         setTitle("Discord Mini - " + displayName);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                try {
+                    new AuthService(client).logout();
+                } catch (Exception ignored) {}
+                client.close();
+                dispose();
+                System.exit(0);
+            }
+        });
         setSize(1050, 700);
         setLocationRelativeTo(null);
         buildUi();
@@ -93,7 +104,14 @@ public class MainFrame extends JFrame {
 
         roomList.addListSelectionListener(e -> { if (!e.getValueIsAdjusting() && roomList.getSelectedValue() != null) joinSelectedRoom(); });
         create.addActionListener(e -> createRoom());
-        leave.addActionListener(e -> { new RoomService(client).leaveRoom(); currentRoom = null; roomTitle.setText("Chưa chọn phòng"); });
+        leave.addActionListener(e -> {
+            new RoomService(client).leaveRoom();
+            currentRoom = null;
+            roomTitle.setText("Chưa chọn phòng");
+            chatArea.setText("");
+            memberModel.clear();
+            client.sendCommand("GET_ONLINE_USERS");
+        });
         sendButton.addActionListener(e -> sendMessage());
         messageField.addActionListener(e -> sendMessage());
         
