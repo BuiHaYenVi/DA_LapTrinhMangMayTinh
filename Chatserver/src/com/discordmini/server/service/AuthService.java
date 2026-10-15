@@ -3,20 +3,18 @@ package com.discordmini.server.service;
 import com.discordmini.server.dao.UserDAO;
 import com.discordmini.server.model.User;
 
-import java.sql.SQLException;
-
 public class AuthService {
     private final UserDAO userDAO;
 
     public AuthService(UserDAO userDAO) {
-        this.userDAO = userDAO;
+        this.userDAO = userDAO != null ? userDAO : new UserDAO();
     }
 
     public User login(String username, String password) {
         try {
             return userDAO.login(username, password);
-        } catch (SQLException e) {
-            System.err.println("Loi Dang nhap Database: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Lỗi Đăng nhập Database: " + e.getMessage());
             return null;
         }
     }
