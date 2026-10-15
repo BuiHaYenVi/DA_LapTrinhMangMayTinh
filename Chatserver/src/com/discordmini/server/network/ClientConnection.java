@@ -15,6 +15,10 @@ public class ClientConnection implements Closeable {
         this.out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8), true);
     }
     public String readLine() throws IOException { return in.readLine(); }
-    public void send(String line) { out.println(line); }
+    public synchronized void send(String line) {
+        if (out != null) {
+            out.println(line);
+        }
+    }
     @Override public void close() throws IOException { socket.close(); }
 }

@@ -9,6 +9,7 @@ public enum MessageType {
     JOIN_ROOM,
     LEAVE_ROOM,
     SEND_MESSAGE,
+    SEND_PRIVATE_MESSAGE,
     GET_HISTORY,
     GET_ONLINE_USERS,
     PING
