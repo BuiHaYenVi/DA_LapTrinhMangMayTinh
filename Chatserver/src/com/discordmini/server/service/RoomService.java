@@ -3,7 +3,6 @@ package com.discordmini.server.service;
 import com.discordmini.server.dao.RoomDAO;
 import com.discordmini.server.model.Room;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,14 +10,14 @@ public class RoomService {
     private final RoomDAO roomDAO;
 
     public RoomService(RoomDAO roomDAO) {
-        this.roomDAO = roomDAO;
+        this.roomDAO = roomDAO != null ? roomDAO : new RoomDAO();
     }
 
     public List<Room> listRooms() {
         try {
             return roomDAO.listRooms();
-        } catch (SQLException e) {
-            System.err.println("Loi danh sach phong Database: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Lỗi danh sách phòng Database: " + e.getMessage());
             return new ArrayList<>();
         }
     }
@@ -26,7 +25,7 @@ public class RoomService {
     public Room findRoom(int roomId) {
         try {
             return roomDAO.findRoom(roomId);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             return null;
         }
     }
@@ -38,8 +37,8 @@ public class RoomService {
     public void joinRoom(int roomId, int userId) {
         try {
             roomDAO.joinRoom(roomId, userId);
-        } catch (SQLException e) {
-            System.err.println("Loi vao phong Database: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Lỗi vào phòng Database: " + e.getMessage());
         }
     }
 }
