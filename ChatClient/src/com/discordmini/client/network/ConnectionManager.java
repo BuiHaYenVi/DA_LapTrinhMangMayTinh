@@ -93,6 +93,31 @@ public class ConnectionManager {
         return authenticatedDisplayName;
     }
 
+    private volatile int reconnectAttempts = 0;
+
+    public int getReconnectAttempts() {
+        return reconnectAttempts;
+    }
+
+    public void setReconnectAttempts(int attempts) {
+        this.reconnectAttempts = attempts;
+        // Phát thông báo trạng thái cập nhật để UI render số lần retry
+        List<StateChangeListener> listenersToNotify = new ArrayList<>(this.stateListeners);
+        for (StateChangeListener listener : listenersToNotify) {
+            try {
+                listener.onStateChanged(this.state, this.state, this.lastDisconnectReason);
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    public String getServerHost() {
+        return client != null ? client.getServerHost() : null;
+    }
+
+    public int getServerPort() {
+        return client != null ? client.getServerPort() : 0;
+    }
+
     public void addStateChangeListener(StateChangeListener listener) {
         if (listener != null) {
             stateListeners.add(listener);

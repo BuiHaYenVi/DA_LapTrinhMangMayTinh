@@ -10,9 +10,11 @@ import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -44,6 +46,15 @@ public class SocketClient {
     private volatile long lastPingAt;
     private volatile long generation;
     private ScheduledFuture<?> monitorTask;
+
+    private volatile String serverHost;
+    private volatile int serverPort;
+    private volatile long lastPingNanoTime = 0;
+    private volatile boolean pingAwaitingPong = false;
+    private volatile long currentLatencyMs = -1;
+    private volatile String lastPingTimestamp = null;
+    private volatile String lastPongTimestamp = null;
+    private final List<HeartbeatListener> heartbeatListeners = new CopyOnWriteArrayList<>();
 
     private final ScheduledExecutorService monitor =
             Executors.newSingleThreadScheduledExecutor(r -> {
@@ -104,6 +115,12 @@ public class SocketClient {
             in = new BufferedReader(new InputStreamReader(newSocket.getInputStream(), StandardCharsets.UTF_8));
             out = new PrintWriter(new OutputStreamWriter(newSocket.getOutputStream(), StandardCharsets.UTF_8), true);
             connected = true;
+            this.serverHost = host;
+            this.serverPort = port;
+            this.currentLatencyMs = -1;
+            this.pingAwaitingPong = false;
+            this.lastPingTimestamp = null;
+            this.lastPongTimestamp = null;
             long thisGeneration = ++generation;
             lastPongAt = System.currentTimeMillis();
             lastPingAt = 0;
@@ -194,14 +211,17 @@ public class SocketClient {
 
     public synchronized void close() {
         connected = false;
-        generation++;
+        long currentGen = generation++;
         if (monitorTask != null) {
             monitorTask.cancel(false);
             monitorTask = null;
         }
         pendingRequests.clear();
+        pingAwaitingPong = false;
+        currentLatencyMs = -1;
         closeSocketQuietly();
-        connectionManager.setDisconnected(DisconnectReason.MANUAL_CLOSE, generation);
+        connectionManager.setDisconnected(DisconnectReason.MANUAL_CLOSE, currentGen);
+        notifyHeartbeatListeners();
     }
 
     private void readLoop(BufferedReader reader, long readerGeneration) {
@@ -228,6 +248,15 @@ public class SocketClient {
             String[] parts = ProtocolHandler.split(line);
             if ("PONG".equals(parts[0])) {
                 lastPongAt = System.currentTimeMillis();
+                lastPongTimestamp = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
+                if (pingAwaitingPong) {
+                    long elapsedNanos = System.nanoTime() - lastPingNanoTime;
+                    long latency = elapsedNanos / 1_000_000L;
+                    if (latency < 0) latency = 0;
+                    this.currentLatencyMs = latency;
+                    this.pingAwaitingPong = false;
+                    notifyHeartbeatListeners();
+                }
             } else if ("ACK".equals(parts[0]) && parts.length >= 2) {
                 pendingRequests.remove(parts[1]);
             } else if ("ERROR".equals(parts[0]) && parts.length >= 3) {
@@ -257,8 +286,12 @@ public class SocketClient {
 
         if (now - lastPingAt >= HEARTBEAT_INTERVAL_MS) {
             lastPingAt = now;
+            lastPingNanoTime = System.nanoTime();
+            pingAwaitingPong = true;
+            lastPingTimestamp = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
             // Heartbeat is intentionally not tracked as a user request.
             if (!writeRaw("PING")) markDisconnected(monitorGeneration);
+            notifyHeartbeatListeners();
         }
     }
 
@@ -283,8 +316,11 @@ public class SocketClient {
                 monitorTask = null;
             }
             pendingRequests.clear();
+            pingAwaitingPong = false;
+            currentLatencyMs = -1;
             closeSocketQuietly();
         }
+        notifyHeartbeatListeners();
         serverListener.dispatch("CLIENT_DISCONNECTED");
     }
 
@@ -309,5 +345,56 @@ public class SocketClient {
 
     private void notifyListener(String packet) {
         serverListener.dispatch(packet);
+    }
+
+    public String getServerHost() {
+        return serverHost;
+    }
+
+    public int getServerPort() {
+        return serverPort;
+    }
+
+    public long getCurrentLatencyMs() {
+        return currentLatencyMs;
+    }
+
+    public HeartbeatInfo getHeartbeatInfo() {
+        return new HeartbeatInfo(currentLatencyMs, pingAwaitingPong, lastPingTimestamp, lastPongTimestamp);
+    }
+
+    public void addHeartbeatListener(HeartbeatListener listener) {
+        if (listener != null) {
+            heartbeatListeners.add(listener);
+        }
+    }
+
+    public void removeHeartbeatListener(HeartbeatListener listener) {
+        if (listener != null) {
+            heartbeatListeners.remove(listener);
+        }
+    }
+
+    private void notifyHeartbeatListeners() {
+        HeartbeatInfo info = getHeartbeatInfo();
+        for (HeartbeatListener listener : heartbeatListeners) {
+            try {
+                listener.onHeartbeatUpdated(info);
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    /**
+     * Kích hoạt gửi heartbeat PING chủ động (hỗ trợ kiểm thử có kiểm soát).
+     */
+    public void sendPingForHeartbeat() {
+        if (isConnected()) {
+            lastPingAt = System.currentTimeMillis();
+            lastPingNanoTime = System.nanoTime();
+            pingAwaitingPong = true;
+            lastPingTimestamp = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
+            writeRaw("PING");
+            notifyHeartbeatListeners();
+        }
     }
 }
