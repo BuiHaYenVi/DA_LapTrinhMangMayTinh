@@ -397,4 +397,12 @@ public class SocketClient {
             notifyHeartbeatListeners();
         }
     }
+
+    /**
+     * Giả lập mất kết nối ngoài ý muốn (phục vụ kiểm thử AN-10).
+     */
+    public void simulateUnexpectedDisconnectionForTest() {
+        markDisconnected(generation);
+        closeSocketQuietly();
+    }
 }

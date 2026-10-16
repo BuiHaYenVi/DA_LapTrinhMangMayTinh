@@ -5,6 +5,7 @@ import com.discordmini.client.network.ConnectionState;
 import com.discordmini.client.network.DisconnectReason;
 import com.discordmini.client.network.HeartbeatInfo;
 import com.discordmini.client.network.HeartbeatListener;
+import com.discordmini.client.network.ReconnectManager;
 import com.discordmini.client.network.SocketClient;
 
 import javax.swing.*;
@@ -34,6 +35,8 @@ public class NetworkStatusPanel extends JPanel {
     private final JLabel lblPingPongStatus = new JLabel("—");
     private final JLabel lblLatency = new JLabel("—");
     private final JLabel lblRetryCount = new JLabel("—");
+    private final JButton btnRetry = new JButton("🔄 Thử lại kết nối");
+    private ReconnectManager reconnectManager;
 
     // Giữ tham chiếu để giải phóng listener sạch sẽ trong cleanup()
     private final ConnectionManager.StateChangeListener stateChangeListener;
@@ -80,6 +83,18 @@ public class NetworkStatusPanel extends JPanel {
 
         // 5. Số lần thử lại (Chuẩn bị cho AN-10)
         add(createSection("Thử lại:", lblRetryCount, labelFont));
+
+        // 6. Nút thử lại thủ công khi thất bại
+        btnRetry.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnRetry.setMargin(new Insets(1, 6, 1, 6));
+        btnRetry.setVisible(false);
+        btnRetry.addActionListener(e -> {
+            if (reconnectManager != null) {
+                btnRetry.setEnabled(false);
+                reconnectManager.retryManually();
+            }
+        });
+        add(btnRetry);
     }
 
     private JPanel createSection(String title, JLabel valueLabel, Font valueFont) {
@@ -171,6 +186,8 @@ public class NetworkStatusPanel extends JPanel {
         // Cập nhật số lần thử lại (AN-10)
         int retries = (connectionManager != null) ? connectionManager.getReconnectAttempts() : 0;
         lblRetryCount.setText((retries > 0) ? String.valueOf(retries) : "—");
+        btnRetry.setVisible(state == ConnectionState.DISCONNECTED && retries >= 5);
+        btnRetry.setEnabled(state == ConnectionState.DISCONNECTED);
 
         // Khi ngắt kết nối: Đưa độ trễ và heartbeat về trạng thái chưa có dữ liệu
         if (client == null || !client.isConnected()) {
@@ -233,6 +250,14 @@ public class NetworkStatusPanel extends JPanel {
                 lblLatency.setForeground(new Color(220, 53, 69));
             }
         }
+    }
+
+    public void setReconnectManager(ReconnectManager reconnectManager) {
+        this.reconnectManager = reconnectManager;
+    }
+
+    public JButton getBtnRetry() {
+        return btnRetry;
     }
 
     public JLabel getConnectionStatusLabel() {

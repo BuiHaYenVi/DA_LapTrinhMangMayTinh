@@ -6,6 +6,8 @@ import com.discordmini.client.service.RoomService;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.List;
 
 /**
@@ -54,14 +56,39 @@ public class RoomPanel extends JPanel implements RoomEventListener {
         btnPanel.add(btnLeave);
         add(btnPanel, BorderLayout.SOUTH);
 
-        // Sự kiện chọn phòng từ danh sách
+        // Sự kiện chọn phòng từ danh sách (khi selection thay đổi)
         roomList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 Room selected = roomList.getSelectedValue();
                 if (selected != null && roomService != null) {
+                    if (roomService.getClient() != null && !roomService.getClient().isConnected()) {
+                        SwingUtilities.invokeLater(roomList::clearSelection);
+                        return; // Đang mất kết nối thì không cố join phòng
+                    }
                     Room current = roomService.getCurrentRoom();
                     if (current == null || current.id() != selected.id()) {
                         roomService.joinRoom(selected.id());
+                    }
+                }
+            }
+        });
+
+        // Sự kiện click chuột trực tiếp (kể cả click vào phòng đang được highlight)
+        roomList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int index = roomList.locationToIndex(e.getPoint());
+                if (index >= 0 && roomService != null) {
+                    Room selected = roomModel.getElementAt(index);
+                    if (selected != null) {
+                        if (roomService.getClient() != null && !roomService.getClient().isConnected()) {
+                            SwingUtilities.invokeLater(roomList::clearSelection);
+                            return;
+                        }
+                        Room current = roomService.getCurrentRoom();
+                        if (current == null || current.id() != selected.id()) {
+                            roomService.joinRoom(selected.id());
+                        }
                     }
                 }
             }
