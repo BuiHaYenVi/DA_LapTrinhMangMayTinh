@@ -21,6 +21,11 @@ public class ClientHandler implements Runnable {
     private String activeRequestId;
     private boolean requestFailed;
 
+    private static final int MAX_USERNAME_LENGTH = 50;
+    private static final int MAX_DISPLAY_NAME_LENGTH = 100;
+    private static final int MAX_ROOM_NAME_LENGTH = 100;
+    private static final int MAX_MESSAGE_LENGTH = 5000;
+
     public ClientHandler(Socket socket, ChatServer server) throws IOException {
         this.connection = new ClientConnection(socket);
         this.server = server;
@@ -52,10 +57,25 @@ public class ClientHandler implements Runnable {
             String[] parts = ProtocolHandler.split(line);
             activeRequestId = ProtocolHandler.requestId(parts);
             MessageType type = MessageType.valueOf(parts[0]);
+
             switch (type) {
                 case REGISTER -> handleRegister(parts);
                 case LOGIN -> handleLogin(parts);
-                case LOGOUT -> { connection.send("OK|LOGOUT"); running = false; }
+                case LOGOUT -> {
+                    leaveCurrentRoom(false);
+                    if (user != null) {
+                        user.setOnline(false);
+                        server.getClientManager().remove(user);
+                        broadcastGlobal(
+                                "USER_OFFLINE|"
+                                        + user.getId()
+                                        + "|"
+                                        + ProtocolHandler.encode(user.getDisplayName())
+                        );
+                        user = null;
+                    }
+                    connection.send("OK|LOGOUT");
+                }
                 case LIST_ROOMS -> sendRooms();
                 case CREATE_ROOM -> handleCreateRoom(parts);
                 case JOIN_ROOM -> handleJoinRoom(parts);
@@ -65,9 +85,22 @@ public class ClientHandler implements Runnable {
                 case GET_HISTORY -> handleHistory();
                 case GET_ONLINE_USERS -> sendOnlineUsers();
                 case PING -> connection.send("PONG");
+                case INVITE_ROOM -> handleInviteRoom(parts);
+                case KICK_ROOM -> handleKickRoom(parts);
+                case FRIEND_SEARCH -> handleFriendSearch(parts);
+                case FRIEND_REQUEST -> handleFriendRequest(parts);
+                case FRIEND_PENDING_LIST -> handleFriendPendingList();
+                case FRIEND_ACCEPT -> handleFriendAccept(parts);
+                case FRIEND_REJECT -> handleFriendReject(parts);
+                case FRIEND_LIST -> handleFriendList();
             }
         } catch (Exception e) {
-            sendError(classifyError(e), e.getMessage() == null ? "Unknown protocol or server error." : e.getMessage());
+            sendError(
+                    classifyError(e),
+                    e.getMessage() == null
+                            ? "Unknown protocol or server error."
+                            : e.getMessage()
+            );
         } finally {
             // ACK means the application handler completed successfully; it is
             // not a TCP ACK and does not imply that a recipient read the data.
@@ -80,34 +113,131 @@ public class ClientHandler implements Runnable {
 
     private void handleRegister(String[] parts) throws Exception {
         requireArgs(parts, 4);
+
+        String username = ProtocolHandler.decode(parts[1]).trim();
+        String password = ProtocolHandler.decode(parts[2]);
+        String displayName = ProtocolHandler.decode(parts[3]).trim();
+
+        if (username.isBlank() || username.length() > MAX_USERNAME_LENGTH) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Username không hợp lệ.");
+            return;
+        }
+
+        if (password.isBlank()) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Password không được để trống.");
+            return;
+        }
+
+        if (displayName.isBlank()
+                || displayName.length() > MAX_DISPLAY_NAME_LENGTH) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tên hiển thị không hợp lệ.");
+            return;
+        }
+
         User created = server.getAuthService().register(
-                ProtocolHandler.decode(parts[1]), ProtocolHandler.decode(parts[2]), ProtocolHandler.decode(parts[3]));
-        if (created == null) sendError(ProtocolErrorCode.USERNAME_TAKEN, "Username đã tồn tại hoặc dữ liệu không hợp lệ.");
-        else connection.send("OK|REGISTERED|" + ProtocolHandler.encode("Đăng ký thành công."));
+                username, password, displayName
+        );
+
+        if (created == null) {
+            sendError(
+                    ProtocolErrorCode.USERNAME_TAKEN,
+                    "Username đã tồn tại hoặc dữ liệu không hợp lệ."
+            );
+        } else {
+            connection.send(
+                    "OK|REGISTERED|"
+                            + ProtocolHandler.encode("Đăng ký thành công.")
+            );
+        }
     }
 
     private void handleLogin(String[] parts) {
         requireArgs(parts, 3);
-        if (user != null) { sendError(ProtocolErrorCode.ALREADY_AUTHENTICATED, "Bạn đã đăng nhập."); return; }
-        User found = server.getAuthService().login(ProtocolHandler.decode(parts[1]), ProtocolHandler.decode(parts[2]));
-        if (found == null) { sendError(ProtocolErrorCode.AUTH_FAILED, "Sai username hoặc password."); return; }
-        if (server.getClientManager().get(found.getId()) != null) { sendError(ProtocolErrorCode.ALREADY_ONLINE, "Tài khoản đang được đăng nhập ở nơi khác."); return; }
+
+        if (user != null) {
+            sendError(
+                    ProtocolErrorCode.ALREADY_AUTHENTICATED,
+                    "Bạn đã đăng nhập."
+            );
+            return;
+        }
+
+        String username = ProtocolHandler.decode(parts[1]).trim();
+        String password = ProtocolHandler.decode(parts[2]);
+
+        if (username.isBlank() || username.length() > MAX_USERNAME_LENGTH) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Username không hợp lệ.");
+            return;
+        }
+
+        User found = server.getAuthService().login(username, password);
+
+        if (found == null) {
+            sendError(
+                    ProtocolErrorCode.AUTH_FAILED,
+                    "Sai username hoặc password."
+            );
+            return;
+        }
+
+        /*
+         * tryAdd cần thực hiện kiểm tra và thêm phiên đăng nhập một cách
+         * nguyên tử để tránh hai client đăng nhập cùng tài khoản đồng thời.
+         */
+        if (!server.getClientManager().tryAdd(found, this)) {
+            sendError(
+                    ProtocolErrorCode.ALREADY_ONLINE,
+                    "Tài khoản đang được đăng nhập ở nơi khác."
+            );
+            return;
+        }
+
         user = found;
         user.setOnline(true);
-        server.getClientManager().add(user, this);
-        connection.send("OK|LOGIN|" + user.getId() + "|" + ProtocolHandler.encode(user.getDisplayName()));
-        broadcastGlobal("USER_ONLINE|" + user.getId() + "|" + ProtocolHandler.encode(user.getDisplayName()));
+
+        connection.send(
+                "OK|LOGIN|"
+                        + user.getId()
+                        + "|"
+                        + ProtocolHandler.encode(user.getDisplayName())
+        );
+
+        broadcastGlobal(
+                "USER_ONLINE|"
+                        + user.getId()
+                        + "|"
+                        + ProtocolHandler.encode(user.getDisplayName())
+        );
     }
 
     private void handleCreateRoom(String[] parts) throws Exception {
         requireLogin();
         requireArgs(parts, 2);
+
         String name = ProtocolHandler.decode(parts[1]).trim();
-        if (name.isBlank()) { sendError(ProtocolErrorCode.INVALID_ROOM_NAME, "Tên phòng không được rỗng."); return; }
+
+        if (name.isBlank() || name.length() > MAX_ROOM_NAME_LENGTH) {
+            sendError(
+                    ProtocolErrorCode.INVALID_ROOM_NAME,
+                    "Tên phòng không hợp lệ hoặc vượt quá 100 ký tự."
+            );
+            return;
+        }
+
         Room room = server.getRoomService().createRoom(name, user.getId());
-        if (room == null) sendError(ProtocolErrorCode.ROOM_NAME_TAKEN, "Tên phòng đã tồn tại.");
-        else {
-            connection.send("OK|ROOM_CREATED|" + room.getId() + "|" + ProtocolHandler.encode(room.getName()));
+
+        if (room == null) {
+            sendError(
+                    ProtocolErrorCode.ROOM_NAME_TAKEN,
+                    "Tên phòng đã tồn tại."
+            );
+        } else {
+            connection.send(
+                    "OK|ROOM_CREATED|"
+                            + room.getId()
+                            + "|"
+                            + ProtocolHandler.encode(room.getName())
+            );
             sendRooms();
         }
     }
@@ -115,18 +245,58 @@ public class ClientHandler implements Runnable {
     private void handleJoinRoom(String[] parts) {
         requireLogin();
         requireArgs(parts, 2);
-        int roomId = Integer.parseInt(parts[1]);
+
+        int roomId = parseId(parts[1], "ID phòng");
+
         Room room = server.getRoomService().findRoom(roomId);
-        if (room == null) { sendError(ProtocolErrorCode.ROOM_NOT_FOUND, "Không tìm thấy phòng."); return; }
+
+        if (room == null) {
+            sendError(
+                    ProtocolErrorCode.ROOM_NOT_FOUND,
+                    "Không tìm thấy phòng."
+            );
+            return;
+        }
+
+        // Không thực hiện join lại nếu client đang ở chính phòng đó.
+        if (currentRoomId != null && currentRoomId == roomId) {
+            sendError(
+                    ProtocolErrorCode.INVALID_STATE,
+                    "Bạn đang ở trong phòng này."
+            );
+            return;
+        }
+
         leaveCurrentRoom(false);
+
         currentRoomId = roomId;
         server.getRoomService().joinRoom(roomId, user.getId());
         room.getMemberIds().add(user.getId());
         server.getRoomManager().join(room, this);
-        connection.send("OK|JOIN_ROOM|" + roomId + "|" + ProtocolHandler.encode(room.getName()));
+
+        connection.send(
+                "OK|JOIN_ROOM|"
+                        + roomId
+                        + "|"
+                        + ProtocolHandler.encode(room.getName())
+        );
+
         handleHistory();
-        broadcastRoom("SYSTEM|" + ProtocolHandler.encode(user.getDisplayName() + " đã tham gia phòng."), false);
+
+        broadcastRoom(
+                "SYSTEM|"
+                        + ProtocolHandler.encode(
+                                user.getDisplayName() + " đã tham gia phòng."
+                        ),
+                false
+        );
+
         sendRoomMembers();
+        for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
+            if (c != this) {
+                c.sendRoomMembers();
+            }
+        }
     }
 
     private void handleLeaveRoom() {
@@ -136,146 +306,596 @@ public class ClientHandler implements Runnable {
 
     private void handleSendMessage(String[] parts) throws Exception {
         requireLogin();
-        if (currentRoomId == null) { sendError(ProtocolErrorCode.NOT_IN_ROOM, "Bạn chưa vào phòng."); return; }
+
+        if (currentRoomId == null) {
+            sendError(
+                    ProtocolErrorCode.NOT_IN_ROOM,
+                    "Bạn chưa vào phòng."
+            );
+            return;
+        }
+
         requireArgs(parts, 2);
+
+        // Kiểm tra membership để ngăn gửi tin vào phòng không còn tham gia.
+        Room room = server.getRoomService().findRoom(currentRoomId);
+
+        if (room == null || !room.getMemberIds().contains(user.getId())) {
+            sendError(
+                    ProtocolErrorCode.NOT_IN_ROOM,
+                    "Bạn không còn là thành viên của phòng này."
+            );
+            return;
+        }
+
         String content = ProtocolHandler.decode(parts[1]).trim();
-        if (content.isBlank()) return;
-        Message message = server.getChatService().save(currentRoomId, user, content);
-        String packet = "NEW_MESSAGE|" + message.getId() + "|" + message.getRoomId() + "|"
+
+        if (content.isBlank()) {
+            sendError(
+                    ProtocolErrorCode.BAD_REQUEST,
+                    "Nội dung tin nhắn không được để trống."
+            );
+            return;
+        }
+
+        if (content.length() > MAX_MESSAGE_LENGTH) {
+            sendError(
+                    ProtocolErrorCode.BAD_REQUEST,
+                    "Tin nhắn không được vượt quá 5000 ký tự."
+            );
+            return;
+        }
+
+        Message message = server.getChatService().save(
+                currentRoomId, user, content
+        );
+
+        String packet = "NEW_MESSAGE|"
+                + message.getId() + "|"
+                + message.getRoomId() + "|"
                 + ProtocolHandler.encode(message.getSender()) + "|"
                 + ProtocolHandler.encode(message.getContent()) + "|"
                 + ProtocolHandler.encode(message.getTimestamp());
+
         broadcastRoom(packet, true);
     }
 
     private void handleSendPrivateMessage(String[] parts) {
         requireLogin();
         requireArgs(parts, 3);
+
         try {
-            int targetUserId = Integer.parseInt(parts[1]);
+            int targetUserId = parseId(parts[1], "ID người nhận");
             String content = ProtocolHandler.decode(parts[2]).trim();
-            if (content.isBlank()) return;
-            if (user != null && targetUserId == user.getId()) {
-                sendError(ProtocolErrorCode.INVALID_RECIPIENT, "Không thể tự gửi tin nhắn cho chính mình.");
+
+            if (content.isBlank()) {
+                sendError(
+                        ProtocolErrorCode.BAD_REQUEST,
+                        "Nội dung tin nhắn không được để trống."
+                );
                 return;
             }
+
+            if (content.length() > MAX_MESSAGE_LENGTH) {
+                sendError(
+                        ProtocolErrorCode.BAD_REQUEST,
+                        "Tin nhắn không được vượt quá 5000 ký tự."
+                );
+                return;
+            }
+
+            if (targetUserId == user.getId()) {
+                sendError(
+                        ProtocolErrorCode.INVALID_RECIPIENT,
+                        "Không thể tự gửi tin nhắn cho chính mình."
+                );
+                return;
+            }
+
             String timeStr = java.time.LocalTime.now().toString();
-            if (timeStr.length() > 8) timeStr = timeStr.substring(0, 8);
-            String packet = "NEW_PRIVATE_MESSAGE|" + user.getId() + "|"
+
+            if (timeStr.length() > 8) {
+                timeStr = timeStr.substring(0, 8);
+            }
+
+            String packet = "NEW_PRIVATE_MESSAGE|"
+                    + user.getId() + "|"
                     + ProtocolHandler.encode(user.getDisplayName()) + "|"
                     + ProtocolHandler.encode(content) + "|"
                     + ProtocolHandler.encode(timeStr);
-            boolean sent = server.getClientManager().sendToUser(targetUserId, packet);
+
+            boolean sent = server.getClientManager().sendToUser(
+                    targetUserId, packet
+            );
+
             if (!sent) {
-                sendError(ProtocolErrorCode.USER_OFFLINE, "Người dùng này hiện không online.");
+                sendError(
+                        ProtocolErrorCode.USER_OFFLINE,
+                        "Người dùng này hiện không online."
+                );
             } else {
                 connection.send("PRIVATE_MESSAGE_SENT|" + targetUserId);
             }
         } catch (NumberFormatException e) {
-            sendError(ProtocolErrorCode.BAD_REQUEST, "ID người nhận không hợp lệ.");
+            sendError(
+                    ProtocolErrorCode.BAD_REQUEST,
+                    "ID người nhận không hợp lệ."
+            );
         }
     }
 
     private void handleHistory() {
         requireLogin();
-        if (currentRoomId == null) { sendError(ProtocolErrorCode.NOT_IN_ROOM, "Bạn chưa vào phòng."); return; }
-        List<Message> history = server.getChatService().history(currentRoomId);
-        connection.send("HISTORY_BEGIN|" + currentRoomId);
-        for (Message m : history) {
-            connection.send("HISTORY_ITEM|" + m.getId() + "|" + ProtocolHandler.encode(m.getSender()) + "|"
-                    + ProtocolHandler.encode(m.getContent()) + "|" + ProtocolHandler.encode(m.getTimestamp()));
+
+        if (currentRoomId == null) {
+            sendError(
+                    ProtocolErrorCode.NOT_IN_ROOM,
+                    "Bạn chưa vào phòng."
+            );
+            return;
         }
+
+        List<Message> history = server.getChatService().history(currentRoomId);
+
+        connection.send("HISTORY_BEGIN|" + currentRoomId);
+
+        for (Message m : history) {
+            connection.send(
+                    "HISTORY_ITEM|"
+                            + m.getId()
+                            + "|"
+                            + ProtocolHandler.encode(m.getSender())
+                            + "|"
+                            + ProtocolHandler.encode(m.getContent())
+                            + "|"
+                            + ProtocolHandler.encode(m.getTimestamp())
+            );
+        }
+
         connection.send("HISTORY_END");
     }
 
     private void sendRooms() {
         StringBuilder sb = new StringBuilder("ROOMS");
-        for (Room r : server.getRoomService().listRooms()) {
-            sb.append('|').append(r.getId()).append(',').append(ProtocolHandler.encode(r.getName()));
+        List<Room> rooms = (user != null)
+                ? server.getRoomService().listRoomsForUser(user.getId())
+                : server.getRoomService().listRooms();
+
+        for (Room r : rooms) {
+            sb.append('|')
+                    .append(r.getId())
+                    .append(',')
+                    .append(ProtocolHandler.encode(r.getName()));
         }
+
         connection.send(sb.toString());
     }
 
     private void sendOnlineUsers() {
         StringBuilder sb = new StringBuilder("ONLINE_USERS");
+
         for (User u : server.getClientManager().onlineUsers()) {
-            sb.append('|').append(u.getId()).append(',').append(ProtocolHandler.encode(u.getDisplayName()));
+            sb.append('|')
+                    .append(u.getId())
+                    .append(',')
+                    .append(ProtocolHandler.encode(u.getDisplayName()));
         }
+
         connection.send(sb.toString());
     }
 
     private void sendRoomMembers() {
         if (currentRoomId == null) return;
+
         Room room = server.getRoomService().findRoom(currentRoomId);
         StringBuilder sb = new StringBuilder("ROOM_MEMBERS");
+
         if (room != null) {
-            for (Integer uid : room.getMemberIds()) {
-                User member = null;
-                var handler = server.getClientManager().get(uid);
-                if (handler != null) member = handler.getUser();
-                if (member != null) sb.append('|').append(member.getId()).append(',').append(ProtocolHandler.encode(member.getDisplayName()));
+            // Lấy toàn bộ thành viên phòng từ CSDL
+            List<User> members = server.getRoomService().getRoomMembers(currentRoomId);
+            for (User member : members) {
+                boolean isOnline = server.getClientManager().isOnline(member.getId());
+                String role = server.getRoomService().getMemberRole(currentRoomId, member.getId());
+                if (role == null) role = "MEMBER";
+
+                sb.append('|')
+                        .append(member.getId())
+                        .append(',')
+                        .append(ProtocolHandler.encode(member.getDisplayName()))
+                        .append(',')
+                        .append(role.toUpperCase())
+                        .append(',')
+                        .append(isOnline ? "ONLINE" : "OFFLINE");
             }
         }
+
         connection.send(sb.toString());
     }
 
     private void broadcastRoom(String packet, boolean includeSelf) {
         if (currentRoomId == null) return;
-        for (ClientHandler c : server.getRoomManager().clientsIn(currentRoomId)) {
-            if (includeSelf || c != this) c.connection.send(packet);
+
+        for (ClientHandler c :
+                server.getRoomManager().clientsIn(currentRoomId)) {
+            if (includeSelf || c != this) {
+                c.connection.send(packet);
+            }
         }
     }
 
     private void broadcastGlobal(String packet) {
-        for (ClientHandler c : server.getClientManager().all()) c.connection.send(packet);
+        for (ClientHandler c : server.getClientManager().all()) {
+            c.connection.send(packet);
+        }
     }
 
     private void leaveCurrentRoom(boolean announce) {
         if (currentRoomId == null) return;
+
         Room room = server.getRoomService().findRoom(currentRoomId);
+
         server.getRoomManager().leave(currentRoomId, this);
-        if (room != null && user != null) room.getMemberIds().remove(user.getId());
-        if (announce && user != null) {
-            broadcastRoom("SYSTEM|" + ProtocolHandler.encode(user.getDisplayName() + " đã rời phòng."), false);
+
+        if (room != null && user != null) {
+            room.getMemberIds().remove(user.getId());
         }
+
+        if (announce && user != null) {
+            broadcastRoom(
+                    "SYSTEM|"
+                            + ProtocolHandler.encode(
+                                    user.getDisplayName() + " đã rời phòng."
+                            ),
+                    false
+            );
+        }
+
         currentRoomId = null;
-        if (user != null) sendOnlineUsers();
+
+        if (user != null) {
+            sendOnlineUsers();
+        }
     }
 
     private void cleanup() {
         leaveCurrentRoom(false);
+
         if (user != null) {
             user.setOnline(false);
             server.getClientManager().remove(user);
-            broadcastGlobal("USER_OFFLINE|" + user.getId() + "|" + ProtocolHandler.encode(user.getDisplayName()));
+
+            broadcastGlobal(
+                    "USER_OFFLINE|"
+                            + user.getId()
+                            + "|"
+                            + ProtocolHandler.encode(user.getDisplayName())
+            );
         }
-        try { connection.close(); } catch (IOException ignored) {}
+
+        try {
+            connection.close();
+        } catch (IOException ignored) {
+        }
+    }
+
+    private int parseId(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " không hợp lệ.");
+        }
+        // Thử parse trực tiếp số nguyên
+        try {
+            int id = Integer.parseInt(value.trim());
+            if (id > 0) return id;
+        } catch (NumberFormatException ignored) {}
+
+        // Nếu client gửi dạng Base64 encode
+        try {
+            String decoded = ProtocolHandler.decode(value.trim());
+            int id = Integer.parseInt(decoded.trim());
+            if (id > 0) return id;
+        } catch (Exception ignored) {}
+
+        throw new IllegalArgumentException(fieldName + " không hợp lệ.");
     }
 
     private void requireLogin() {
-        if (user == null) throw new IllegalStateException("Bạn chưa đăng nhập.");
+        if (user == null) {
+            throw new IllegalStateException("Bạn chưa đăng nhập.");
+        }
     }
 
     private void requireArgs(String[] parts, int count) {
-        if (parts.length < count) throw new IllegalArgumentException("Thiếu tham số.");
+        if (parts.length < count) {
+            throw new IllegalArgumentException("Thiếu tham số.");
+        }
     }
 
     private void sendError(ProtocolErrorCode code, String message) {
         requestFailed = true;
-        String requestId = activeRequestId == null ? "" : activeRequestId;
-        connection.send("ERROR|" + ProtocolHandler.encode(message) + "|" + requestId + "|" + code.name());
+
+        String requestId = activeRequestId == null
+                ? ""
+                : activeRequestId;
+
+        connection.send(
+                "ERROR|"
+                        + ProtocolHandler.encode(message)
+                        + "|"
+                        + requestId
+                        + "|"
+                        + code.name()
+        );
     }
 
     private ProtocolErrorCode classifyError(Exception error) {
-        if (error instanceof NumberFormatException || error instanceof IllegalArgumentException) {
+        if (error instanceof NumberFormatException
+                || error instanceof IllegalArgumentException) {
             return ProtocolErrorCode.BAD_REQUEST;
         }
+
         if (error instanceof IllegalStateException) {
             String message = error.getMessage();
-            if (message != null && message.contains("chưa đăng nhập")) return ProtocolErrorCode.AUTH_REQUIRED;
+
+            if (message != null && message.contains("chưa đăng nhập")) {
+                return ProtocolErrorCode.AUTH_REQUIRED;
+            }
+
             return ProtocolErrorCode.INVALID_STATE;
         }
-        if (error instanceof java.sql.SQLException) return ProtocolErrorCode.DATABASE_ERROR;
+
+        if (error instanceof java.sql.SQLException) {
+            return ProtocolErrorCode.DATABASE_ERROR;
+        }
+
         return ProtocolErrorCode.INTERNAL_ERROR;
+    }
+
+    /* =========================================================================
+     * TÍNH NĂNG A: QUẢN LÝ NHÓM CHAT (GROUP CHAT MANAGEMENT)
+     * ========================================================================= */
+
+    private void handleInviteRoom(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        int targetUserId = parseId(parts[2], "ID người được mời");
+
+        Room room = server.getRoomService().findRoom(roomId);
+        if (room == null) {
+            sendError(ProtocolErrorCode.ROOM_NOT_FOUND, "Không tìm thấy phòng.");
+            return;
+        }
+
+        // Kiểm tra quyền: Chỉ thành viên của phòng mới được mời, ưu tiên kiểm tra quyền
+        if (!room.getMemberIds().contains(user.getId())) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Bạn không phải thành viên của phòng này để mời người khác.");
+            return;
+        }
+
+        User targetUser = server.getUserDAO().findById(targetUserId);
+        if (targetUser == null) {
+            sendError(ProtocolErrorCode.USER_NOT_FOUND, "Không tìm thấy người dùng được mời.");
+            return;
+        }
+
+        if (room.getMemberIds().contains(targetUserId)) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Người dùng này đã là thành viên của phòng.");
+            return;
+        }
+
+        // Thêm vào CSDL và bộ nhớ
+        server.getRoomService().addMember(roomId, targetUserId, "MEMBER");
+        room.getMemberIds().add(targetUserId);
+
+        connection.send("OK|INVITE_ROOM|" + roomId + "|" + targetUserId + "|" + ProtocolHandler.encode(targetUser.getDisplayName()));
+
+        // Thông báo cho phòng
+        broadcastRoom("SYSTEM|" + ProtocolHandler.encode(targetUser.getDisplayName() + " đã được " + user.getDisplayName() + " mời vào phòng."), true);
+
+        // Cập nhật lại danh sách thành viên cho các client trong phòng
+        sendRoomMembers();
+
+        // Gửi thông báo và cập nhật danh sách phòng cho người được mời nếu đang online
+        var targetHandler = server.getClientManager().get(targetUserId);
+        if (targetHandler != null) {
+            targetHandler.connection.send("ROOM_INVITATION|" + roomId + "|" + ProtocolHandler.encode(room.getName()) + "|" + ProtocolHandler.encode(user.getDisplayName()));
+            targetHandler.sendRooms();
+        }
+    }
+
+    private void handleKickRoom(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        int targetUserId = parseId(parts[2], "ID người cần xóa");
+
+        Room room = server.getRoomService().findRoom(roomId);
+        if (room == null) {
+            sendError(ProtocolErrorCode.ROOM_NOT_FOUND, "Không tìm thấy phòng.");
+            return;
+        }
+
+        // Kiểm tra quyền: CHỈ TRƯỞNG NHÓM (OWNER) mới có quyền kick/xóa thành viên
+        if (!server.getRoomService().isRoomOwner(roomId, user.getId())) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Trưởng nhóm (OWNER) mới có quyền xóa thành viên khỏi phòng.");
+            return;
+        }
+
+        if (targetUserId == user.getId()) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Trưởng nhóm không thể tự kick chính mình. Hãy dùng tính năng rời phòng hoặc chuyển quyền.");
+            return;
+        }
+
+        if (!room.getMemberIds().contains(targetUserId)) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Người dùng này không có trong phòng.");
+            return;
+        }
+
+        // Xóa khỏi database và danh sách bộ nhớ
+        server.getRoomService().removeMember(roomId, targetUserId);
+        room.getMemberIds().remove(targetUserId);
+
+        User targetUser = server.getUserDAO().findById(targetUserId);
+        String targetName = (targetUser != null) ? targetUser.getDisplayName() : ("User#" + targetUserId);
+
+        connection.send("OK|KICK_ROOM|" + roomId + "|" + targetUserId);
+
+        broadcastRoom("SYSTEM|" + ProtocolHandler.encode(targetName + " đã bị Trưởng nhóm xóa khỏi phòng."), true);
+
+        // Xử lý client bị kick nếu đang ở trong phòng này
+        var targetHandler = server.getClientManager().get(targetUserId);
+        if (targetHandler != null) {
+            if (targetHandler.currentRoomId != null && targetHandler.currentRoomId == roomId) {
+                targetHandler.server.getRoomManager().leave(roomId, targetHandler);
+                targetHandler.currentRoomId = null;
+                targetHandler.connection.send("SYSTEM|" + ProtocolHandler.encode("Bạn đã bị Trưởng nhóm mời ra khỏi phòng " + room.getName() + "."));
+                targetHandler.connection.send("OK|LEAVE_ROOM|" + roomId);
+            }
+            targetHandler.sendRooms();
+        }
+
+        sendRoomMembers();
+    }
+
+    /* =========================================================================
+     * TÍNH NĂNG B: QUẢN LÝ BẠN BÈ (FRIEND MANAGEMENT)
+     * ========================================================================= */
+
+    private void handleFriendSearch(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 2);
+
+        String query = ProtocolHandler.decode(parts[1]).trim();
+        List<User> results = server.getFriendService().searchUsers(user.getId(), query);
+
+        StringBuilder sb = new StringBuilder("FRIEND_SEARCH_RESULT");
+        for (User u : results) {
+            boolean isFriend = server.getFriendService().areFriends(user.getId(), u.getId());
+            boolean isOnline = server.getClientManager().isOnline(u.getId());
+            sb.append('|')
+                    .append(u.getId())
+                    .append(',')
+                    .append(ProtocolHandler.encode(u.getUsername()))
+                    .append(',')
+                    .append(ProtocolHandler.encode(u.getDisplayName()))
+                    .append(',')
+                    .append(isFriend ? "FRIEND" : "NONE")
+                    .append(',')
+                    .append(isOnline ? "ONLINE" : "OFFLINE");
+        }
+        connection.send(sb.toString());
+    }
+
+    private void handleFriendRequest(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 2);
+
+        int targetUserId = parseId(parts[1], "ID người dùng");
+
+        if (targetUserId == user.getId()) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Không thể tự gửi lời mời kết bạn cho chính mình.");
+            return;
+        }
+
+        String result = server.getFriendService().sendFriendRequest(user.getId(), targetUserId);
+
+        switch (result) {
+            case "OK" -> {
+                connection.send("OK|FRIEND_REQUEST|" + targetUserId);
+                // Gửi thông báo thời gian thực đến người nhận nếu đang online
+                var targetHandler = server.getClientManager().get(targetUserId);
+                if (targetHandler != null) {
+                    targetHandler.connection.send("INCOMING_FRIEND_REQUEST|" + user.getId() + "|" + ProtocolHandler.encode(user.getUsername()) + "|" + ProtocolHandler.encode(user.getDisplayName()));
+                }
+            }
+            case "SELF_REQUEST" -> sendError(ProtocolErrorCode.BAD_REQUEST, "Không thể tự gửi lời mời kết bạn cho chính mình.");
+            case "ALREADY_FRIENDS" -> sendError(ProtocolErrorCode.BAD_REQUEST, "Hai bạn đã là bạn bè từ trước.");
+            case "ALREADY_REQUESTED" -> sendError(ProtocolErrorCode.BAD_REQUEST, "Lời mời kết bạn đã được gửi trước đó và đang chờ phản hồi.");
+            case "INCOMING_EXISTS" -> sendError(ProtocolErrorCode.BAD_REQUEST, "Người dùng này đã gửi lời mời cho bạn trước đó. Bạn có thể chấp nhận lời mời.");
+            default -> sendError(ProtocolErrorCode.DATABASE_ERROR, "Không thể gửi lời mời kết bạn vào lúc này.");
+        }
+    }
+
+    private void handleFriendPendingList() {
+        requireLogin();
+        var list = server.getFriendService().getPendingRequests(user.getId());
+
+        StringBuilder sb = new StringBuilder("FRIEND_PENDING_LIST");
+        for (var item : list) {
+            sb.append('|')
+                    .append(item.requestId())
+                    .append(',')
+                    .append(item.senderId())
+                    .append(',')
+                    .append(ProtocolHandler.encode(item.senderUsername()))
+                    .append(',')
+                    .append(ProtocolHandler.encode(item.senderDisplayName()))
+                    .append(',')
+                    .append(ProtocolHandler.encode(item.createdAt() != null ? item.createdAt().toString() : ""));
+        }
+        connection.send(sb.toString());
+    }
+
+    private void handleFriendAccept(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 2);
+
+        int targetId = parseId(parts[1], "ID yêu cầu hoặc người gửi");
+
+        // Hỗ trợ cả requestId hoặc senderId
+        boolean success = server.getFriendService().acceptRequest(targetId, user.getId());
+        if (!success) {
+            success = server.getFriendService().acceptRequestFromUser(targetId, user.getId());
+        }
+
+        if (success) {
+            connection.send("OK|FRIEND_ACCEPT|" + targetId);
+            handleFriendList();
+
+            // Gửi thông báo realtime cho người bạn được chấp nhận nếu đang online
+            var otherHandler = server.getClientManager().get(targetId);
+            if (otherHandler != null) {
+                otherHandler.connection.send("FRIEND_ACCEPTED|" + user.getId() + "|" + ProtocolHandler.encode(user.getDisplayName()));
+                otherHandler.handleFriendList();
+            }
+        } else {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Lời mời kết bạn không tồn tại hoặc đã được xử lý.");
+        }
+    }
+
+    private void handleFriendReject(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 2);
+
+        int requestId = parseId(parts[1], "ID yêu cầu");
+        boolean success = server.getFriendService().rejectRequest(requestId, user.getId());
+
+        if (success) {
+            connection.send("OK|FRIEND_REJECT|" + requestId);
+            handleFriendPendingList();
+        } else {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Không thể từ chối lời mời hoặc lời mời không tồn tại.");
+        }
+    }
+
+    private void handleFriendList() {
+        requireLogin();
+        List<User> friends = server.getFriendService().getFriends(user.getId());
+
+        StringBuilder sb = new StringBuilder("FRIEND_LIST");
+        for (User f : friends) {
+            boolean isOnline = server.getClientManager().isOnline(f.getId());
+            sb.append('|')
+                    .append(f.getId())
+                    .append(',')
+                    .append(ProtocolHandler.encode(f.getUsername()))
+                    .append(',')
+                    .append(ProtocolHandler.encode(f.getDisplayName()))
+                    .append(',')
+                    .append(isOnline ? "ONLINE" : "OFFLINE");
+        }
+        connection.send(sb.toString());
     }
 }

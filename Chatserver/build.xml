@@ -70,4 +70,27 @@
     nbproject/build-impl.xml file. 
 
     -->
+
+    <!-- Hook chạy kiểm thử tự động toàn diện tích hợp mạng và database -->
+    <target name="test" depends="compile,compile-test" description="Chạy bộ kiểm thử tự động TEST-01 -> TEST-18">
+        <echo message="==============================================================="/>
+        <echo message="Đang chạy bộ kiểm thử tự động SystemIntegrationTest..."/>
+        <echo message="==============================================================="/>
+        <java classname="test.SystemIntegrationTest" fork="true" failonerror="true">
+            <classpath>
+                <path path="${run.test.classpath}"/>
+            </classpath>
+        </java>
+    </target>
+
+    <target name="test-concurrency" depends="compile,compile-test" description="Chạy kiểm thử đa luồng CSDL">
+        <echo message="==============================================================="/>
+        <echo message="Đang chạy bộ kiểm thử DatabaseConcurrencyTest..."/>
+        <echo message="==============================================================="/>
+        <java classname="test.DatabaseConcurrencyTest" fork="true" failonerror="true">
+            <classpath>
+                <path path="${run.test.classpath}"/>
+            </classpath>
+        </java>
+    </target>
 </project>
