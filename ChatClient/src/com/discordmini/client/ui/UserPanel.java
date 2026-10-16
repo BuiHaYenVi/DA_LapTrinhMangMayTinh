@@ -3,6 +3,7 @@ package com.discordmini.client.ui;
 import com.discordmini.client.network.ConnectionManager;
 import com.discordmini.client.network.ConnectionState;
 import com.discordmini.client.network.SocketClient;
+import com.discordmini.client.service.ChatEventListener;
 import com.discordmini.client.service.ChatService;
 
 import javax.swing.*;
@@ -45,6 +46,7 @@ public class UserPanel extends JPanel {
 
         buildUi();
         listenConnectionState();
+        listenChatEvents();
     }
 
     private void buildUi() {
@@ -97,6 +99,32 @@ public class UserPanel extends JPanel {
         }
     }
 
+    private void listenChatEvents() {
+        if (chatService != null) {
+            chatService.addListener(new ChatEventListener() {
+                @Override
+                public void onPrivateMessage(int senderId, String senderName, String content, String timestamp) {
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(UserPanel.this,
+                                "[" + timestamp + "] " + senderName + ":\n" + content,
+                                "📩 Tin nhắn riêng từ " + senderName,
+                                JOptionPane.INFORMATION_MESSAGE);
+                    });
+                }
+
+                @Override
+                public void onPrivateMessageSent(int targetUserId) {
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(UserPanel.this,
+                                "Đã gửi tin nhắn riêng thành công!",
+                                "Thông báo",
+                                JOptionPane.INFORMATION_MESSAGE);
+                    });
+                }
+            });
+        }
+    }
+
     public void updateMembers(List<MemberItem> members) {
         SwingUtilities.invokeLater(() -> {
             memberModel.clear();
@@ -122,6 +150,13 @@ public class UserPanel extends JPanel {
         if (selected == null) {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn một người dùng từ danh sách để nhắn tin riêng 1-1.",
                     "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        if (chatService != null && selected.name().equalsIgnoreCase(chatService.getCurrentUserName())) {
+            JOptionPane.showMessageDialog(this,
+                    "Bạn không thể tự gửi tin nhắn riêng cho chính mình!\nHãy mở thêm một Client khác (đăng nhập tài khoản khác) để thử tính năng Chat 1-1.",
+                    "Thông báo", JOptionPane.WARNING_MESSAGE);
             return;
         }
 

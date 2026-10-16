@@ -232,9 +232,16 @@ public class RoomService {
         if (parts.length < 2) return;
         String errorMsg = ProtocolHandler.decode(parts[1]);
 
-        // Nếu đang trong tiến trình join room mà gặp lỗi, hủy pendingJoinRoomId
+        // Chỉ thông báo lỗi phòng nếu đang có yêu cầu vào phòng hoặc lỗi liên quan tới phòng
+        boolean isRoomRelated = pendingJoinRoomId != null
+                || errorMsg.toLowerCase().contains("phòng")
+                || errorMsg.toLowerCase().contains("room");
+
         this.pendingJoinRoomId = null;
-        notifyListeners(l -> l.onRoomError(errorMsg));
+
+        if (isRoomRelated) {
+            notifyListeners(l -> l.onRoomError(errorMsg));
+        }
     }
 
     private void handleRoomMembers(String[] parts) {
