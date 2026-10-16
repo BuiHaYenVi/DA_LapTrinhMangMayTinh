@@ -2,4 +2,15 @@
 <project name="ChatClient" default="default" basedir=".">
     <description>Builds, tests, and runs the project ChatClient.</description>
     <import file="nbproject/build-impl.xml"/>
+
+    <target name="test" depends="compile,compile-test" description="Chạy kiểm thử đơn vị ChatClient">
+        <echo message="==============================================================="/>
+        <echo message="Đang chạy bộ kiểm thử ClientProtocolTest..."/>
+        <echo message="==============================================================="/>
+        <java classname="test.ClientProtocolTest" fork="true" failonerror="true">
+            <classpath>
+                <path path="${run.test.classpath}"/>
+            </classpath>
+        </java>
+    </target>
 </project>

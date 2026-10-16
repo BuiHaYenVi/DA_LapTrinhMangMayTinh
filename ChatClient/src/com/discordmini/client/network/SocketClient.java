@@ -86,6 +86,14 @@ public class SocketClient {
         serverListener.setActiveUiListener(listener);
     }
 
+    public void addListener(Consumer<String> listener) {
+        serverListener.addMessageListener(listener);
+    }
+
+    public void removeListener(Consumer<String> listener) {
+        serverListener.removeMessageListener(listener);
+    }
+
     public void addConnectionListener(Consumer<String> listener) {
         serverListener.addConnectionListener(listener);
     }

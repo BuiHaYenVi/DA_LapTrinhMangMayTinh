@@ -11,10 +11,30 @@ import java.util.Map;
 public class ClientManager {
     private final Map<Integer, ClientHandler> online = new ConcurrentHashMap<>();
 
+    /**
+     * Thao tác nguyên tử thêm người dùng online nếu chưa có phiên nào khác.
+     * @return true nếu đăng nhập phiên đầu tiên thành công, false nếu tài khoản đã online.
+     */
+    public boolean tryAdd(User user, ClientHandler client) {
+        if (user == null || client == null) return false;
+        return online.putIfAbsent(user.getId(), client) == null;
+    }
+
     public void add(User user, ClientHandler client) {
         if (user != null && client != null) {
             online.put(user.getId(), client);
         }
+    }
+
+    /**
+     * Thao tác nguyên tử dọn dẹp session: Chỉ xóa nếu handler hiện tại chính là handler đã đăng nhập.
+     * Ngăn ngừa race condition làm xóa nhầm phiên đăng nhập mới của tài khoản.
+     */
+    public boolean remove(User user, ClientHandler client) {
+        if (user != null && client != null) {
+            return online.remove(user.getId(), client);
+        }
+        return false;
     }
 
     public void remove(User user) {

@@ -20,6 +20,7 @@ public class ClientConnection implements Closeable {
     public ClientConnection(Socket socket) throws IOException {
         this.socket = socket;
         this.socket.setKeepAlive(true);
+        this.socket.setTcpNoDelay(true);
         this.socket.setSoTimeout(READ_TIMEOUT_MS);
         this.in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
         this.out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8), true);
@@ -32,17 +33,25 @@ public class ClientConnection implements Closeable {
     public synchronized void send(String line) {
         if (out != null) {
             out.println(line);
-            if (out.checkError()) {
-                try {
-                    socket.close();
-                } catch (IOException ignored) {
-                }
-            }
+            out.flush();
         }
     }
 
+    public boolean isClosed() {
+        return socket.isClosed();
+    }
+
     @Override
-    public void close() throws IOException {
+    public synchronized void close() throws IOException {
+        try {
+            if (out != null) {
+                out.flush();
+                out.close();
+            }
+        } catch (Exception ignored) {}
+        try {
+            if (in != null) in.close();
+        } catch (Exception ignored) {}
         socket.close();
     }
 }

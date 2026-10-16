@@ -31,14 +31,14 @@ public class ChatPersistenceService {
      * @return Message Đối tượng Message hoàn chỉnh nếu lưu DB thành công, null nếu thất bại
      * @throws Exception Ngoại lệ kèm thông báo chi tiết khi lưu CSDL thất bại
      */
-    public Message persistBeforeBroadcast(int roomId, int senderId, String content) throws Exception {
+    public Message persistBeforeBroadcast(int roomId, int senderId, String senderDisplayName, String content) throws Exception {
         if (content == null || content.isBlank()) {
             throw new IllegalArgumentException("Nội dung tin nhắn không được để trống.");
         }
 
         System.out.println("[PERSISTENCE] Đang ghi tin nhắn vào PostgreSQL (Room=" + roomId + ", Sender=" + senderId + ")...");
         
-        Message savedMessage = messageDAO.saveMessage(roomId, senderId, content);
+        Message savedMessage = messageDAO.save(roomId, senderId, senderDisplayName, content);
 
         if (savedMessage == null || savedMessage.getId() <= 0) {
             System.err.println("[PERSISTENCE FAIL] Không thể ghi tin nhắn vào CSDL. Hủy thao tác Broadcast!");
@@ -47,6 +47,10 @@ public class ChatPersistenceService {
 
         System.out.println("[PERSISTENCE SUCCESS] Ghi CSDL thành công (MsgID=" + savedMessage.getId() + "). Cho phép Broadcast.");
         return savedMessage;
+    }
+
+    public Message persistBeforeBroadcast(int roomId, int senderId, String content) throws Exception {
+        return persistBeforeBroadcast(roomId, senderId, null, content);
     }
 
     /**

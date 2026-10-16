@@ -305,4 +305,12 @@ public class RoomService {
             }
         }
     }
+
+    public void inviteMember(int roomId, int targetUserId) {
+        client.sendCommand("INVITE_ROOM", String.valueOf(roomId), String.valueOf(targetUserId));
+    }
+
+    public void kickMember(int roomId, int targetUserId) {
+        client.sendCommand("KICK_ROOM", String.valueOf(roomId), String.valueOf(targetUserId));
+    }
 }
