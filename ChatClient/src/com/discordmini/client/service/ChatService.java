@@ -88,6 +88,10 @@ public class ChatService {
         }
     }
 
+    public String getCurrentUserName() {
+        return currentUserName;
+    }
+
     public ChatMessage getPendingMessage(String requestId) {
         if (requestId == null) return null;
         return pendingMessages.get(requestId);
@@ -117,12 +121,14 @@ public class ChatService {
 
     /**
      * Gửi tin nhắn riêng 1-1 tới targetUserId.
+     * ID người nhận được gửi dạng số nguyên trực tiếp (không Base64).
      */
     public String sendPrivateMessage(int targetUserId, String content) {
         if (content == null || content.isBlank() || !client.isConnected()) {
             return null;
         }
-        return client.sendCommandWithId("SEND_PRIVATE_MESSAGE", String.valueOf(targetUserId), content);
+        String cmd = "SEND_PRIVATE_MESSAGE|" + targetUserId + "|" + ProtocolHandler.encode(content);
+        return client.sendWithId(cmd);
     }
 
     /**
