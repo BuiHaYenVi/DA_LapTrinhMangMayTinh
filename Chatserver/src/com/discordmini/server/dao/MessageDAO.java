@@ -4,7 +4,6 @@ import com.discordmini.server.model.Message;
 
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**

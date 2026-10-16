@@ -37,7 +37,8 @@ public class SocketClient {
     private BufferedReader in;
     private PrintWriter out;
     private Thread readerThread;
-    private volatile Consumer<String> listener;
+    private final ServerListener serverListener = new ServerListener(this);
+    private final ConnectionManager connectionManager = new ConnectionManager(this);
     private volatile boolean connected;
     private volatile long lastPongAt;
     private volatile long lastPingAt;
@@ -54,8 +55,40 @@ public class SocketClient {
 
     private record PendingRequest(long createdAt, String command) {}
 
+    public ServerListener getServerListener() {
+        return serverListener;
+    }
+
+    public ConnectionManager getConnectionManager() {
+        return connectionManager;
+    }
+
+    public long getGeneration() {
+        return generation;
+    }
+
     public void setListener(Consumer<String> listener) {
-        this.listener = listener;
+        serverListener.setActiveUiListener(listener);
+    }
+
+    public void addConnectionListener(Consumer<String> listener) {
+        serverListener.addConnectionListener(listener);
+    }
+
+    public void removeConnectionListener(Consumer<String> listener) {
+        serverListener.removeConnectionListener(listener);
+    }
+
+    public void addMessageListener(Consumer<String> listener) {
+        serverListener.addMessageListener(listener);
+    }
+
+    public void removeMessageListener(Consumer<String> listener) {
+        serverListener.removeMessageListener(listener);
+    }
+
+    Thread getReaderThread() {
+        return readerThread;
     }
 
     public synchronized void connect(String host, int port) throws IOException {
@@ -63,25 +96,40 @@ public class SocketClient {
         closeSocketQuietly();
 
         Socket newSocket = new Socket();
-        newSocket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
-        newSocket.setKeepAlive(true);
+        try {
+            newSocket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
+            newSocket.setKeepAlive(true);
 
-        socket = newSocket;
-        in = new BufferedReader(new InputStreamReader(newSocket.getInputStream(), StandardCharsets.UTF_8));
-        out = new PrintWriter(new OutputStreamWriter(newSocket.getOutputStream(), StandardCharsets.UTF_8), true);
-        connected = true;
-        long thisGeneration = ++generation;
-        lastPongAt = System.currentTimeMillis();
-        lastPingAt = 0;
+            socket = newSocket;
+            in = new BufferedReader(new InputStreamReader(newSocket.getInputStream(), StandardCharsets.UTF_8));
+            out = new PrintWriter(new OutputStreamWriter(newSocket.getOutputStream(), StandardCharsets.UTF_8), true);
+            connected = true;
+            long thisGeneration = ++generation;
+            lastPongAt = System.currentTimeMillis();
+            lastPingAt = 0;
 
-        BufferedReader reader = in;
-        readerThread = new Thread(() -> readLoop(reader, thisGeneration), "ServerListener");
-        readerThread.setDaemon(true);
-        readerThread.start();
+            BufferedReader reader = in;
+            readerThread = new Thread(() -> readLoop(reader, thisGeneration), "ServerListener");
+            readerThread.setDaemon(true);
+            readerThread.start();
 
-        if (monitorTask != null) monitorTask.cancel(false);
-        monitorTask = monitor.scheduleAtFixedRate(
-                () -> monitorConnection(thisGeneration), 1, 1, TimeUnit.SECONDS);
+            if (monitorTask != null) monitorTask.cancel(false);
+            monitorTask = monitor.scheduleAtFixedRate(
+                    () -> monitorConnection(thisGeneration), 1, 1, TimeUnit.SECONDS);
+            connectionManager.setConnected(thisGeneration);
+        } catch (Exception ex) {
+            connected = false;
+            closeSocketQuietly();
+            try {
+                newSocket.close();
+            } catch (IOException ignored) {
+            }
+            connectionManager.setDisconnected(DisconnectReason.CONNECTION_FAILED, generation);
+            if (ex instanceof IOException ioException) {
+                throw ioException;
+            }
+            throw new IOException("Không thể thiết lập kết nối tới " + host + ":" + port + ": " + ex.getMessage(), ex);
+        }
     }
 
     public boolean isConnected() {
@@ -90,37 +138,58 @@ public class SocketClient {
     }
 
     /**
-     * Sends a command with a request ID. The command name and its existing
-     * fields remain unchanged; the optional trailer is backwards-compatible
-     * with handlers that only read the fields they need.
+     * Sends a command with an explicit request ID.
      */
-    public void send(String command) {
-        if (command == null || command.isBlank() || !isConnected()) return;
+    public boolean sendWithCustomId(String command, String requestId) {
+        if (command == null || command.isBlank() || !isConnected()) return false;
+        if (requestId == null || requestId.isBlank()) return false;
 
         final String commandName;
         try {
             commandName = ProtocolHandler.split(command)[0];
         } catch (IllegalArgumentException ex) {
             notifyListener("PROTOCOL_ERROR|" + ProtocolHandler.encode(ex.getMessage()));
-            return;
+            return false;
         }
 
-        String requestId = UUID.randomUUID().toString();
         String framed = command + "|" + ProtocolHandler.REQUEST_ID_MARKER + "|" + requestId;
         if (framed.length() > ProtocolHandler.MAX_LINE_LENGTH) {
             notifyListener("PROTOCOL_ERROR|" + ProtocolHandler.encode("Request exceeds maximum frame length."));
-            return;
+            return false;
         }
 
         pendingRequests.put(requestId, new PendingRequest(System.currentTimeMillis(), commandName));
         if (!writeRaw(framed)) {
             pendingRequests.remove(requestId);
             markDisconnected(generation);
+            return false;
         }
+        return true;
+    }
+
+    public boolean sendCommandWithExplicitId(String type, String requestId, String... fields) {
+        return sendWithCustomId(ProtocolHandler.command(type, fields), requestId);
+    }
+
+    /**
+     * Sends a command with an automatically generated request ID and returns that request ID.
+     */
+    public String sendWithId(String command) {
+        String requestId = UUID.randomUUID().toString();
+        boolean ok = sendWithCustomId(command, requestId);
+        return ok ? requestId : null;
+    }
+
+    public void send(String command) {
+        sendWithId(command);
+    }
+
+    public String sendCommandWithId(String type, String... fields) {
+        return sendWithId(ProtocolHandler.command(type, fields));
     }
 
     public void sendCommand(String type, String... fields) {
-        send(ProtocolHandler.command(type, fields));
+        sendWithId(ProtocolHandler.command(type, fields));
     }
 
     public synchronized void close() {
@@ -132,6 +201,7 @@ public class SocketClient {
         }
         pendingRequests.clear();
         closeSocketQuietly();
+        connectionManager.setDisconnected(DisconnectReason.MANUAL_CLOSE, generation);
     }
 
     private void readLoop(BufferedReader reader, long readerGeneration) {
@@ -205,7 +275,6 @@ public class SocketClient {
     }
 
     private void markDisconnected(long expectedGeneration) {
-        Consumer<String> callback;
         synchronized (this) {
             if (generation != expectedGeneration || !connected) return;
             connected = false;
@@ -215,15 +284,22 @@ public class SocketClient {
             }
             pendingRequests.clear();
             closeSocketQuietly();
-            callback = listener;
         }
-        if (callback != null) callback.accept("CLIENT_DISCONNECTED");
+        serverListener.dispatch("CLIENT_DISCONNECTED");
     }
 
     private synchronized void closeSocketQuietly() {
         try {
             if (socket != null) socket.close();
         } catch (IOException ignored) {
+        }
+        try {
+            if (in != null) in.close();
+        } catch (IOException ignored) {
+        }
+        try {
+            if (out != null) out.close();
+        } catch (Exception ignored) {
         } finally {
             socket = null;
             in = null;
@@ -232,14 +308,6 @@ public class SocketClient {
     }
 
     private void notifyListener(String packet) {
-        Consumer<String> callback = listener;
-        if (callback != null) {
-            try {
-                callback.accept(packet);
-            } catch (RuntimeException ex) {
-                // A UI callback failure must not silently kill the socket reader.
-                System.err.println("[CLIENT] Listener error: " + ex.getMessage());
-            }
-        }
+        serverListener.dispatch(packet);
     }
 }

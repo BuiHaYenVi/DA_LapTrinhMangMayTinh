@@ -27,6 +27,8 @@ public class MainFrame extends JFrame {
     private final JLabel status = new JLabel("Online");
     private final List<String> pendingHistory = new ArrayList<>();
     private Integer currentRoom;
+    private final ChatService chatService;
+    private final RoomService roomService;
 
     public record MemberItem(int id, String name) {
         @Override
@@ -38,14 +40,20 @@ public class MainFrame extends JFrame {
     public MainFrame(SocketClient client, String displayName) {
         this.client = client;
         this.displayName = displayName;
+        this.chatService = new ChatService(client, displayName);
+        this.roomService = new RoomService(client, chatService);
         setTitle("Discord Mini - " + displayName);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1050, 700);
         setLocationRelativeTo(null);
         buildUi();
         client.setListener(this::handleServerMessage);
-        new RoomService(client).listRooms();
+        roomService.listRooms();
         client.sendCommand("GET_ONLINE_USERS");
+    }
+
+    public String getDisplayName() {
+        return displayName;
     }
 
     private void buildUi() {
@@ -93,7 +101,7 @@ public class MainFrame extends JFrame {
 
         roomList.addListSelectionListener(e -> { if (!e.getValueIsAdjusting() && roomList.getSelectedValue() != null) joinSelectedRoom(); });
         create.addActionListener(e -> createRoom());
-        leave.addActionListener(e -> { new RoomService(client).leaveRoom(); currentRoom = null; roomTitle.setText("Chưa chọn phòng"); });
+        leave.addActionListener(e -> { roomService.leaveRoom(); currentRoom = null; roomTitle.setText("Chưa chọn phòng"); });
         sendButton.addActionListener(e -> sendMessage());
         messageField.addActionListener(e -> sendMessage());
         
@@ -111,20 +119,21 @@ public class MainFrame extends JFrame {
     private void joinSelectedRoom() {
         Room room = roomList.getSelectedValue();
         if (room != null) {
-            new RoomService(client).joinRoom(room.id());
+            chatService.clearRoomState();
+            roomService.joinRoom(room.id());
         }
     }
 
     private void createRoom() {
         String name = JOptionPane.showInputDialog(this, "Tên phòng mới:");
-        if (name != null && !name.isBlank()) new RoomService(client).createRoom(name.trim());
+        if (name != null && !name.isBlank()) roomService.createRoom(name.trim());
     }
 
     private void sendMessage() {
         if (currentRoom == null) { JOptionPane.showMessageDialog(this, "Hãy chọn một phòng trước khi nhắn."); return; }
         String text = messageField.getText().trim();
         if (text.isBlank()) return;
-        new ChatService(client).sendMessage(text);
+        chatService.sendMessage(text);
         messageField.setText("");
     }
 
@@ -136,7 +145,7 @@ public class MainFrame extends JFrame {
         }
         String input = JOptionPane.showInputDialog(this, "Nhập tin nhắn riêng tới " + selected.name() + ":", "Chat 1-1", JOptionPane.PLAIN_MESSAGE);
         if (input != null && !input.isBlank()) {
-            new ChatService(client).sendPrivateMessage(selected.id(), input.trim());
+            chatService.sendPrivateMessage(selected.id(), input.trim());
             chatArea.append("🔒 [RIÊNG -> " + selected.name() + "]: " + input.trim() + "\n");
             scrollBottom();
         }
@@ -203,7 +212,7 @@ public class MainFrame extends JFrame {
             currentRoom = Integer.parseInt(p[2]);
             roomTitle.setText("# " + ProtocolHandler.decode(p[3]));
         } else if (p.length > 1 && "ROOM_CREATED".equals(p[1])) {
-            new RoomService(client).listRooms();
+            roomService.listRooms();
         }
     }
 
