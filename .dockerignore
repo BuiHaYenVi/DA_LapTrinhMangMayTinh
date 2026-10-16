@@ -1,0 +1,7 @@
+.git
+.gitignore
+frontend/node_modules
+ChatClient
+dist
+nbproject
+build
