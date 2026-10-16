@@ -349,8 +349,12 @@ Dự án được xây dựng phục vụ mục đích học tập và thực h�
    - Mọi công việc phải tạo Issue trước khi viết code.
    - Mỗi Issue chỉ gán cho **đúng 1 người** chịu trách nhiệm chính, kèm nhãn (label) và cột mốc tuần (Milestone Tuần 1 -> Tuần 8).
 3. **Chiến lược phân nhánh (Branching Strategy)**:
-   - Nhánh `main` được bảo vệ (Protected): chặn push trực tiếp, bắt buộc tạo PR và có ít nhất 1 thành viên review Approve.
-   - Cú pháp đặt tên nhánh: `feature/<MSSV>-issue-<Số_Issue>-<Tên_ngắn_gọn>`
+   - Các nhánh chính đều được khóa bảo vệ nghiêm ngặt (**Protected Branches**):
+     - `main` & `master`: Nhánh phát hành chính thức (Production / Release).
+     - `develop` & `dev`: Nhánh tích hợp phát triển (Development / Integration).
+     - *Chặn tuyệt đối push trực tiếp, bắt buộc mở Pull Request và có ít nhất 1 thành viên khác review Approve.*
+   - Cú pháp đặt tên nhánh cá nhân khi bắt đầu giải quyết Issue:
+     `feature/<MSSV>-issue-<Số_Issue>-<Tên_ngắn_gọn>`
 4. **Tiêu chuẩn Commit & Vệ sinh kho mã nguồn**:
    - Tuân thủ Conventional Commits: `feat:`, `fix:`, `refactor:`, `docs:`.
    - Tuyệt đối không commit file rác (`build/`, `dist/`, `.idea/`, `.vscode/`, `nbproject/private/`, `*.jar`, `*.zip`).
