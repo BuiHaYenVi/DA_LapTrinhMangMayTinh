@@ -164,31 +164,47 @@ public class ChatPanel extends JPanel implements ChatEventListener, RoomEventLis
 
     public void addOrUpdateMessage(ChatMessage msg) {
         if (msg == null) return;
-        SwingUtilities.invokeLater(() -> {
-            // Kiểm tra xem tin nhắn đã có trong danh sách chưa để tránh trùng lặp
+        Runnable task = () -> {
             boolean found = false;
-            for (int i = messageListModel.size() - 1; i >= 0; i--) {
-                ChatMessage existing = messageListModel.get(i);
-                // 1. Khớp theo requestId (chuẩn nhất)
-                if (msg.getRequestId() != null && msg.getRequestId().equals(existing.getRequestId())) {
-                    messageListModel.set(i, msg);
-                    found = true;
-                    break;
+
+            // 1. Khớp theo requestId (chuẩn nhất cho tin do client gửi đi hoặc ACK cập nhật)
+            if (msg.getRequestId() != null) {
+                for (int i = messageListModel.size() - 1; i >= 0; i--) {
+                    ChatMessage existing = messageListModel.get(i);
+                    if (msg.getRequestId().equals(existing.getRequestId())) {
+                        messageListModel.set(i, msg);
+                        found = true;
+                        break;
+                    }
                 }
-                // 2. Khớp theo serverMessageId
-                if (msg.getServerMessageId() != null && msg.getServerMessageId().equals(existing.getServerMessageId())) {
-                    messageListModel.set(i, msg);
-                    found = true;
-                    break;
+            }
+
+            // 2. Khớp theo serverMessageId (cho tin nhắn từ Server/lịch sử/broadcast)
+            if (!found && msg.getServerMessageId() != null) {
+                // a) Kiểm tra xem serverMessageId này đã hiển thị chưa (tránh trùng do ACK lặp hoặc load history)
+                for (int i = messageListModel.size() - 1; i >= 0; i--) {
+                    ChatMessage existing = messageListModel.get(i);
+                    if (msg.getServerMessageId().equals(existing.getServerMessageId())) {
+                        messageListModel.set(i, msg);
+                        found = true;
+                        break;
+                    }
                 }
-                // 3. Xử lý giới hạn protocol: Khi Server broadcast NEW_MESSAGE không kèm @RID,
-                // nếu tin do mình gửi (isMine) có cùng nội dung trong danh sách đang PENDING hoặc vừa SENT
-                if (msg.isMine() && existing.isMine() && existing.getServerMessageId() == null
-                        && Objects.equals(msg.getContent(), existing.getContent())) {
-                    existing.setServerMessageId(msg.getServerMessageId());
-                    messageListModel.set(i, existing);
-                    found = true;
-                    break;
+
+                // b) Hòa giải tin broadcast của chính mình với tin tạm PENDING/SENT chưa có serverMessageId
+                // Chỉ duyệt FIFO (từ cũ đến mới) để khớp đúng thứ tự tin gửi
+                if (!found && msg.isMine()) {
+                    for (int i = 0; i < messageListModel.size(); i++) {
+                        ChatMessage existing = messageListModel.get(i);
+                        if (existing.isMine() && existing.getServerMessageId() == null
+                                && Objects.equals(msg.getContent(), existing.getContent())) {
+                            existing.setServerMessageId(msg.getServerMessageId());
+                            existing.setStatus(MessageStatus.SENT);
+                            messageListModel.set(i, existing);
+                            found = true;
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -196,7 +212,13 @@ public class ChatPanel extends JPanel implements ChatEventListener, RoomEventLis
                 messageListModel.addElement(msg);
             }
             scrollToBottom();
-        });
+        };
+
+        if (SwingUtilities.isEventDispatchThread()) {
+            task.run();
+        } else {
+            SwingUtilities.invokeLater(task);
+        }
     }
 
     private void scrollToBottom() {
@@ -317,6 +339,7 @@ public class ChatPanel extends JPanel implements ChatEventListener, RoomEventLis
     // Getters phục vụ kiểm thử và truy xuất
     public JLabel getRoomTitleLabel() { return roomTitleLabel; }
     public DefaultListModel<ChatMessage> getMessageListModel() { return messageListModel; }
+    public int getMessageCount() { return messageListModel.getSize(); }
     public JTextField getMessageInput() { return messageInput; }
     public JButton getBtnSend() { return btnSend; }
 }

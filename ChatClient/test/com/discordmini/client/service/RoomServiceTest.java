@@ -368,23 +368,26 @@ public final class RoomServiceTest {
 
             check(Integer.valueOf(7).equals(roomService.getLastSuccessfulRoomId()), "lastSuccessfulRoomId phải là 7");
 
-            // Rời phòng tạm thời
-            roomService.leaveRoom();
-            check(roomService.getCurrentRoom() == null, "currentRoom là null");
-            check(Integer.valueOf(7).equals(roomService.getLastSuccessfulRoomId()), "lastSuccessfulRoomId vẫn phải giữ giá trị 7");
-
-            // Tự động rejoin lại phòng cũ
+            // 1. Trường hợp mất kết nối ngoài ý muốn (không chủ động rời phòng):
+            // lastSuccessfulRoomId vẫn phải giữ giá trị 7 để phục vụ AN-10 Automatic Reconnection
             boolean rejoined = roomService.rejoinLastRoom();
             check(rejoined, "rejoinLastRoom phải trả về true khi có lastSuccessfulRoomId");
+
+            // 2. Trường hợp người dùng chủ động rời phòng (leaveRoom):
+            // reconnect không được tự đưa họ trở lại phòng đã chủ động rời
+            roomService.leaveRoom();
+            check(roomService.getCurrentRoom() == null, "currentRoom là null");
+            check(roomService.getLastSuccessfulRoomId() == null, "Chủ động rời phòng thì lastSuccessfulRoomId phải bị xóa sạch (null)");
+            check(!roomService.rejoinLastRoom(), "rejoinLastRoom phải trả về false khi đã chủ động rời phòng");
 
             String firstJoin = commands.poll(3, TimeUnit.SECONDS);
             check(firstJoin != null && firstJoin.contains("JOIN_ROOM|7"), "Lệnh đầu là JOIN_ROOM|7");
 
-            String leaveCmd = commands.poll(3, TimeUnit.SECONDS);
-            check(leaveCmd != null && leaveCmd.startsWith("LEAVE_ROOM"), "Lệnh kế tiếp là LEAVE_ROOM");
-
             String secondJoin = commands.poll(3, TimeUnit.SECONDS);
             check(secondJoin != null && secondJoin.contains("JOIN_ROOM|7"), "Lệnh tự động rejoin phải gửi JOIN_ROOM|7");
+
+            String leaveCmd = commands.poll(3, TimeUnit.SECONDS);
+            check(leaveCmd != null && leaveCmd.startsWith("LEAVE_ROOM"), "Lệnh kế tiếp là LEAVE_ROOM");
 
             client.close();
         }

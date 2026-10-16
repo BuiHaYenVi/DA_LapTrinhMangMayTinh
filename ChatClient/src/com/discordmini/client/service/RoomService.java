@@ -30,6 +30,8 @@ public class RoomService {
 
     private volatile Room currentRoom = null;
     private volatile Integer pendingJoinRoomId = null;
+    private volatile int pendingJoinEpoch = 0;
+    private volatile int lastLeaveEpoch = 0;
     private volatile Integer lastSuccessfulRoomId = null;
 
     // Thế hệ phòng nhằm ngăn chặn dữ liệu phòng cũ đến trễ
@@ -131,8 +133,9 @@ public class RoomService {
         }
 
         // Tăng epoch để hủy bỏ mọi dữ liệu đến trễ của phòng trước đó
-        roomEpoch.incrementAndGet();
+        int epoch = roomEpoch.incrementAndGet();
         this.pendingJoinRoomId = roomId;
+        this.pendingJoinEpoch = epoch;
 
         if (chatService != null) {
             chatService.clearRoomState();
@@ -147,9 +150,11 @@ public class RoomService {
      * Cập nhật currentRoom = null để UI không còn cho phép gửi tin vào phòng đã rời.
      */
     public void leaveRoom() {
-        roomEpoch.incrementAndGet();
+        int epoch = roomEpoch.incrementAndGet();
+        this.lastLeaveEpoch = epoch;
         this.currentRoom = null;
         this.pendingJoinRoomId = null;
+        this.lastSuccessfulRoomId = null; // Người dùng chủ động rời phòng: reconnect không được tự đưa lại phòng này
 
         if (chatService != null) {
             chatService.clearRoomState();
@@ -227,10 +232,21 @@ public class RoomService {
             int id = Integer.parseInt(parts[2]);
             String name = ProtocolHandler.decode(parts[3]);
 
+            // Đối chiếu tính hợp lệ:
+            // 1. Nếu đang có phòng chờ khác id -> phản hồi của phòng cũ, loại bỏ
+            if (this.pendingJoinRoomId != null && this.pendingJoinRoomId != id) {
+                return;
+            }
+            // 2. Nếu đã có thao tác leaveRoom hoặc rớt mạng sau khi phát yêu cầu join -> loại bỏ phản hồi cũ
+            if (this.pendingJoinEpoch > 0 && this.lastLeaveEpoch >= this.pendingJoinEpoch) {
+                return;
+            }
+
             // Chỉ cập nhật phòng hiện tại sau khi Server xác nhận thành công
             this.currentRoom = new Room(id, name);
             this.lastSuccessfulRoomId = id;
             this.pendingJoinRoomId = null;
+            this.pendingJoinEpoch = 0;
 
             notifyListeners(l -> l.onRoomJoined(this.currentRoom));
         }
@@ -274,7 +290,8 @@ public class RoomService {
             // Khi rớt mạng: hủy phòng hiện tại nhưng vẫn giữ lastSuccessfulRoomId để AN-10 tự động vào lại
             this.currentRoom = null;
             this.pendingJoinRoomId = null;
-            roomEpoch.incrementAndGet();
+            int epoch = roomEpoch.incrementAndGet();
+            this.lastLeaveEpoch = epoch;
             notifyListeners(RoomEventListener::onRoomLeft);
         }
     }

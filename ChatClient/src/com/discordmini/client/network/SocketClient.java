@@ -49,12 +49,16 @@ public class SocketClient {
 
     private volatile String serverHost;
     private volatile int serverPort;
-    private volatile long lastPingNanoTime = 0;
+    private final java.util.Queue<Long> inFlightPingNanos = new java.util.concurrent.ConcurrentLinkedQueue<>();
     private volatile boolean pingAwaitingPong = false;
     private volatile long currentLatencyMs = -1;
     private volatile String lastPingTimestamp = null;
     private volatile String lastPongTimestamp = null;
     private final List<HeartbeatListener> heartbeatListeners = new CopyOnWriteArrayList<>();
+
+    private record OutboundFrame(String payload, String requestId, long targetGeneration) {}
+    private final java.util.concurrent.BlockingQueue<OutboundFrame> outboundQueue = new java.util.concurrent.LinkedBlockingQueue<>(2000);
+    private Thread outboundWorker;
 
     private final ScheduledExecutorService monitor =
             Executors.newSingleThreadScheduledExecutor(r -> {
@@ -130,6 +134,12 @@ public class SocketClient {
             readerThread.setDaemon(true);
             readerThread.start();
 
+            outboundQueue.clear();
+            inFlightPingNanos.clear();
+            outboundWorker = new Thread(() -> outboundLoop(thisGeneration), "ChatClient-OutboundWorker-" + thisGeneration);
+            outboundWorker.setDaemon(true);
+            outboundWorker.start();
+
             if (monitorTask != null) monitorTask.cancel(false);
             monitorTask = monitor.scheduleAtFixedRate(
                     () -> monitorConnection(thisGeneration), 1, 1, TimeUnit.SECONDS);
@@ -175,10 +185,12 @@ public class SocketClient {
             return false;
         }
 
+        long currentGen = generation;
         pendingRequests.put(requestId, new PendingRequest(System.currentTimeMillis(), commandName));
-        if (!writeRaw(framed)) {
+        boolean enqueued = outboundQueue.offer(new OutboundFrame(framed, requestId, currentGen));
+        if (!enqueued) {
             pendingRequests.remove(requestId);
-            markDisconnected(generation);
+            markDisconnected(currentGen);
             return false;
         }
         return true;
@@ -216,7 +228,13 @@ public class SocketClient {
             monitorTask.cancel(false);
             monitorTask = null;
         }
+        outboundQueue.clear();
+        if (outboundWorker != null) {
+            outboundWorker.interrupt();
+            outboundWorker = null;
+        }
         pendingRequests.clear();
+        inFlightPingNanos.clear();
         pingAwaitingPong = false;
         currentLatencyMs = -1;
         closeSocketQuietly();
@@ -249,12 +267,12 @@ public class SocketClient {
             if ("PONG".equals(parts[0])) {
                 lastPongAt = System.currentTimeMillis();
                 lastPongTimestamp = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
-                if (pingAwaitingPong) {
-                    long elapsedNanos = System.nanoTime() - lastPingNanoTime;
-                    long latency = elapsedNanos / 1_000_000L;
-                    if (latency < 0) latency = 0;
+                Long pingSentNano = inFlightPingNanos.poll();
+                if (pingSentNano != null) {
+                    long elapsedNanos = System.nanoTime() - pingSentNano;
+                    long latency = Math.max(0, elapsedNanos / 1_000_000L);
                     this.currentLatencyMs = latency;
-                    this.pingAwaitingPong = false;
+                    this.pingAwaitingPong = !inFlightPingNanos.isEmpty();
                     notifyHeartbeatListeners();
                 }
             } else if ("ACK".equals(parts[0]) && parts.length >= 2) {
@@ -286,13 +304,46 @@ public class SocketClient {
 
         if (now - lastPingAt >= HEARTBEAT_INTERVAL_MS) {
             lastPingAt = now;
-            lastPingNanoTime = System.nanoTime();
+            inFlightPingNanos.offer(System.nanoTime());
             pingAwaitingPong = true;
             lastPingTimestamp = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
             // Heartbeat is intentionally not tracked as a user request.
-            if (!writeRaw("PING")) markDisconnected(monitorGeneration);
+            if (!sendRawFrame("PING", monitorGeneration)) {
+                markDisconnected(monitorGeneration);
+            }
             notifyHeartbeatListeners();
         }
+    }
+
+    private void outboundLoop(long workerGeneration) {
+        try {
+            while (isGenerationConnected(workerGeneration)) {
+                OutboundFrame frame = outboundQueue.poll(300, TimeUnit.MILLISECONDS);
+                if (frame == null) {
+                    continue;
+                }
+                if (frame.targetGeneration() != workerGeneration || !isGenerationConnected(workerGeneration)) {
+                    continue;
+                }
+                boolean writeOk = writeRaw(frame.payload());
+                if (!writeOk) {
+                    if (frame.requestId() != null) {
+                        pendingRequests.remove(frame.requestId());
+                    }
+                    markDisconnected(workerGeneration);
+                    break;
+                }
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            markDisconnected(workerGeneration);
+        }
+    }
+
+    private boolean sendRawFrame(String payload, long targetGen) {
+        if (!isGenerationConnected(targetGen)) return false;
+        return outboundQueue.offer(new OutboundFrame(payload, null, targetGen));
     }
 
     private boolean writeRaw(String line) {
@@ -315,7 +366,13 @@ public class SocketClient {
                 monitorTask.cancel(false);
                 monitorTask = null;
             }
+            outboundQueue.clear();
+            if (outboundWorker != null) {
+                outboundWorker.interrupt();
+                outboundWorker = null;
+            }
             pendingRequests.clear();
+            inFlightPingNanos.clear();
             pingAwaitingPong = false;
             currentLatencyMs = -1;
             closeSocketQuietly();
@@ -389,11 +446,12 @@ public class SocketClient {
      */
     public void sendPingForHeartbeat() {
         if (isConnected()) {
+            long gen = generation;
             lastPingAt = System.currentTimeMillis();
-            lastPingNanoTime = System.nanoTime();
+            inFlightPingNanos.offer(System.nanoTime());
             pingAwaitingPong = true;
             lastPingTimestamp = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
-            writeRaw("PING");
+            sendRawFrame("PING", gen);
             notifyHeartbeatListeners();
         }
     }

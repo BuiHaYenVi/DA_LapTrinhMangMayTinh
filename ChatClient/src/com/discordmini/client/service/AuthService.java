@@ -27,6 +27,7 @@ public class AuthService {
     private final AtomicBoolean inFlight = new AtomicBoolean(false);
     private volatile AuthCallback activeCallback = null;
     private volatile String pendingUsername = null;
+    private volatile String pendingRequestId = null;
     private volatile boolean isLoginRequest = false;
 
     public AuthService(SocketClient client) {
@@ -58,6 +59,7 @@ public class AuthService {
             inFlight.set(false);
             activeCallback = null;
             pendingUsername = null;
+            pendingRequestId = null;
         }
     }
 
@@ -77,14 +79,20 @@ public class AuthService {
             return false;
         }
 
+        String reqId = java.util.UUID.randomUUID().toString();
         synchronized (this) {
             this.activeCallback = callback;
             this.pendingUsername = username.trim();
+            this.pendingRequestId = reqId;
             this.isLoginRequest = true;
         }
 
         // Tuyệt đối không in password ra console/log
-        client.sendCommand("LOGIN", username.trim(), password);
+        boolean sent = client.sendCommandWithExplicitId("LOGIN", reqId, username.trim(), password);
+        if (!sent) {
+            completeRequest(AuthCallback::onNetworkError);
+            return false;
+        }
         return true;
     }
 
@@ -103,14 +111,20 @@ public class AuthService {
             return false;
         }
 
+        String reqId = java.util.UUID.randomUUID().toString();
+        String display = (displayName != null && !displayName.isBlank()) ? displayName.trim() : username.trim();
         synchronized (this) {
             this.activeCallback = callback;
             this.pendingUsername = username.trim();
+            this.pendingRequestId = reqId;
             this.isLoginRequest = false;
         }
 
-        String display = (displayName != null && !displayName.isBlank()) ? displayName.trim() : username.trim();
-        client.sendCommand("REGISTER", username.trim(), password, display);
+        boolean sent = client.sendCommandWithExplicitId("REGISTER", reqId, username.trim(), password, display);
+        if (!sent) {
+            completeRequest(AuthCallback::onNetworkError);
+            return false;
+        }
         return true;
     }
 
@@ -169,11 +183,42 @@ public class AuthService {
                     completeRequest(cb -> cb.onSuccess(result));
                 }
             } else if ("ERROR".equals(type)) {
-                String errorMsg = (parts.length > 1) ? ProtocolHandler.decode(parts[1]) : "Lỗi xác thực không xác định từ Server.";
-                completeRequest(cb -> cb.onError(errorMsg));
+                String errorReqId = (parts.length > 2) ? parts[2] : null;
+                String errorCode = (parts.length > 3) ? parts[3] : "";
+
+                // Đối chiếu requestId nếu Server có gửi về
+                if (errorReqId != null && !errorReqId.isBlank()) {
+                    if (!Objects.equals(pendingRequestId, errorReqId)) {
+                        return; // ERROR này thuộc về request khác (phòng, chat...), bỏ qua!
+                    }
+                } else {
+                    // Nếu phản hồi không kèm request ID, kiểm tra mã lỗi có phải của xác thực không
+                    boolean isAuthError = errorCode.startsWith("AUTH_")
+                            || "ALREADY_AUTHENTICATED".equals(errorCode)
+                            || "ALREADY_ONLINE".equals(errorCode)
+                            || "USERNAME_TAKEN".equals(errorCode);
+                    if (!errorCode.isBlank() && !isAuthError) {
+                        return; // Lỗi thuộc nghiệp vụ khác (phòng, chat...), bỏ qua!
+                    }
+                }
+
+                final String finalErrorMsg;
+                String decoded;
+                try {
+                    decoded = (parts.length > 1) ? ProtocolHandler.decode(parts[1]) : "Lỗi xác thực không xác định từ Server.";
+                } catch (IllegalArgumentException ex) {
+                    // Nếu không decode được và không có requestId chỉ định, bỏ qua
+                    if (errorReqId == null || !Objects.equals(pendingRequestId, errorReqId)) {
+                        return;
+                    }
+                    decoded = parts[1];
+                }
+                finalErrorMsg = decoded;
+
+                completeRequest(cb -> cb.onError(finalErrorMsg));
             }
-        } catch (Exception ex) {
-            completeRequest(cb -> cb.onError("Lỗi phân tích phản hồi xác thực: " + ex.getMessage()));
+        } catch (Exception ignored) {
+            // Frame không hợp lệ hoặc không thuộc về auth -> không được làm hủy auth inFlight
         }
     }
 
@@ -185,7 +230,14 @@ public class AuthService {
         if ("CLIENT_DISCONNECTED".equals(event)) {
             completeRequest(AuthCallback::onNetworkError);
         } else if (event.startsWith("REQUEST_TIMEOUT|")) {
-            completeRequest(AuthCallback::onTimeout);
+            String[] parts = event.split("\\|", -1);
+            if (parts.length >= 2) {
+                String timedOutReqId = parts[1];
+                // CHỈ HỦY NẾU ĐÚNG LÀ REQUEST ID CỦA YÊU CẦU ĐANG CHỜ!
+                if (Objects.equals(pendingRequestId, timedOutReqId)) {
+                    completeRequest(AuthCallback::onTimeout);
+                }
+            }
         }
     }
 
@@ -198,6 +250,7 @@ public class AuthService {
             callbackToInvoke = this.activeCallback;
             this.activeCallback = null;
             this.pendingUsername = null;
+            this.pendingRequestId = null;
         }
 
         if (callbackToInvoke != null) {

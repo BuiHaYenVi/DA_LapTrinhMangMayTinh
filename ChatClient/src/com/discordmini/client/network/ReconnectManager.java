@@ -110,10 +110,15 @@ public class ReconnectManager {
                 if (isUnexpectedLoss && hasCredentials && !cancelled.get()) {
                     triggerReconnect();
                 }
-            } else if (newState == ConnectionState.AUTHENTICATED) {
-                // Nếu đăng nhập thành công từ bên ngoài, cập nhật lại trạng thái
-                currentAttempt.set(0);
-                connectionManager.setReconnectAttempts(0);
+            } else if (newState == ConnectionState.AUTHENTICATED && oldState != ConnectionState.AUTHENTICATED) {
+                // Chỉ reset khi người dùng đăng nhập bình thường ngoài luồng reconnect.
+                // Nếu đang reconnect, currentAttempt phải được giữ nguyên để theo dõi các bước tiếp theo (như khôi phục phòng).
+                if (!isReconnecting.get()) {
+                    currentAttempt.set(0);
+                    if (connectionManager.getReconnectAttempts() != 0) {
+                        connectionManager.setReconnectAttempts(0);
+                    }
+                }
             }
         });
     }
@@ -255,7 +260,8 @@ public class ReconnectManager {
             // ==========================================
             // BƯỚC 3: THAM GIA LẠI PHÒNG CŨ (REJOIN LAST ROOM)
             // ==========================================
-            if (roomService != null && roomService.getLastSuccessfulRoomId() != null) {
+            boolean needRoomRecovery = (roomService != null && roomService.getLastSuccessfulRoomId() != null);
+            if (needRoomRecovery) {
                 CompletableFuture<Boolean> roomFuture = new CompletableFuture<>();
                 RoomEventListener tempListener = new RoomEventListener() {
                     @Override
@@ -270,21 +276,37 @@ public class ReconnectManager {
                 };
 
                 roomService.addListener(tempListener);
+                boolean roomRecovered = false;
                 try {
                     boolean joinRequested = roomService.rejoinLastRoom();
                     if (joinRequested) {
                         try {
-                            roomFuture.get(4, TimeUnit.SECONDS);
-                        } catch (Exception ignored) {}
+                            roomRecovered = Boolean.TRUE.equals(roomFuture.get(4, TimeUnit.SECONDS));
+                        } catch (Exception ex) {
+                            roomRecovered = false;
+                        }
                     }
                 } finally {
                     roomService.removeListener(tempListener);
+                }
+
+                // Tiêu chí 2: Nếu cần khôi phục phòng mà thất bại/timeout/ngắt kết nối:
+                // Tuyệt đối không báo đã khôi phục đầy đủ! Đóng kết nối và lên lịch thử lại lần tiếp theo.
+                if (!roomRecovered || cancelled.get() || !client.isConnected()) {
+                    client.close();
+                    scheduleNextAttempt();
+                    return;
                 }
             }
 
             // ==========================================
             // BƯỚC 4: CHO PHÉP CHAT & HOÀN TẤT PHỤC HỒI
             // ==========================================
+            if (cancelled.get() || !client.isConnected()) {
+                scheduleNextAttempt();
+                return;
+            }
+
             isReconnecting.set(false);
             currentAttempt.set(0);
             connectionManager.setReconnectAttempts(0);
