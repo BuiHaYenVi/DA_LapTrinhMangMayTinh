@@ -107,10 +107,14 @@ public class MainFrame extends JFrame {
     private JButton leaveBtn;
 
     public MainFrame(SocketClient client, String displayName) {
+        this(client, displayName, null, null);
+    }
+
+    public MainFrame(SocketClient client, String displayName, String username, String password) {
         this.client = client;
         this.displayName = displayName;
         this.roomService = new RoomService(client);
-        this.chatService = new ChatService(client);
+        this.chatService = new ChatService(client, displayName);
         this.friendService = new FriendService(client);
 
         setTitle("Discord");
