@@ -165,7 +165,7 @@ public class RoomService {
         return false;
     }
 
-    private void handleServerPacket(String packet) {
+    public void handleServerPacket(String packet) {
         try {
             String[] parts = ProtocolHandler.split(packet);
             if (parts.length == 0) return;
