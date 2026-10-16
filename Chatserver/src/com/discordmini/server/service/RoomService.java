@@ -50,4 +50,46 @@ public class RoomService {
             return false;
         }
     }
+
+    public List<Room> listRoomsForUser(int userId) {
+        try {
+            return roomDAO.listRoomsForUser(userId);
+        } catch (Exception e) {
+            System.err.println("Lỗi danh sách phòng Database: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    public boolean isRoomOwner(int roomId, int userId) {
+        try {
+            return roomDAO.isRoomOwner(roomId, userId);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean addMember(int roomId, int userId, String role) {
+        try {
+            return roomDAO.addMember(roomId, userId, role);
+        } catch (Exception e) {
+            System.err.println("Lỗi thêm thành viên Database: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public String getMemberRole(int roomId, int userId) {
+        try {
+            return roomDAO.getMemberRole(roomId, userId);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public List<com.discordmini.server.model.User> getRoomMembers(int roomId) {
+        try {
+            return roomDAO.getRoomMembers(roomId);
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
 }
