@@ -28,10 +28,10 @@
 
 - JDK 21 trở lên.
 - PostgreSQL 15 trở lên.
-- JDBC Driver tương thích với phiên bản PostgreSQL đang sử dụng.
+- JDBC Driver: `postgresql-42.7.3.jar` (tự động tải bằng script `Chatserver/lib/download_driver.bat` hoặc PowerShell).
 - Git để lấy mã nguồn.
 
-> Phiên bản JDK, PostgreSQL và các thư viện cần thiết phải được đối chiếu với cấu hình thực tế của dự án trước khi chạy.
+> Lưu ý: Nhóm tuân thủ quy chế không commit file `.jar` vào Git; vui lòng chạy script tải driver trước khi mở project trên IDE.
 
 ## 3. Kiến trúc hệ thống
 
@@ -327,3 +327,31 @@ Khi sửa đổi dự án:
 ## 14. Bản quyền và mục đích sử dụng
 
 Dự án được xây dựng phục vụ mục đích học tập và thực hành lập trình mạng. Các thư viện bên ngoài, nếu có, tuân theo giấy phép tương ứng của từng thư viện.
+
+## 15. Bảng ma trận đóng góp của thành viên (Quy định bắt buộc)
+
+> Bảng thống kê chi tiết sự đóng góp của các thành viên trong nhóm theo quy định thực hiện dự án trên Git/GitHub của giảng viên, dùng để đối chiếu khi chấm điểm và bảo vệ đồ án cuối kỳ.
+
+| MSSV | Họ và Tên | Vai trò chính | Công việc đã thực hiện | Merge Requests (PR) |
+|---|---|---|---|---|
+| **2380602519** | **Bùi Hà Yến Vi** | Trưởng nhóm, Core Protocol & Integration | - Xây dựng Giao thức Ứng dụng & Cơ chế Độ tin cậy (Request ID UUID, Application ACK, Heartbeat PING/PONG, Timeouts, mã lỗi ổn định `ProtocolErrorCode`).<br>- Tích hợp mã nguồn Server Core với PostgreSQL Data Layer.<br>- Hoàn thiện luồng Chat nhóm đa người dùng, đồng bộ phòng chat và tích hợp toàn hệ thống. | [!6](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/6), [!7](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/7), [!10](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/10) |
+| **2380600023** | **Tống Nhật Bảo An** | Thành viên, Client UI & Network Monitor | - Hoàn thiện kết nối TCP Socket Client và cơ chế tự động khôi phục kết nối (Auto-reconnection).<br>- Xây dựng giao diện Chat Swing chính (MainFrame, MessagePanel, RoomPanel, UserPanel).<br>- Tích hợp Network Status Monitor Panel đo RTT (Round Trip Time) và giám sát trạng thái mạng. | [!9](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/9), [!11](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/11), [!12](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/12) |
+| **2380602574** | **Vũ Anh Vinh** | Thành viên, Server Concurrency & Client Handler | - Khởi tạo kiến trúc kết nối TCP Socket Client - Server cơ bản và giao diện chat ban đầu.<br>- Tái cấu trúc bộ quản lý kết nối đa luồng `ClientHandler` và `ClientManager` cho ChatServer.<br>- Xử lý đồng bộ phiên kết nối người dùng online và định tuyến gói tin ban đầu. | [!2](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/2), [!4](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/4) |
+| **2380600575** | **Nguyễn Thanh Hải** | Thành viên, Database & Data Access Layer | - Thiết kế cấu trúc CSDL PostgreSQL (`schema.sql`, migration `V002__chat_features.sql`).<br>- Triển khai Data Access Layer (DAOs: UserDAO, RoomDAO, MessageDAO) và Connection Pool JDBC.<br>- Xử lý truy vấn dữ liệu đồng thời, đảm bảo toàn vẹn dữ liệu phiên và lịch sử tin nhắn. | [!5](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/5) |
+
+## 16. Quy định chuẩn hóa quy trình Git & GitHub (Bắt buộc cho nhóm)
+
+1. **Định danh cá nhân trên máy cục bộ**:
+   - `git config --global user.name "MSSV_HoVaTen"`
+   - `git config --global user.email "email_sinh_vien@domain"`
+   - *Nghiêm cấm commit hộ hoặc push code thay.*
+2. **Quản lý công việc bằng Issue & Task Board**:
+   - Mọi công việc phải tạo Issue trước khi viết code.
+   - Mỗi Issue chỉ gán cho **đúng 1 người** chịu trách nhiệm chính, kèm nhãn (label) và cột mốc tuần (Milestone Tuần 1 -> Tuần 8).
+3. **Chiến lược phân nhánh (Branching Strategy)**:
+   - Nhánh `main` được bảo vệ (Protected): chặn push trực tiếp, bắt buộc tạo PR và có ít nhất 1 thành viên review Approve.
+   - Cú pháp đặt tên nhánh: `feature/<MSSV>-issue-<Số_Issue>-<Tên_ngắn_gọn>`
+4. **Tiêu chuẩn Commit & Vệ sinh kho mã nguồn**:
+   - Tuân thủ Conventional Commits: `feat:`, `fix:`, `refactor:`, `docs:`.
+   - Tuyệt đối không commit file rác (`build/`, `dist/`, `.idea/`, `.vscode/`, `nbproject/private/`, `*.jar`, `*.zip`).
+   - Driver PostgreSQL JDBC được tải qua script: `.\Chatserver\lib\download_driver.bat` hoặc PowerShell.
