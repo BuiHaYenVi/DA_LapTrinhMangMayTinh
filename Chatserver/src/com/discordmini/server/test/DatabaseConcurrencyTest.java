@@ -8,7 +8,6 @@ import com.discordmini.server.model.Room;
 import com.discordmini.server.model.User;
 import com.discordmini.server.service.ChatPersistenceService;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
