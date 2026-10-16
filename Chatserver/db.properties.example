@@ -1,0 +1,10 @@
+# ============================================================
+# DISCORD MINI - DATABASE CONFIGURATION TEMPLATE
+# Sao chep file nay thanh db.properties va dien thong tin phu hop
+# Hoac thiet lap qua bien moi truong: DB_URL, DB_USER, DB_PASSWORD
+# ============================================================
+db.url=jdbc:postgresql://localhost:5432/discord_mini
+db.user=postgres
+db.password=YOUR_DATABASE_PASSWORD_HERE
+db.driver=org.postgresql.Driver
+db.pool.max_connections=20

@@ -10,9 +10,11 @@ import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -37,7 +39,7 @@ public class SocketClient {
     private BufferedReader in;
     private PrintWriter out;
     private Thread readerThread;
-    private volatile Consumer<String> listener;
+    private final List<Consumer<String>> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
     private volatile boolean connected;
     private volatile long lastPongAt;
     private volatile long lastPingAt;
@@ -55,7 +57,20 @@ public class SocketClient {
     private record PendingRequest(long createdAt, String command) {}
 
     public void setListener(Consumer<String> listener) {
-        this.listener = listener;
+        this.listeners.clear();
+        if (listener != null) {
+            this.listeners.add(listener);
+        }
+    }
+
+    public void addListener(Consumer<String> listener) {
+        if (listener != null && !this.listeners.contains(listener)) {
+            this.listeners.add(listener);
+        }
+    }
+
+    public void removeListener(Consumer<String> listener) {
+        this.listeners.remove(listener);
     }
 
     public synchronized void connect(String host, int port) throws IOException {
@@ -205,7 +220,6 @@ public class SocketClient {
     }
 
     private void markDisconnected(long expectedGeneration) {
-        Consumer<String> callback;
         synchronized (this) {
             if (generation != expectedGeneration || !connected) return;
             connected = false;
@@ -215,9 +229,12 @@ public class SocketClient {
             }
             pendingRequests.clear();
             closeSocketQuietly();
-            callback = listener;
         }
-        if (callback != null) callback.accept("CLIENT_DISCONNECTED");
+        for (Consumer<String> callback : listeners) {
+            try {
+                callback.accept("CLIENT_DISCONNECTED");
+            } catch (Exception ignored) {}
+        }
     }
 
     private synchronized void closeSocketQuietly() {
@@ -232,8 +249,7 @@ public class SocketClient {
     }
 
     private void notifyListener(String packet) {
-        Consumer<String> callback = listener;
-        if (callback != null) {
+        for (Consumer<String> callback : listeners) {
             try {
                 callback.accept(packet);
             } catch (RuntimeException ex) {
