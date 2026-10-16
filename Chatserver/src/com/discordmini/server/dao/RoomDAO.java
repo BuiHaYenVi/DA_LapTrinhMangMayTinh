@@ -37,9 +37,9 @@ public class RoomDAO {
                     Timestamp createdAt = rs.getTimestamp("created_at");
                     Room room = new Room(roomId, roomName.trim(), createdBy, createdAt);
 
-                    // Nếu người tạo hợp lệ, tự động thêm vào phòng
+                    // Nếu người tạo hợp lệ, tự động thêm vào phòng với quyền OWNER (Trưởng nhóm)
                     if (createdBy > 0) {
-                        addMember(roomId, createdBy);
+                        addMember(roomId, createdBy, "OWNER");
                         room.getMemberIds().add(createdBy);
                     }
                     return room;
@@ -52,21 +52,71 @@ public class RoomDAO {
     }
 
     /**
-     * Thêm một thành viên vào phòng chat.
+     * Thêm một thành viên vào phòng chat với vai trò chỉ định ('MEMBER' hoặc 'OWNER').
      */
-    public boolean addMember(int roomId, int userId) {
-        String sql = "INSERT INTO room_members (room_id, user_id) VALUES (?, ?) ON CONFLICT (room_id, user_id) DO NOTHING";
+    public boolean addMember(int roomId, int userId, String role) {
+        String r = (role != null && !role.isBlank()) ? role.trim().toUpperCase() : "MEMBER";
+        String sql = "INSERT INTO room_members (room_id, user_id, role) VALUES (?, ?, ?) " +
+                     "ON CONFLICT (room_id, user_id) DO UPDATE SET role = CASE WHEN room_members.role = 'OWNER' THEN 'OWNER' ELSE EXCLUDED.role END";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, roomId);
             ps.setInt(2, userId);
+            ps.setString(3, r);
             int rows = ps.executeUpdate();
             return rows > 0;
         } catch (SQLException e) {
-            System.err.println("[RoomDAO ERROR] Lỗi thêm user (ID=" + userId + ") vào room (ID=" + roomId + "): " + e.getMessage());
+            System.err.println("[RoomDAO ERROR] Lỗi thêm user (ID=" + userId + ", role=" + r + ") vào room (ID=" + roomId + "): " + e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Thêm một thành viên vào phòng chat (mặc định role MEMBER).
+     */
+    public boolean addMember(int roomId, int userId) {
+        return addMember(roomId, userId, "MEMBER");
+    }
+
+    /**
+     * Kiểm tra xem một người dùng có phải là Trưởng nhóm (OWNER) của phòng không.
+     */
+    public boolean isRoomOwner(int roomId, int userId) {
+        String sql = "SELECT role FROM room_members WHERE room_id = ? AND user_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, roomId);
+            ps.setInt(2, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return "OWNER".equalsIgnoreCase(rs.getString("role"));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[RoomDAO ERROR] Lỗi isRoomOwner (roomID=" + roomId + ", userID=" + userId + "): " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Lấy vai trò của người dùng trong phòng ('OWNER', 'MEMBER', hoặc null nếu không thuộc phòng).
+     */
+    public String getMemberRole(int roomId, int userId) {
+        String sql = "SELECT role FROM room_members WHERE room_id = ? AND user_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, roomId);
+            ps.setInt(2, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("role");
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[RoomDAO ERROR] Lỗi getMemberRole: " + e.getMessage());
+        }
+        return null;
     }
 
     /**
@@ -154,6 +204,37 @@ public class RoomDAO {
             System.err.println("[RoomDAO ERROR] Lỗi getRoomMembers (roomID=" + roomId + "): " + e.getMessage());
         }
         return members;
+    }
+
+    /**
+     * Lấy danh sách phòng mà người dùng có quyền truy cập (bao gồm phòng public và phòng người dùng là thành viên).
+     */
+    public List<Room> listRoomsForUser(int userId) {
+        List<Room> list = new ArrayList<>();
+        String sql = "SELECT DISTINCT r.id, r.name, r.created_by, r.created_at " +
+                     "FROM rooms r " +
+                     "LEFT JOIN room_members rm ON r.id = rm.room_id " +
+                     "WHERE r.is_private = false OR rm.user_id = ? " +
+                     "ORDER BY r.id ASC";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Room r = new Room(
+                        rs.getInt("id"),
+                        rs.getString("name"),
+                        rs.getInt("created_by"),
+                        rs.getTimestamp("created_at")
+                    );
+                    loadMemberIds(conn, r);
+                    list.add(r);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[RoomDAO ERROR] Lỗi listRoomsForUser (userID=" + userId + "): " + e.getMessage());
+        }
+        return list;
     }
 
     /**

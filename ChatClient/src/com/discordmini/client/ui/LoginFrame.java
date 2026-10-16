@@ -66,9 +66,23 @@ public class LoginFrame extends JFrame {
         SwingUtilities.invokeLater(() -> {
             try {
                 if ("OK".equals(p[0]) && p.length > 1 && "LOGIN".equals(p[1])) {
+                    int userId = Integer.parseInt(p[2]);
                     String name = ProtocolHandler.decode(p[3]);
                     dispose();
+                    // 1. Mở MainFrame Swing (Đảm bảo giảng viên vẫn có thể xem Swing nếu cần)
                     new MainFrame(client, name).setVisible(true);
+
+                    // 2. Khởi động UiBridgeServer trên cổng 8080 và tự động mở trình duyệt với React Discord UI
+                    try {
+                        com.discordmini.client.bridge.UiBridgeServer bridge = new com.discordmini.client.bridge.UiBridgeServer(8080, client, userId, name);
+                        bridge.start();
+                        int actualPort = bridge.getPort();
+                        if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                            Desktop.getDesktop().browse(new java.net.URI("http://localhost:" + actualPort));
+                        }
+                    } catch (Exception ex) {
+                        System.err.println("Lỗi khởi động React UI Bridge: " + ex.getMessage());
+                    }
                 } else if ("ERROR".equals(p[0])) {
                     status.setText(ProtocolHandler.decode(p[1]));
                 }

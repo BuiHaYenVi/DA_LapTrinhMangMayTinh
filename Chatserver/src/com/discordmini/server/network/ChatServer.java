@@ -28,6 +28,7 @@ public class ChatServer {
     private final UserDAO userDAO = new UserDAO();
     private final RoomDAO roomDAO = new RoomDAO();
     private final MessageDAO messageDAO = new MessageDAO();
+    private final com.discordmini.server.dao.FriendDAO friendDAO = new com.discordmini.server.dao.FriendDAO();
 
     private final ClientManager clientManager = new ClientManager();
     private final RoomManager roomManager = new RoomManager();
@@ -35,6 +36,7 @@ public class ChatServer {
     private final AuthService authService;
     private final RoomService roomService;
     private final ChatService chatService;
+    private final com.discordmini.server.service.FriendService friendService;
 
     private final AtomicInteger threadCounter = new AtomicInteger(1);
     private final ExecutorService pool;
@@ -50,6 +52,7 @@ public class ChatServer {
         this.authService = new AuthService(userDAO);
         this.roomService = new RoomService(roomDAO);
         this.chatService = new ChatService(messageDAO);
+        this.friendService = new com.discordmini.server.service.FriendService(friendDAO);
 
         this.pool = Executors.newCachedThreadPool(r -> {
             Thread t = new Thread(r, "ChatServer-Worker-" + threadCounter.getAndIncrement());
@@ -150,4 +153,6 @@ public class ChatServer {
     public AuthService getAuthService() { return authService; }
     public RoomService getRoomService() { return roomService; }
     public ChatService getChatService() { return chatService; }
+    public com.discordmini.server.service.FriendService getFriendService() { return friendService; }
+    public com.discordmini.server.dao.FriendDAO getFriendDAO() { return friendDAO; }
 }
