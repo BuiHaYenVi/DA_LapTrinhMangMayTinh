@@ -100,9 +100,16 @@ public class ConnectionManager {
     }
 
     public void setReconnectAttempts(int attempts) {
-        this.reconnectAttempts = attempts;
+        List<StateChangeListener> listenersToNotify;
+        synchronized (this) {
+            if (this.reconnectAttempts == attempts) {
+                return;
+            }
+            this.reconnectAttempts = attempts;
+            listenersToNotify = new ArrayList<>(this.stateListeners);
+        }
+
         // Phát thông báo trạng thái cập nhật để UI render số lần retry
-        List<StateChangeListener> listenersToNotify = new ArrayList<>(this.stateListeners);
         for (StateChangeListener listener : listenersToNotify) {
             try {
                 listener.onStateChanged(this.state, this.state, this.lastDisconnectReason);
