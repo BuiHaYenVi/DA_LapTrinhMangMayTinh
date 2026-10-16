@@ -53,6 +53,10 @@ public class RoomService {
         client.addConnectionListener(this::handleConnectionEvent);
     }
 
+    public SocketClient getClient() {
+        return client;
+    }
+
     public void addListener(RoomEventListener listener) {
         if (listener != null) {
             listeners.add(listener);
@@ -117,7 +121,11 @@ public class RoomService {
      * ĐẢM BẢO roomId LÀ SỐ NGUYÊN (không mã hóa Base64 cho ID số).
      */
     public String joinRoom(int roomId) {
-        if (roomId <= 0 || !client.isConnected()) {
+        if (!client.isConnected()) {
+            notifyListeners(l -> l.onRoomError("Chưa kết nối đến máy chủ. Vui lòng kết nối lại."));
+            return null;
+        }
+        if (roomId <= 0) {
             notifyListeners(l -> l.onRoomError("ID phòng không hợp lệ."));
             return null;
         }

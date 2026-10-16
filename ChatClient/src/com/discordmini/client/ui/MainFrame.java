@@ -1,6 +1,8 @@
 package com.discordmini.client.ui;
 
 import com.discordmini.client.model.Room;
+import com.discordmini.client.network.ReconnectListener;
+import com.discordmini.client.network.ReconnectManager;
 import com.discordmini.client.network.SocketClient;
 import com.discordmini.client.protocol.ProtocolHandler;
 import com.discordmini.client.service.AuthService;
@@ -27,6 +29,8 @@ public class MainFrame extends JFrame {
 
     private final ChatService chatService;
     private final RoomService roomService;
+    private final AuthService authService;
+    private final ReconnectManager reconnectManager;
 
     private final RoomPanel roomPanel;
     private final ChatPanel chatPanel;
@@ -34,19 +38,39 @@ public class MainFrame extends JFrame {
     private final NetworkStatusPanel networkStatusPanel;
 
     public MainFrame(SocketClient client, String displayName) {
+        this(client, displayName, null, null);
+    }
+
+    public MainFrame(SocketClient client, String displayName, String username, String password) {
         this.client = client;
         this.displayName = displayName != null ? displayName : "Bạn";
 
+        this.authService = new AuthService(client);
         this.chatService = new ChatService(client, this.displayName);
         this.roomService = new RoomService(client, chatService);
+
+        this.reconnectManager = new ReconnectManager(client, authService, roomService);
+        if (username != null && password != null) {
+            this.reconnectManager.setCredentials(client.getServerHost(), client.getServerPort(), username, password);
+        }
 
         this.roomPanel = new RoomPanel(roomService);
         this.chatPanel = new ChatPanel(client, chatService, roomService, this.displayName);
         this.userPanel = new UserPanel(client, chatService);
         this.networkStatusPanel = new NetworkStatusPanel(client);
+        this.networkStatusPanel.setReconnectManager(reconnectManager);
+
+        initReconnectEvents();
 
         setTitle("Discord Mini - " + this.displayName);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                dispose();
+                System.exit(0);
+            }
+        });
         setSize(1080, 720);
         setMinimumSize(new Dimension(850, 500));
         setLocationRelativeTo(null);
@@ -59,6 +83,50 @@ public class MainFrame extends JFrame {
         // Khởi tạo tải dữ liệu ban đầu
         roomService.listRooms();
         client.sendCommand("GET_ONLINE_USERS");
+    }
+
+    private void initReconnectEvents() {
+        reconnectManager.addListener(new ReconnectListener() {
+            @Override
+            public void onReconnectAttempt(int attempt, int maxAttempts, long delayMs) {}
+
+            @Override
+            public void onReconnectSucceeded() {
+                SwingUtilities.invokeLater(() -> {
+                    client.sendCommand("LIST_ROOMS");
+                    client.sendCommand("GET_ONLINE_USERS");
+                    chatPanel.updateSendState();
+                });
+            }
+
+            @Override
+            public void onReconnectFailed(String reason) {
+                SwingUtilities.invokeLater(() -> {
+                    if (isShowing()) {
+                        int choice = JOptionPane.showOptionDialog(
+                                MainFrame.this,
+                                reason + "\nBạn có muốn thử kết nối lại ngay bây giờ không?",
+                                "Mất kết nối máy chủ",
+                                JOptionPane.YES_NO_OPTION,
+                                JOptionPane.WARNING_MESSAGE,
+                                null,
+                                new Object[]{"Thử lại ngay", "Đóng"},
+                                "Thử lại ngay"
+                        );
+                        if (choice == 0) { // 0 tương ứng với "Thử lại ngay"
+                            reconnectManager.retryManually();
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onReconnectCancelled() {}
+        });
+    }
+
+    public ReconnectManager getReconnectManager() {
+        return reconnectManager;
     }
 
     public String getDisplayName() {
@@ -113,7 +181,9 @@ public class MainFrame extends JFrame {
                     case "ERROR" -> {
                         if (p.length > 1) {
                             String err = ProtocolHandler.decode(p[1]);
-                            JOptionPane.showMessageDialog(this, err, "Thông báo lỗi", JOptionPane.WARNING_MESSAGE);
+                            if (!err.toLowerCase().contains("phòng") && !err.toLowerCase().contains("room")) {
+                                JOptionPane.showMessageDialog(this, err, "Thông báo lỗi", JOptionPane.WARNING_MESSAGE);
+                            }
                         }
                     }
                     case "REQUEST_TIMEOUT" -> {
@@ -153,11 +223,14 @@ public class MainFrame extends JFrame {
 
     @Override
     public void dispose() {
+        if (reconnectManager != null) {
+            reconnectManager.shutdown();
+        }
         if (networkStatusPanel != null) {
             networkStatusPanel.cleanup();
         }
         try {
-            new AuthService(client).logout();
+            authService.logout();
         } catch (Exception ignored) {}
         client.close();
         super.dispose();

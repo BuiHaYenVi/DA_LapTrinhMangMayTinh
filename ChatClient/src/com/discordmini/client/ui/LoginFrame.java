@@ -158,7 +158,7 @@ public class LoginFrame extends JFrame {
                     if (disposed) return;
                     inFlight = false;
                     dispose();
-                    new MainFrame(client, result.displayName()).setVisible(true);
+                    new MainFrame(client, result.displayName(), username, password).setVisible(true);
                 });
             }
 
