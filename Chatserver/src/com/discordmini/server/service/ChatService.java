@@ -27,7 +27,7 @@ public class ChatService {
         if (user == null) {
             throw new IllegalArgumentException("User không hợp lệ.");
         }
-        return persistenceService.persistBeforeBroadcast(roomId, user.getId(), content);
+        return persistenceService.persistBeforeBroadcast(roomId, user.getId(), user.getDisplayName(), content);
     }
 
     /**
