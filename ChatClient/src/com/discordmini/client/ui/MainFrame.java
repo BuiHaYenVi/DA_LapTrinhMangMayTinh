@@ -31,6 +31,7 @@ public class MainFrame extends JFrame {
     private final RoomPanel roomPanel;
     private final ChatPanel chatPanel;
     private final UserPanel userPanel;
+    private final NetworkStatusPanel networkStatusPanel;
 
     public MainFrame(SocketClient client, String displayName) {
         this.client = client;
@@ -42,6 +43,7 @@ public class MainFrame extends JFrame {
         this.roomPanel = new RoomPanel(roomService);
         this.chatPanel = new ChatPanel(client, chatService, roomService, this.displayName);
         this.userPanel = new UserPanel(client, chatService);
+        this.networkStatusPanel = new NetworkStatusPanel(client);
 
         setTitle("Discord Mini - " + this.displayName);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -75,6 +77,10 @@ public class MainFrame extends JFrame {
         return userPanel;
     }
 
+    public NetworkStatusPanel getNetworkStatusPanel() {
+        return networkStatusPanel;
+    }
+
     private void buildUi() {
         JSplitPane splitLeftCenter = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, roomPanel, chatPanel);
         splitLeftCenter.setDividerLocation(220);
@@ -85,7 +91,11 @@ public class MainFrame extends JFrame {
         splitMain.setContinuousLayout(true);
         splitMain.setResizeWeight(1.0); // Ưu tiên mở rộng khung chat ở giữa khi resize
 
-        setContentPane(splitMain);
+        JPanel rootPanel = new JPanel(new BorderLayout());
+        rootPanel.add(splitMain, BorderLayout.CENTER);
+        rootPanel.add(networkStatusPanel, BorderLayout.SOUTH);
+
+        setContentPane(rootPanel);
     }
 
     private void handleServerMessage(String line) {
@@ -143,6 +153,9 @@ public class MainFrame extends JFrame {
 
     @Override
     public void dispose() {
+        if (networkStatusPanel != null) {
+            networkStatusPanel.cleanup();
+        }
         try {
             new AuthService(client).logout();
         } catch (Exception ignored) {}
