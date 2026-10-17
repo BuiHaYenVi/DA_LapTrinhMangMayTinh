@@ -1,6 +1,5 @@
 package com.discordmini.client.ui;
 
-import com.discordmini.client.network.ConnectionManager;
 import com.discordmini.client.network.ConnectionState;
 import com.discordmini.client.network.ReconnectManager;
 import com.discordmini.client.network.SocketClient;
@@ -271,4 +270,5 @@ public class MainFrame extends JFrame {
     public RoomService getRoomService() { return roomService; }
     public ChatService getChatService() { return chatService; }
     public AuthService getAuthService() { return authService; }
+    public FriendService getFriendService() { return friendService; }
 }

@@ -279,7 +279,6 @@ public final class AuthUiValidationTest {
                         if (line.startsWith("LOGIN|")) {
                             String[] parts = line.split("\\|", -1);
                             String reqId = parts[1];
-                            String username = parts[2];
                             // Server phản hồi ACK mạng và OK đăng nhập thành công theo đúng giao thức
                             writer.println("ACK|" + reqId);
                             writer.println("OK|LOGIN|1|" + ProtocolHandler.encode("Bảo An"));

@@ -70,13 +70,6 @@ public class DatabaseConnection {
         }
     }
 
-    private static void setDefaultProperties() {
-        url = "jdbc:postgresql://localhost:5432/discord_mini";
-        user = "postgres";
-        password = "";
-        driver = "org.postgresql.Driver";
-    }
-
     /**
      * Lay ket noi JDBC den PostgreSQL.
      * @return Connection JDBC connection hoặc null nếu kết nối thất bại.

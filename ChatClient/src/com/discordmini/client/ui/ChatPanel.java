@@ -3,8 +3,6 @@ package com.discordmini.client.ui;
 import com.discordmini.client.model.ChatMessage;
 import com.discordmini.client.model.MessageStatus;
 import com.discordmini.client.model.Room;
-import com.discordmini.client.network.ConnectionManager;
-import com.discordmini.client.network.ConnectionState;
 import com.discordmini.client.network.SocketClient;
 import com.discordmini.client.service.ChatEventListener;
 import com.discordmini.client.service.ChatService;

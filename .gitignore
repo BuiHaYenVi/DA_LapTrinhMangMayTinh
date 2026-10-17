@@ -3,9 +3,11 @@
 # Dự án: Discord Mini (Java TCP Socket & Swing)
 # ==========================================
 
-# 1. NetBeans Build & Private Config
+# 1. NetBeans & IDE Build
 build/
 **/build/
+bin/
+**/bin/
 dist/
 **/dist/
 nbproject/private/

@@ -1,8 +1,5 @@
 package com.discordmini.client.ui;
 
-import com.discordmini.client.network.ConnectionManager;
-import com.discordmini.client.network.ConnectionState;
-import com.discordmini.client.network.HeartbeatInfo;
 import com.discordmini.client.network.SocketClient;
 
 import javax.swing.*;
@@ -15,7 +12,6 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Bộ kiểm thử tự động toàn diện cho PROMPT 8 — AN-09: NETWORK STATUS MONITOR.

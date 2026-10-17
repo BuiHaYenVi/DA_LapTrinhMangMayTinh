@@ -6,8 +6,6 @@ import com.discordmini.client.service.AuthResult;
 import com.discordmini.client.service.AuthService;
 import com.discordmini.client.service.RoomEventListener;
 import com.discordmini.client.service.RoomService;
-
-import javax.swing.*;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;

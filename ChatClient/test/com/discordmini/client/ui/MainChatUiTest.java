@@ -15,9 +15,6 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Bộ kiểm thử tự động cho PROMPT 7 — AN-08: MAIN CHAT UI.
@@ -115,7 +112,6 @@ public final class MainChatUiTest {
     private static void testMessageStatusLifecyclePendingAndSent() throws Exception {
         try (ServerSocket fakeServer = new ServerSocket(0)) {
             int port = fakeServer.getLocalPort();
-            BlockingQueue<String> ackQueue = new ArrayBlockingQueue<>(1);
 
             Thread serverThread = new Thread(() -> {
                 try (Socket peer = fakeServer.accept();

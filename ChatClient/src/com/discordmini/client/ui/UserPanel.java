@@ -1,7 +1,6 @@
 package com.discordmini.client.ui;
 
 import com.discordmini.client.model.Room;
-import com.discordmini.client.network.ConnectionManager;
 import com.discordmini.client.network.ConnectionState;
 import com.discordmini.client.network.SocketClient;
 import com.discordmini.client.service.ChatEventListener;
@@ -200,5 +199,9 @@ public class UserPanel extends JPanel implements RoomEventListener {
 
     public DefaultListModel<MemberItem> getMemberModel() {
         return memberModel;
+    }
+
+    public RoomService getRoomService() {
+        return roomService;
     }
 }
