@@ -49,7 +49,7 @@ class ChatBridgeService {
 
       es.onopen = () => {
         this.isConnectingStream = false;
-        this.emit('STATUS', { connected: true });
+        this.emit('STREAM_STATUS', { streamConnected: true });
       };
 
       es.onmessage = (e) => {
@@ -63,13 +63,21 @@ class ChatBridgeService {
 
       es.onerror = () => {
         this.isConnectingStream = false;
-        this.emit('STATUS', { connected: false });
+        this.emit('STREAM_STATUS', { 
+          streamConnected: false, 
+          reason: 'Mất kết nối luồng sự kiện tới dịch vụ Web cầu nối. Trình duyệt đang tự động kết nối lại...' 
+        });
         // Trình duyệt tự động thử kết nối lại (auto-reconnect), không gọi tạo new EventSource lặp
       };
     } catch (e) {
       this.isConnectingStream = false;
+      this.emit('STREAM_STATUS', { streamConnected: false, reason: 'Không thể mở kết nối luồng sự kiện.' });
       console.warn('[SSE] Trình duyệt không thể mở kết nối EventSource:', e);
     }
+  }
+
+  public isStreamActive(): boolean {
+    return this.eventSource !== null && this.eventSource.readyState === EventSource.OPEN;
   }
 
   /**
@@ -100,7 +108,13 @@ class ChatBridgeService {
     });
   }
 
-  private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  /**
+   * Thực hiện gửi HTTP request với cookie xác thực.
+   * Tham số requiresAuth (mặc định = true): Chỉ khi API được bảo vệ nhận mã HTTP 401
+   * thì mới phát sự kiện UNAUTHORIZED để điều hướng về màn hình đăng nhập.
+   * Các API công khai (login, register, status, session check) khi trả về 401 sẽ không làm mất phiên.
+   */
+  private async fetchWithAuth(url: string, options: RequestInit = {}, requiresAuth = true): Promise<Response> {
     const defaultHeaders = {
       'Content-Type': 'application/json',
       ...(options.headers || {})
@@ -112,20 +126,20 @@ class ChatBridgeService {
       credentials: 'include' // Bắt buộc gửi và lưu cookie HttpOnly DISCORD_SESSION
     });
 
-    if (response.status === 401) {
+    if (requiresAuth && response.status === 401) {
       this.stopEventStream();
-      this.emit('UNAUTHORIZED', { message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' });
+      this.emit('UNAUTHORIZED', { message: 'Phiên đăng nhập đã hết hạn hoặc mất kết nối tới ChatServer. Vui lòng đăng nhập lại.' });
     }
 
     return response;
   }
 
   /**
-   * Kiểm tra trạng thái máy chủ ChatServer TCP.
+   * Kiểm tra trạng thái máy chủ ChatServer TCP (Public API).
    */
   public async getStatus(): Promise<ServerStatusResponse> {
     try {
-      const res = await this.fetchWithAuth(`${this.baseUrl}/status`, { method: 'GET' });
+      const res = await this.fetchWithAuth(`${this.baseUrl}/status`, { method: 'GET' }, false);
       return await res.json();
     } catch {
       return { serverOnline: false, host: '127.0.0.1', port: 5000 };
@@ -133,11 +147,11 @@ class ChatBridgeService {
   }
 
   /**
-   * Kiểm tra phiên đăng nhập hiện tại từ cookie.
+   * Kiểm tra phiên đăng nhập hiện tại từ cookie (Public API - kiểm tra phiên nhưng không kích hoạt UNAUTHORIZED).
    */
   public async getSession(): Promise<SessionResponse> {
     try {
-      const res = await this.fetchWithAuth(`${this.baseUrl}/session`, { method: 'GET' });
+      const res = await this.fetchWithAuth(`${this.baseUrl}/session`, { method: 'GET' }, false);
       if (!res.ok) return { authenticated: false };
       return await res.json();
     } catch {
@@ -146,14 +160,14 @@ class ChatBridgeService {
   }
 
   /**
-   * Đăng nhập tài khoản.
+   * Đăng nhập tài khoản (Public API).
    */
   public async login(username: string, pass: string): Promise<AuthResponse> {
     try {
       const res = await this.fetchWithAuth(`${this.baseUrl}/login`, {
         method: 'POST',
         body: JSON.stringify({ username, password: pass })
-      });
+      }, false);
       const data = await res.json();
       return {
         success: data.success === true,
@@ -169,14 +183,14 @@ class ChatBridgeService {
   }
 
   /**
-   * Đăng ký tài khoản mới.
+   * Đăng ký tài khoản mới (Public API).
    */
   public async register(username: string, pass: string, displayName: string): Promise<AuthResponse> {
     try {
       const res = await this.fetchWithAuth(`${this.baseUrl}/register`, {
         method: 'POST',
         body: JSON.stringify({ username, password: pass, displayName })
-      });
+      }, false);
       const data = await res.json();
       return {
         success: data.success === true,
@@ -191,15 +205,28 @@ class ChatBridgeService {
   }
 
   /**
-   * Đăng xuất tài khoản và xóa phiên.
+   * Đăng xuất tài khoản và xóa phiên an toàn.
+   * CHỈ đóng luồng SSE khi máy chủ xác nhận hủy phiên thành công.
+   * Nếu có lỗi mạng hoặc thất bại, giữ nguyên phiên/SSE để tiếp tục nhận tin hoặc kiểm tra lại.
    */
-  public async logout(): Promise<boolean> {
+  public async logout(): Promise<{ success: boolean; networkError?: boolean; message?: string }> {
     try {
-      this.stopEventStream();
       const res = await this.fetchWithAuth(`${this.baseUrl}/logout`, { method: 'POST' });
-      return res.ok;
-    } catch {
-      return false;
+      if (res.ok) {
+        this.stopEventStream();
+        return { success: true };
+      }
+      return { 
+        success: false, 
+        networkError: false, 
+        message: 'Máy chủ phản hồi không thành công khi đăng xuất (HTTP ' + res.status + ').' 
+      };
+    } catch (e: any) {
+      return { 
+        success: false, 
+        networkError: true, 
+        message: 'Lỗi kết nối mạng: ' + (e?.message || 'Không thể liên lạc với máy chủ.') 
+      };
     }
   }
 

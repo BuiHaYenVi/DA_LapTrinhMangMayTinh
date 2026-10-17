@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import type { Room, MessageItem, User } from '../types/chat';
 import { 
-  Hash, Search, UserPlus, LogOut, Plus, Smile, Send, Edit3, Trash2,
-  Bell, Pin, Users, Gift, HelpCircle, ArrowRight
+  Hash, Search, UserPlus, LogOut, Send, Edit3, Trash2,
+  Users, ArrowRight, Crown, Shield
 } from 'lucide-react';
 import { Logo } from './Logo';
 
@@ -86,7 +86,6 @@ function formatDateLabel(dateKey: string): string {
 
 // 4. Trích xuất tên người dùng từ tin nhắn hệ thống tham gia
 function extractJoinedUser(content: string): string {
-  // Định dạng có thể là: "🔔 anbao1123 đã tham gia phòng chat." hoặc "Bảo Khang vừa mới xuất hiện!"
   const m1 = content.match(/🔔\s*(.+?)\s*đã tham gia/i);
   if (m1) return m1[1].trim();
   const m2 = content.match(/^(.+?)\s*vừa mới xuất hiện/i);
@@ -158,15 +157,11 @@ export const ChatCenter: React.FC<Props> = ({
   };
 
   const handleLeaveClick = () => {
-    if (window.confirm(`Bạn có chắc chắn muốn rời khỏi phòng "${currentRoom?.name || 'này'}" không?`)) {
-      onLeave();
-    }
+    onLeave();
   };
 
   const handleKickClick = () => {
-    if (window.confirm(`Xác nhận: Bạn có muốn mở hộp thoại quản lý kick thành viên khỏi phòng?`)) {
-      onKick();
-    }
+    onKick();
   };
 
   const handleSaveEdit = (msgId: number) => {
@@ -178,10 +173,8 @@ export const ChatCenter: React.FC<Props> = ({
   };
 
   const handleDelete = (msgId: number) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa tin nhắn này không?')) {
-      if (onDeleteMessage) {
-        onDeleteMessage(msgId);
-      }
+    if (onDeleteMessage) {
+      onDeleteMessage(msgId);
     }
   };
 
@@ -202,11 +195,6 @@ export const ChatCenter: React.FC<Props> = ({
     }
   };
 
-  // Nút vẫy tay chào người mới
-  const handleWave = (username: string) => {
-    onSendMessage(`👋 Chào mừng @${username} vừa gia nhập kênh!`);
-  };
-
   return (
     <div className="chat-center">
       {/* 1. Header Bar chuẩn Discord */}
@@ -222,33 +210,6 @@ export const ChatCenter: React.FC<Props> = ({
         </div>
 
         <div className="chat-header-right">
-          {/* Các nút công cụ chuẩn Discord như trong ảnh */}
-          <button 
-            className="header-icon-btn" 
-            title="Thông báo"
-            onClick={() => alert('Đã bật thông báo cho kênh này.')}
-          >
-            <Bell size={18} />
-          </button>
-
-          <button 
-            className="header-icon-btn" 
-            title="Tin nhắn đã ghim"
-            onClick={() => alert('Chưa có tin nhắn nào được ghim trong kênh này.')}
-          >
-            <Pin size={18} />
-          </button>
-
-          {onToggleMemberList && (
-            <button 
-              className={`header-icon-btn ${isMemberListOpen ? 'active' : ''}`} 
-              title={isMemberListOpen ? 'Ẩn danh sách thành viên' : 'Hiện danh sách thành viên'}
-              onClick={onToggleMemberList}
-            >
-              <Users size={18} />
-            </button>
-          )}
-
           {/* Hộp tìm kiếm bo cong tròn chuẩn Discord */}
           <div className="discord-search-box">
             <input 
@@ -268,13 +229,15 @@ export const ChatCenter: React.FC<Props> = ({
             )}
           </div>
 
-          <button 
-            className="header-icon-btn" 
-            title="Trợ giúp"
-            onClick={() => alert('LTMang Discord Mini - Phiên bản tối ưu giao diện web 2026.')}
-          >
-            <HelpCircle size={18} />
-          </button>
+          {onToggleMemberList && (
+            <button 
+              className={`header-icon-btn ${isMemberListOpen ? 'active' : ''}`} 
+              title={isMemberListOpen ? 'Ẩn danh sách thành viên' : 'Hiện danh sách thành viên'}
+              onClick={onToggleMemberList}
+            >
+              <Users size={18} />
+            </button>
+          )}
 
           {currentRoom && (
             <>
@@ -311,13 +274,13 @@ export const ChatCenter: React.FC<Props> = ({
             {/* HERO WELCOME BANNER ở đầu kênh (Chuẩn ảnh Discord thật) */}
             <div className="channel-hero-welcome">
               <div className="hero-hash-circle">
-                <Hash size={44} />
+                <Hash size={40} />
               </div>
               <h1 className="hero-title">
-                Chào mừng đến với {currentRoom.name}
+                Chào mừng đến với #{currentRoom.name}!
               </h1>
               <p className="hero-subtitle">
-                Đây là khởi đầu của máy chủ này.
+                Đây là sự khởi đầu của kênh #{currentRoom.name}. Hãy gửi tin nhắn đầu tiên!
               </p>
             </div>
 
@@ -329,7 +292,7 @@ export const ChatCenter: React.FC<Props> = ({
               const isGrouped = !isNewDay && shouldGroupWithPrevious(msg, prevMsg, curDateKey, prevDateKey);
               const timeInfo = formatMessageTime(msg.timestamp);
 
-              // 6. Tin nhắn hệ thống dạng Discord thật (Mũi tên xanh lá + Nút Vẫy tay để chào!)
+              // Tin nhắn hệ thống dạng Discord thật
               if (msg.senderId === -1 || msg.content.startsWith('🔔') || msg.senderName === 'Hệ thống') {
                 const joinedName = extractJoinedUser(msg.content);
                 const displayContent = joinedName 
@@ -352,26 +315,12 @@ export const ChatCenter: React.FC<Props> = ({
                           <span className="system-time">{timeInfo.short}</span>
                         </span>
                       </div>
-
-                      {/* Nút Vẫy tay để chào! hệt như ảnh thật */}
-                      {joinedName && (
-                        <div className="wave-container">
-                          <button 
-                            className="wave-hand-btn"
-                            title={`Vẫy tay chào mừng ${joinedName}`}
-                            onClick={() => handleWave(joinedName)}
-                          >
-                            <span className="wave-emoji">👋</span>
-                            <span>Vẫy tay để chào!</span>
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </React.Fragment>
                 );
               }
 
-              // 1. Lấy thông tin vai trò của thành viên gửi tin
+              // Thông tin vai trò của thành viên gửi tin
               const senderMember = members.find(m => m.id === msg.senderId);
               const senderRole = senderMember?.role;
               const canEdit = msg.senderId === currentUserId;
@@ -440,26 +389,29 @@ export const ChatCenter: React.FC<Props> = ({
                             {msg.senderName} {msg.senderId === currentUserId ? '(Bạn)' : ''}
                           </span>
 
-                          {/* 1. Huy hiệu vai trò */}
+                          {/* Huy hiệu vai trò */}
                           {senderRole === 'OWNER' && (
-                            <span className="role-badge owner" title="Chủ phòng">👑 Chủ phòng</span>
+                            <span className="role-badge owner" title="Chủ phòng">
+                              <Crown size={12} /> Chủ phòng
+                            </span>
                           )}
                           {senderRole === 'ADMIN' && (
-                            <span className="role-badge admin" title="Quản trị viên">🛡️ Admin</span>
+                            <span className="role-badge admin" title="Quản trị viên">
+                              <Shield size={12} /> Admin
+                            </span>
                           )}
 
                           <span className="message-time" title={timeInfo.full}>
                             {timeInfo.short}
                           </span>
 
-                          {/* 4. Huy hiệu đã chỉnh sửa */}
                           {msg.isEdited && (
                             <span className="edited-indicator">(đã chỉnh sửa)</span>
                           )}
                         </div>
                       )}
 
-                      {/* 4. Chế độ chỉnh sửa inline */}
+                      {/* Chế độ chỉnh sửa inline */}
                       {editingId === msg.id ? (
                         <div className="inline-edit-box">
                           <input
@@ -501,47 +453,28 @@ export const ChatCenter: React.FC<Props> = ({
                 </React.Fragment>
               );
             })}
-
-            {messages.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '40px' }}>
-                <p style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-header)' }}>
-                  Chào mừng đến với #{currentRoom.name}!
-                </p>
-                <p style={{ fontSize: '13px', marginTop: '6px' }}>
-                  Đây là sự khởi đầu của kênh trò chuyện. Hãy gửi tin nhắn đầu tiên!
-                </p>
-              </div>
-            )}
           </>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', textAlign: 'center', padding: '0 20px' }}>
-            <div style={{ marginBottom: '18px' }}>
-              <Logo size={76} />
+          /* Màn hình chào khi chưa chọn phòng chat (Empty state chuẩn không dùng text kỹ thuật) */
+          <div className="chat-empty-state">
+            <div className="empty-state-logo-wrap">
+              <Logo size={64} />
             </div>
-            <h3 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-header)', margin: '0 0 8px' }}>
-              LTMANG CHAT SYSTEM
-            </h3>
-            <p style={{ fontSize: '14px', color: 'var(--text-normal)', maxWidth: '440px', lineHeight: '1.6', margin: '0 0 16px' }}>
-              Nền tảng giao tiếp nhóm thời gian thực qua giao thức mạng TCP Socket.
+            <h2 className="empty-state-title">Chào mừng bạn đến với LTMang Chat</h2>
+            <p className="empty-state-desc">
+              Hãy chọn một phòng chat ở danh sách bên trái để bắt đầu trò chuyện, hoặc nhấn nút bên dưới để tạo phòng mới kết nối cùng mọi người.
             </p>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              👈 Hãy chọn một phòng ở danh sách bên trái hoặc nhấn nút [+] để tạo phòng mới.
-            </p>
+            <button className="empty-state-action" onClick={onInvite}>
+              <UserPlus size={16} />
+              <span>Bắt đầu trò chuyện</span>
+            </button>
           </div>
         )}
       </div>
 
-      {/* 3. Bottom Input Box (Chuẩn Discord trong ảnh: Nút +, Nhắn #kênh, Gift, GIF, Sticker, Emoji) */}
+      {/* 3. Bottom Input Box (Rộng rãi, ổn định, không icon rác) */}
       <div className="chat-input-container">
         <div className="chat-input-pill">
-          <button 
-            className="chat-attach-btn" 
-            title="Đính kèm file hoặc hình ảnh"
-            onClick={() => alert('Chọn tệp đính kèm (hỗ trợ ảnh PNG/JPG, tệp tài liệu...)')}
-          >
-            <Plus size={20} />
-          </button>
-
           <input
             placeholder={currentRoom ? `Nhắn #${currentRoom.name}` : 'Hãy chọn phòng để gõ tin nhắn...'}
             disabled={!currentRoom}
@@ -550,51 +483,17 @@ export const ChatCenter: React.FC<Props> = ({
             onKeyDown={handleKeyDown}
           />
 
-          <div className="chat-input-tools">
-            <button 
-              className="chat-tool-btn gift" 
-              title="Tặng Nitro / Boost cho phòng"
-              onClick={() => alert('🎁 Tặng Nitro Boost: Tăng cường chất lượng âm thanh và emoji cho phòng!')}
-            >
-              <Gift size={20} />
-            </button>
-
-            <button 
-              className="chat-tool-btn gif-badge" 
-              title="Chọn ảnh GIF"
-              onClick={() => setInputText(prev => prev + ' [GIF: Tenor] ')}
-            >
-              GIF
-            </button>
-
-            <button 
-              className="chat-tool-btn" 
-              title="Hình dán / Sticker"
-              onClick={() => setInputText(prev => prev + ' 🏷️ ')}
-            >
-              <span style={{ fontSize: 18, lineHeight: 1 }}>📑</span>
-            </button>
-
-            <button 
-              className="chat-tool-btn" 
-              title="Chọn biểu cảm Emoji"
-              onClick={() => setInputText(prev => prev + ' 😊 ')}
-            >
-              <Smile size={20} />
-            </button>
-
-            {inputText.trim() && (
-              <button 
-                className="chat-tool-btn send-btn" 
-                title="Gửi tin nhắn"
-                onClick={handleSend}
-              >
-                <Send size={18} />
-              </button>
-            )}
-          </div>
+          <button 
+            className="chat-send-btn" 
+            title="Gửi tin nhắn (Enter)"
+            onClick={handleSend}
+            disabled={!inputText.trim() || !currentRoom}
+          >
+            <Send size={18} />
+          </button>
         </div>
       </div>
     </div>
   );
 };
+

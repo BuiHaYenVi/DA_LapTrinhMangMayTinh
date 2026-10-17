@@ -9,6 +9,7 @@ import { LoginView } from './components/LoginView';
 import { RegisterView } from './components/RegisterView';
 import { Logo } from './components/Logo';
 import { CreateServerModal } from './components/CreateServerModal';
+import { ConfirmModal } from './components/ConfirmModal';
 import './styles/discord.css';
 
 type AuthStatus = 'checking' | 'login' | 'register' | 'authenticated';
@@ -31,10 +32,28 @@ export const App: React.FC = () => {
   const [members, setMembers] = useState<User[]>([]);
   const [_friends, setFriends] = useState<Friend[]>([]);
   const [_pendingRequests, setPendingRequests] = useState<PendingFriendRequest[]>([]);
-  const [_isConnected, setIsConnected] = useState<boolean>(true);
+  const [isTcpConnected, setIsTcpConnected] = useState<boolean>(true);
+  const [isStreamConnected, setIsStreamConnected] = useState<boolean>(true);
   const [unreadMap, setUnreadMap] = useState<Record<number, number>>({});
   const [isCreateServerOpen, setIsCreateServerOpen] = useState<boolean>(false);
   const [isMemberListOpen, setIsMemberListOpen] = useState<boolean>(true);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState<boolean>(false);
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
+  const [logoutError, setLogoutError] = useState<string>('');
+  const [actionModal, setActionModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    isDanger?: boolean;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
 
   // 1. Kiểm tra phiên đăng nhập từ cookie khi nạp ứng dụng
   useEffect(() => {
@@ -86,7 +105,10 @@ export const App: React.FC = () => {
     const unsubscribe = chatBridge.subscribe((event, payload) => {
       switch (event) {
         case 'STATUS':
-          setIsConnected(payload.connected);
+          setIsTcpConnected(payload.connected === true);
+          break;
+        case 'STREAM_STATUS':
+          setIsStreamConnected(payload.streamConnected === true);
           break;
         case 'ROOMS':
           setRooms(payload.rooms || []);
@@ -94,6 +116,11 @@ export const App: React.FC = () => {
         case 'ROOM_JOINED':
           setCurrentRoom(payload.room);
           setMessages([]);
+          break;
+        case 'ROOM_LEFT':
+          setCurrentRoom(null);
+          setMessages([]);
+          setMembers([]);
           break;
         case 'NEW_MESSAGE':
           if (payload.roomId && currentRoomRef.current && payload.roomId !== currentRoomRef.current.id) {
@@ -209,6 +236,8 @@ export const App: React.FC = () => {
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
     setPrefilledSuccessMsg('');
+    setIsTcpConnected(true);
+    setIsStreamConnected(true);
     setAuthStatus('authenticated');
   };
 
@@ -218,18 +247,54 @@ export const App: React.FC = () => {
     setAuthStatus('login');
   };
 
-  const handleLogout = async () => {
-    if (confirm('Bạn có chắc chắn muốn đăng xuất khỏi Discord Mini?')) {
-      await chatBridge.logout();
-      setCurrentUser(null);
-      setRooms([]);
-      setCurrentRoom(null);
-      setMessages([]);
-      setMembers([]);
-      setFriends([]);
-      setPendingRequests([]);
-      setPrefilledSuccessMsg('Bạn đã đăng xuất an toàn.');
-      setAuthStatus('login');
+  const handleLogout = () => {
+    setLogoutError('');
+    setIsLogoutModalOpen(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setIsLoggingOut(true);
+    setLogoutError('');
+    try {
+      const result = await chatBridge.logout();
+      if (result.success) {
+        setIsLogoutModalOpen(false);
+        setCurrentUser(null);
+        setRooms([]);
+        setCurrentRoom(null);
+        setMessages([]);
+        setMembers([]);
+        setFriends([]);
+        setPendingRequests([]);
+        setPrefilledSuccessMsg('Bạn đã đăng xuất an toàn.');
+        setAuthStatus('login');
+      } else if (result.networkError) {
+        // Lỗi mạng: Không tự tiện kết luận là đã đăng xuất hay vẫn đăng nhập
+        // Gọi getSession() để xác thực lại trạng thái thực tế
+        try {
+          const session = await chatBridge.getSession();
+          if (!session.authenticated) {
+            // Thực tế máy chủ đã hủy phiên trước khi mạng gặp sự cố
+            setIsLogoutModalOpen(false);
+            setCurrentUser(null);
+            setPrefilledSuccessMsg('Phiên đăng nhập đã kết thúc.');
+            setAuthStatus('login');
+          } else {
+            // Phiên vẫn còn hiệu lực trên máy chủ -> Giữ nguyên trạng thái và báo lỗi
+            setLogoutError('Mất kết nối mạng khi gửi yêu cầu đăng xuất. Phiên làm việc vẫn còn hiệu lực. Vui lòng thử lại.');
+            // Đảm bảo SSE vẫn hoạt động để tiếp tục nhận tin
+            chatBridge.startEventStream();
+          }
+        } catch {
+          setLogoutError('Mất kết nối mạng. Chưa thể xác nhận trạng thái đăng xuất. Vui lòng kiểm tra lại kết nối.');
+        }
+      } else {
+        setLogoutError(result.message || 'Đăng xuất thất bại do lỗi kết nối đến máy chủ. Vui lòng thử lại.');
+      }
+    } catch (e: any) {
+      setLogoutError('Không thể hoàn tất đăng xuất: ' + (e?.message || 'Lỗi không xác định'));
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -275,7 +340,20 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteRoom = (roomId: number) => {
-    chatBridge.deleteRoom(roomId);
+    const room = rooms.find(r => r.id === roomId);
+    const roomName = room ? room.name : `phòng #${roomId}`;
+    setActionModal({
+      isOpen: true,
+      title: 'Xóa Phòng Chat',
+      message: `Bạn có chắc chắn muốn xóa vĩnh viễn phòng "${roomName}" không? Toàn bộ lịch sử tin nhắn sẽ bị xóa vĩnh viễn.`,
+      confirmText: 'Xóa Phòng',
+      cancelText: 'Hủy bỏ',
+      isDanger: true,
+      onConfirm: () => {
+        setActionModal(prev => ({ ...prev, isOpen: false }));
+        chatBridge.deleteRoom(roomId);
+      }
+    });
   };
 
   const handleSetRoomDesc = (roomId: number, description: string) => {
@@ -291,7 +369,18 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteMessage = (messageId: number) => {
-    chatBridge.deleteMessage(messageId);
+    setActionModal({
+      isOpen: true,
+      title: 'Xóa Tin Nhắn',
+      message: 'Bạn có chắc chắn muốn xóa tin nhắn này không? Hành động này không thể hoàn tác.',
+      confirmText: 'Xóa',
+      cancelText: 'Hủy bỏ',
+      isDanger: true,
+      onConfirm: () => {
+        setActionModal(prev => ({ ...prev, isOpen: false }));
+        chatBridge.deleteMessage(messageId);
+      }
+    });
   };
 
   const handleLoadMore = (beforeId: number) => {
@@ -301,15 +390,40 @@ export const App: React.FC = () => {
   };
 
   const handleSetMemberRole = (userId: number, role: string) => {
-    if (currentRoom) {
-      chatBridge.setMemberRole(currentRoom.id, userId, role);
-    }
+    if (!currentRoom) return;
+    const target = members.find(m => m.id === userId);
+    const targetName = target ? target.displayName : `User #${userId}`;
+    const roleText = role === 'ADMIN' ? 'bổ nhiệm làm Quản trị viên (ADMIN)' : 'hạ xuống Thành viên (MEMBER)';
+    setActionModal({
+      isOpen: true,
+      title: 'Thay Đổi Vai Trò',
+      message: `Bạn có chắc chắn muốn ${roleText} cho "${targetName}" không?`,
+      confirmText: 'Xác Nhận',
+      cancelText: 'Hủy bỏ',
+      isDanger: false,
+      onConfirm: () => {
+        setActionModal(prev => ({ ...prev, isOpen: false }));
+        chatBridge.setMemberRole(currentRoom.id, userId, role);
+      }
+    });
   };
 
   const handleTransferOwner = (userId: number) => {
-    if (currentRoom) {
-      chatBridge.transferOwner(currentRoom.id, userId);
-    }
+    if (!currentRoom) return;
+    const target = members.find(m => m.id === userId);
+    const targetName = target ? target.displayName : `User #${userId}`;
+    setActionModal({
+      isOpen: true,
+      title: 'Chuyển Quyền Trưởng Nhóm',
+      message: `CẢNH BÁO: Bạn có chắc chắn muốn chuyển giao toàn quyền Chủ phòng cho "${targetName}"? Bạn sẽ trở thành Quản trị viên.`,
+      confirmText: 'Chuyển Quyền',
+      cancelText: 'Hủy bỏ',
+      isDanger: true,
+      onConfirm: () => {
+        setActionModal(prev => ({ ...prev, isOpen: false }));
+        chatBridge.transferOwner(currentRoom.id, userId);
+      }
+    });
   };
 
   const handleInvite = () => {
@@ -325,26 +439,45 @@ export const App: React.FC = () => {
     const input = prompt('Nhập ID người dùng muốn kick khỏi phòng:');
     if (input && !isNaN(Number(input))) {
       const targetId = Number(input);
-      const targetMember = members.find(m => m.id === targetId);
-      const targetName = targetMember ? targetMember.displayName : `ID ${targetId}`;
-      if (window.confirm(`Bạn có chắc chắn muốn kick "${targetName}" khỏi phòng "${currentRoom.name}" không?`)) {
-        chatBridge.kickMember(currentRoom.id, targetId);
-      }
+      handleKickMember(targetId);
     }
   };
 
   const handleKickMember = (userId: number) => {
     if (!currentRoom) return;
-    chatBridge.kickMember(currentRoom.id, userId);
+    const target = members.find(m => m.id === userId);
+    const targetName = target ? target.displayName : `User #${userId}`;
+    setActionModal({
+      isOpen: true,
+      title: 'Đuổi Thành Viên',
+      message: `Bạn có chắc chắn muốn kick "${targetName}" khỏi phòng "${currentRoom.name}" không?`,
+      confirmText: 'Kick',
+      cancelText: 'Hủy bỏ',
+      isDanger: true,
+      onConfirm: () => {
+        setActionModal(prev => ({ ...prev, isOpen: false }));
+        chatBridge.kickMember(currentRoom.id, userId);
+      }
+    });
   };
 
   const handleLeave = () => {
-    if (window.confirm(`Bạn có chắc chắn muốn rời khỏi phòng "${currentRoom?.name || ''}" không?`)) {
-      chatBridge.leaveRoom();
-      setCurrentRoom(null);
-      setMessages([]);
-      setMembers([]);
-    }
+    if (!currentRoom) return;
+    setActionModal({
+      isOpen: true,
+      title: 'Rời Khỏi Phòng',
+      message: `Bạn có chắc chắn muốn rời khỏi phòng "${currentRoom.name}" không?`,
+      confirmText: 'Rời Phòng',
+      cancelText: 'Hủy bỏ',
+      isDanger: true,
+      onConfirm: () => {
+        setActionModal(prev => ({ ...prev, isOpen: false }));
+        chatBridge.leaveRoom();
+        setCurrentRoom(null);
+        setMessages([]);
+        setMembers([]);
+      }
+    });
   };
 
   const handleDirectMessage = (userId: number, name: string) => {
@@ -397,7 +530,71 @@ export const App: React.FC = () => {
 
   // Màn hình 4: Giao diện Chat chính thức (Đã xác thực)
   return (
-    <div className="app-container">
+    <div className="app-container" style={{ position: 'relative' }}>
+      {/* 1. Mất kết nối TCP tới ChatServer (cổng 5000) */}
+      {!isTcpConnected && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: '#da373c',
+          color: '#ffffff',
+          padding: '6px 16px',
+          textAlign: 'center',
+          fontSize: '13px',
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          zIndex: 9999,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+        }}>
+          <span>⚠️ Mất kết nối TCP tới ChatServer (cổng 5000). Phiên làm việc đã bị gián đoạn.</span>
+          <button
+            type="button"
+            onClick={() => handleSessionExpired()}
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#da373c',
+              border: 'none',
+              borderRadius: '3px',
+              padding: '2px 8px',
+              fontWeight: 700,
+              fontSize: '12px',
+              cursor: 'pointer'
+            }}
+          >
+            Đăng nhập lại
+          </button>
+        </div>
+      )}
+
+      {/* 2. Mất kết nối luồng sự kiện SSE giữa Trình duyệt và Web Bridge (localhost:8080) */}
+      {isTcpConnected && !isStreamConnected && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: '#f0b232',
+          color: '#1e1f22',
+          padding: '6px 16px',
+          textAlign: 'center',
+          fontSize: '13px',
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          zIndex: 9999,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+        }}>
+          <span>⚠️ Mất kết nối luồng sự kiện tới dịch vụ Web cầu nối. Trình duyệt đang tự động kết nối lại...</span>
+        </div>
+      )}
+
       {/* CỘT 1: Workspace / Guild Strip */}
       <WorkspaceSidebar
         onDirectMessage={() => alert('Chức năng tin nhắn trực tiếp đang ở chế độ xem nhanh.')}
@@ -460,6 +657,35 @@ export const App: React.FC = () => {
         onCreateRoom={handleModalCreateRoom}
         onJoinRoom={handleModalJoinRoom}
         currentUserName={currentUser?.displayName || currentUser?.username}
+      />
+
+      {/* Modal Xác nhận Thao tác chung (Rời phòng, Xóa tin nhắn, Xóa phòng, Kick, Đổi quyền) */}
+      <ConfirmModal
+        isOpen={actionModal.isOpen}
+        title={actionModal.title}
+        message={actionModal.message}
+        confirmText={actionModal.confirmText}
+        cancelText={actionModal.cancelText}
+        isDanger={actionModal.isDanger}
+        onConfirm={actionModal.onConfirm}
+        onCancel={() => setActionModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Modal Xác nhận Đăng xuất phong cách Discord */}
+      <ConfirmModal
+        isOpen={isLogoutModalOpen}
+        title="Đăng Xuất"
+        message="Bạn có chắc chắn muốn đăng xuất khỏi Discord Mini không?"
+        confirmText="Đăng Xuất"
+        cancelText="Hủy bỏ"
+        isDanger={true}
+        isLoading={isLoggingOut}
+        errorMessage={logoutError}
+        onConfirm={handleConfirmLogout}
+        onCancel={() => {
+          setIsLogoutModalOpen(false);
+          setLogoutError('');
+        }}
       />
     </div>
   );

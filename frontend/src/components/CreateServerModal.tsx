@@ -24,7 +24,7 @@ const TEMPLATES: TemplateOption[] = [
     id: 'gaming',
     name: 'Gaming',
     icon: '🎮',
-    defaultName: 'Máy Chủ Gaming',
+    defaultName: 'Gaming',
     defaultDesc: 'Nơi thảo luận, chia sẻ mẹo và lập đội leo rank cùng bạn bè.'
   },
   {
@@ -36,21 +36,21 @@ const TEMPLATES: TemplateOption[] = [
   },
   {
     id: 'study',
-    name: 'Nhóm Học Tập',
+    name: 'Học Tập',
     icon: '📚',
-    defaultName: 'Nhóm Học Tập & Ôn Thi',
+    defaultName: 'Học Tập',
     defaultDesc: 'Không gian yên tĩnh để cùng nhau học tập, làm bài tập và chia sẻ tài liệu.'
   },
   {
-    id: 'school',
-    name: 'Câu Lạc Bộ Trường Học',
-    icon: '🖥️',
-    defaultName: 'CLB Công Nghệ & Lập Trình',
-    defaultDesc: 'Kênh trao đổi dự án, hoạt động câu lạc bộ và các cuộc thi.'
+    id: 'general',
+    name: 'Thảo Luận Chung',
+    icon: '💬',
+    defaultName: 'Thảo Luận',
+    defaultDesc: 'Kênh trò chuyện, trao đổi thông tin tự do cho mọi thành viên.'
   }
 ];
 
-const AVATAR_OPTIONS = ['🎮', '💖', '📚', '🖥️', '🎨', '🚀', '💬', '☕', '🌟', '🎵', '🍕', '⚡'];
+const AVATAR_OPTIONS = ['💬', '🎮', '📚', '🚀', '🌟', '🎵', '☕', '⚡'];
 
 export const CreateServerModal: React.FC<Props> = ({
   isOpen,
@@ -62,7 +62,7 @@ export const CreateServerModal: React.FC<Props> = ({
   const [step, setStep] = useState<ModalStep>('templates');
   const [serverName, setServerName] = useState('');
   const [serverDesc, setServerDesc] = useState('');
-  const [selectedAvatar, setSelectedAvatar] = useState('🎨');
+  const [selectedAvatar, setSelectedAvatar] = useState('💬');
   const [inviteInput, setInviteInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -70,16 +70,15 @@ export const CreateServerModal: React.FC<Props> = ({
 
   const handleSelectTemplate = (template?: TemplateOption) => {
     setErrorMsg('');
-    const userSuffix = currentUserName ? ` của ${currentUserName}` : '';
+    const userSuffix = currentUserName ? ` - ${currentUserName}` : '';
     if (template) {
       setServerName(`${template.defaultName}${userSuffix}`);
       setServerDesc(template.defaultDesc);
       setSelectedAvatar(template.icon);
     } else {
-      // Tạo mẫu riêng
-      setServerName(`Máy chủ${userSuffix}`);
+      setServerName(`Phòng chat mới`);
       setServerDesc('');
-      setSelectedAvatar('🎨');
+      setSelectedAvatar('💬');
     }
     setStep('customize');
   };
@@ -87,10 +86,10 @@ export const CreateServerModal: React.FC<Props> = ({
   const handleSubmitCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!serverName.trim()) {
-      setErrorMsg('Vui lòng nhập tên máy chủ.');
+      setErrorMsg('Vui lòng nhập tên phòng chat.');
       return;
     }
-    const finalName = `${selectedAvatar} ${serverName.trim()}`;
+    const finalName = serverName.trim();
     onCreateRoom(finalName, serverDesc.trim());
     handleClose();
   };

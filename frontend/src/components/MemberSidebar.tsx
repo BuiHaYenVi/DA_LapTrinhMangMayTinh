@@ -31,18 +31,11 @@ export const MemberSidebar: React.FC<Props> = ({
     setSelectedMember(null);
     if (type === 'role') {
       const nextRole = target.role === 'ADMIN' ? 'MEMBER' : 'ADMIN';
-      const text = nextRole === 'ADMIN' ? 'bổ nhiệm làm Quản trị viên (ADMIN)' : 'hạ xuống Thành viên (MEMBER)';
-      if (confirm(`Bạn có chắc muốn ${text} cho "${target.displayName}"?`)) {
-        if (onSetMemberRole) onSetMemberRole(target.id, nextRole);
-      }
+      if (onSetMemberRole) onSetMemberRole(target.id, nextRole);
     } else if (type === 'transfer') {
-      if (confirm(`CẢNH BÁO: Bạn có chắc chắn muốn chuyển giao toàn quyền Chủ phòng (OWNER) cho "${target.displayName}"? Bạn sẽ trở thành Quản trị viên.`)) {
-        if (onTransferOwner) onTransferOwner(target.id);
-      }
+      if (onTransferOwner) onTransferOwner(target.id);
     } else if (type === 'kick') {
-      if (confirm(`Bạn có chắc muốn xóa "${target.displayName}" khỏi phòng chat không?`)) {
-        if (onKickMember) onKickMember(target.id);
-      }
+      if (onKickMember) onKickMember(target.id);
     }
   };
 
@@ -58,14 +51,14 @@ export const MemberSidebar: React.FC<Props> = ({
         style={{ position: 'relative' }}
       >
         <div className="user-avatar-wrap">
-          <div className="user-avatar-circle" style={{ width: 32, height: 32, fontSize: 13 }}>
+          <div className="user-avatar-circle">
             {member.displayName ? member.displayName.charAt(0).toUpperCase() : 'U'}
           </div>
-          <div className={`status-dot ${isOnline ? '' : 'offline'}`} style={{ width: 8, height: 8 }} />
+          <div className={`status-dot ${isOnline ? '' : 'offline'}`} />
         </div>
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
-          <span className="name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span className="name">
             {member.displayName} {isMe ? '(Bạn)' : ''}
           </span>
           {member.role === 'OWNER' && (
@@ -75,7 +68,7 @@ export const MemberSidebar: React.FC<Props> = ({
           )}
           {member.role === 'ADMIN' && (
             <span title="Quản trị viên" style={{ display: 'inline-flex' }}>
-              <Shield size={14} color="#5865f2" />
+              <Shield size={14} color="var(--accent-blurple)" />
             </span>
           )}
         </div>
@@ -83,9 +76,8 @@ export const MemberSidebar: React.FC<Props> = ({
         {/* Nút tùy chọn của Chủ phòng */}
         {isOwner && !isMe && (
           <button
-            className="icon-btn"
+            className="channel-settings-btn"
             title="Tùy chọn quản lý thành viên"
-            style={{ padding: 2 }}
             onClick={(e) => {
               e.stopPropagation();
               setSelectedMember(selectedMember?.id === member.id ? null : member);
@@ -97,73 +89,23 @@ export const MemberSidebar: React.FC<Props> = ({
 
         {/* Dropdown quản lý thành viên */}
         {selectedMember?.id === member.id && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '100%',
-              right: 8,
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: 6,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-              zIndex: 100,
-              minWidth: 190,
-              padding: 4
-            }}
-            onClick={e => e.stopPropagation()}
-          >
+          <div className="member-action-menu" onClick={e => e.stopPropagation()}>
             <button
-              style={{
-                width: '100%',
-                background: 'none',
-                border: 'none',
-                padding: '8px 10px',
-                textAlign: 'left',
-                color: 'var(--text-normal)',
-                fontSize: 12,
-                cursor: 'pointer',
-                borderRadius: 4
-              }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+              className="member-action-btn"
               onClick={() => handleAction('role', member)}
             >
-              {member.role === 'ADMIN' ? 'Hạ xuống Thành viên' : 'Phong làm Quản trị viên (ADMIN)'}
+              {member.role === 'ADMIN' ? 'Hạ xuống Thành viên' : 'Phong làm Quản trị viên'}
             </button>
 
             <button
-              style={{
-                width: '100%',
-                background: 'none',
-                border: 'none',
-                padding: '8px 10px',
-                textAlign: 'left',
-                color: 'var(--accent-yellow)',
-                fontSize: 12,
-                cursor: 'pointer',
-                borderRadius: 4
-              }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+              className="member-action-btn warning"
               onClick={() => handleAction('transfer', member)}
             >
               Chuyển quyền Chủ phòng
             </button>
 
             <button
-              style={{
-                width: '100%',
-                background: 'none',
-                border: 'none',
-                padding: '8px 10px',
-                textAlign: 'left',
-                color: 'var(--accent-red)',
-                fontSize: 12,
-                cursor: 'pointer',
-                borderRadius: 4
-              }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+              className="member-action-btn danger"
               onClick={() => handleAction('kick', member)}
             >
               Xóa khỏi phòng (Kick)

@@ -270,6 +270,12 @@ public class UiBridgeServer {
                         broadcastSse("ROOM_JOINED", Map.of("room", Map.of("id", currentRoomId, "name", currentRoomName)));
                     } else if (p.length > 1 && "ROOM_CREATED".equals(p[1])) {
                         roomService.listRooms();
+                    } else if (p.length > 1 && "LEAVE_ROOM".equals(p[1])) {
+                        currentRoomId = null;
+                        currentRoomName = "";
+                        messageCache.clear();
+                        memberCache.clear();
+                        broadcastSse("ROOM_LEFT", Map.of());
                     } else if (p.length > 1 && "FRIEND_ACCEPT".equals(p[1])) {
                         friendService.getPendingRequests();
                         friendService.getFriendList();
@@ -1180,7 +1186,7 @@ public class UiBridgeServer {
                 int roomId = ((Number) body.get("roomId")).intValue();
                 String name = (String) body.get("name");
                 if (name != null && !name.isBlank()) {
-                    session.socketClient.sendCommand("RENAME_ROOM", String.valueOf(roomId), ProtocolHandler.encode(name.trim()));
+                    session.socketClient.sendCommand("RENAME_ROOM", String.valueOf(roomId), name.trim());
                 }
                 sendJson(exchange, 200, Map.of("success", true));
             }
@@ -1222,7 +1228,7 @@ public class UiBridgeServer {
                 Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
                 int roomId = ((Number) body.get("roomId")).intValue();
                 String desc = (String) body.get("description");
-                session.socketClient.sendCommand("SET_ROOM_DESC", String.valueOf(roomId), ProtocolHandler.encode(desc != null ? desc.trim() : ""));
+                session.socketClient.sendCommand("SET_ROOM_DESC", String.valueOf(roomId), desc != null ? desc.trim() : "");
                 sendJson(exchange, 200, Map.of("success", true));
             }
         }
@@ -1266,7 +1272,7 @@ public class UiBridgeServer {
                 int targetUserId = ((Number) body.get("targetUserId")).intValue();
                 String role = (String) body.get("role");
                 if (role != null) {
-                    session.socketClient.sendCommand("SET_MEMBER_ROLE", String.valueOf(roomId), String.valueOf(targetUserId), ProtocolHandler.encode(role.trim()));
+                    session.socketClient.sendCommand("SET_MEMBER_ROLE", String.valueOf(roomId), String.valueOf(targetUserId), role.trim());
                 }
                 sendJson(exchange, 200, Map.of("success", true));
             }
@@ -1289,7 +1295,7 @@ public class UiBridgeServer {
                 int messageId = ((Number) body.get("messageId")).intValue();
                 String content = (String) body.get("content");
                 if (content != null && !content.isBlank()) {
-                    session.socketClient.sendCommand("EDIT_MESSAGE", String.valueOf(messageId), ProtocolHandler.encode(content.trim()));
+                    session.socketClient.sendCommand("EDIT_MESSAGE", String.valueOf(messageId), content.trim());
                 }
                 sendJson(exchange, 200, Map.of("success", true));
             }

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { Room, User } from '../types/chat';
 import { 
   Hash, Plus, Settings, ChevronDown, ChevronUp, LogOut, Copy, Check, Trash2, 
-  UserPlus, Mic, MicOff, Headphones
+  UserPlus
 } from 'lucide-react';
 import { Logo } from './Logo';
 
@@ -44,10 +44,6 @@ export const RoomSidebar: React.FC<Props> = ({
   const [isServerMenuOpen, setIsServerMenuOpen] = useState(false);
   const serverMenuRef = useRef<HTMLDivElement>(null);
 
-  // Trạng thái Voice Controls (Mic & Tai nghe)
-  const [isMicMuted, setIsMicMuted] = useState(false);
-  const [isDeafened, setIsDeafened] = useState(false);
-
   // Đóng Server Menu khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -62,20 +58,6 @@ export const RoomSidebar: React.FC<Props> = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isServerMenuOpen]);
-
-  const toggleMic = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsMicMuted(prev => !prev);
-  };
-
-  const toggleDeafen = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsDeafened(prev => {
-      const next = !prev;
-      if (next) setIsMicMuted(true); // Deafen thì tự tắt Mic
-      return next;
-    });
-  };
 
   const openSettings = (room: Room, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -99,12 +81,10 @@ export const RoomSidebar: React.FC<Props> = ({
 
   const handleDelete = () => {
     if (!editingRoom) return;
-    if (confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn phòng "${editingRoom.name}" không? Toàn bộ tin nhắn sẽ bị xóa.`)) {
-      if (onDeleteRoom) {
-        onDeleteRoom(editingRoom.id);
-      }
-      setEditingRoom(null);
+    if (onDeleteRoom) {
+      onDeleteRoom(editingRoom.id);
     }
+    setEditingRoom(null);
   };
 
   const handleCopyInvite = () => {
@@ -120,7 +100,7 @@ export const RoomSidebar: React.FC<Props> = ({
 
   return (
     <div className="room-sidebar">
-      {/* 1. Server Header Dropdown (Chuẩn Discord thật) */}
+      {/* 1. Server Header Dropdown */}
       <div 
         ref={serverMenuRef}
         className={`server-header ${isServerMenuOpen ? 'open' : ''}`} 
@@ -128,8 +108,8 @@ export const RoomSidebar: React.FC<Props> = ({
         title="Menu tùy chọn máy chủ"
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-          <Logo size={22} withGlow={false} />
-          <span className="server-title-text">
+          <Logo size={20} withGlow={false} />
+          <span className="server-title-text" title={serverTitle}>
             {serverTitle}
           </span>
         </div>
@@ -153,7 +133,7 @@ export const RoomSidebar: React.FC<Props> = ({
                 }
               }}
             >
-              <span>Mời Vào Máy Chủ</span>
+              <span>Mời Vào Phòng</span>
               <UserPlus size={16} color="var(--accent-blurple)" />
             </div>
 
@@ -162,7 +142,7 @@ export const RoomSidebar: React.FC<Props> = ({
                 className="dropdown-item" 
                 onClick={(e) => openSettings(currentRoom, e)}
               >
-                <span>Cài đặt máy chủ</span>
+                <span>Cài đặt phòng chat</span>
                 <Settings size={16} />
               </div>
             )}
@@ -174,7 +154,7 @@ export const RoomSidebar: React.FC<Props> = ({
                 onCreateRoom();
               }}
             >
-              <span>Tạo kênh</span>
+              <span>Tạo phòng mới</span>
               <Plus size={16} />
             </div>
 
@@ -186,7 +166,7 @@ export const RoomSidebar: React.FC<Props> = ({
                   onLeaveRoom();
                 }}
               >
-                <span>Rời Khỏi Máy Chủ</span>
+                <span>Rời Khỏi Phòng</span>
                 <LogOut size={16} />
               </div>
             )}
@@ -198,7 +178,7 @@ export const RoomSidebar: React.FC<Props> = ({
       <div className="room-section">
         <div className="section-title">
           <span>▾ KÊNH CHAT</span>
-          <button className="add-btn" title="Tạo kênh mới" onClick={onCreateRoom}>
+          <button className="add-btn" title="Tạo phòng chat mới" onClick={onCreateRoom}>
             <Plus size={16} />
           </button>
         </div>
@@ -212,9 +192,10 @@ export const RoomSidebar: React.FC<Props> = ({
               key={room.id}
               className={`channel-item ${currentRoom?.id === room.id ? 'active' : ''}`}
               onClick={() => onSelectRoom(room)}
+              title={`Phòng #${room.name}${room.description ? ` - ${room.description}` : ''}`}
             >
-              <Hash size={18} />
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Hash size={18} className="channel-hash-icon" />
+              <span className="channel-name" title={room.name}>
                 {room.name}
               </span>
 
@@ -224,7 +205,7 @@ export const RoomSidebar: React.FC<Props> = ({
 
               {isCurrentRoomManager && (
                 <button
-                  className="icon-btn channel-settings-btn"
+                  className="channel-settings-btn"
                   title="Quản lý kênh"
                   onClick={(e) => openSettings(room, e)}
                 >
@@ -242,7 +223,7 @@ export const RoomSidebar: React.FC<Props> = ({
         )}
       </div>
 
-      {/* 3. User Profile Bar ở đáy (Chuẩn Discord: Avatar, Tên, Trạng thái, Mic, Tai nghe, Cài đặt) */}
+      {/* 3. User Profile Bar ở đáy Cột 2 (Avatar, Tên, Trạng thái & Nút Đăng xuất có chức năng thật) */}
       <div className="user-profile-bar">
         <div className="user-avatar-wrap">
           <div className="user-avatar-circle">
@@ -252,40 +233,16 @@ export const RoomSidebar: React.FC<Props> = ({
         </div>
 
         <div className="user-info">
-          <div className="name" title={currentUser?.displayName || 'Người dùng'}>
-            {currentUser?.displayName || 'Người dùng'}
+          <div 
+            className="name" 
+            title={currentUser?.displayName || currentUser?.username || 'Người dùng'}
+          >
+            {currentUser?.displayName || currentUser?.username || 'Người dùng'}
           </div>
-          <div className="status">Trực tuyến</div>
+          <div className="status" title="Trực tuyến">Trực tuyến</div>
         </div>
 
         <div className="user-actions">
-          {/* Nút Micro */}
-          <button 
-            className={`user-control-btn ${isMicMuted ? 'muted' : ''}`}
-            title={isMicMuted ? 'Bật Mic' : 'Tắt tiếng Mic'}
-            onClick={toggleMic}
-          >
-            {isMicMuted ? <MicOff size={18} color="var(--accent-red)" /> : <Mic size={18} />}
-          </button>
-
-          {/* Nút Tai nghe (Deafen) */}
-          <button 
-            className={`user-control-btn ${isDeafened ? 'muted' : ''}`}
-            title={isDeafened ? 'Bật âm thanh' : 'Tắt toàn bộ âm thanh'}
-            onClick={toggleDeafen}
-          >
-            {isDeafened ? <Headphones size={18} color="var(--accent-red)" /> : <Headphones size={18} />}
-          </button>
-
-          {/* Nút Cài đặt */}
-          <button 
-            className="user-control-btn" 
-            title="Cài đặt người dùng"
-            onClick={() => alert(`Cài đặt tài khoản:\n• Tên hiển thị: ${currentUser?.displayName}\n• Tên đăng nhập: @${currentUser?.username}\n• ID người dùng: #${currentUser?.id}\n• Trạng thái: Trực tuyến (Đã xác thực Socket TCP)`)}
-          >
-            <Settings size={18} />
-          </button>
-
           {onLogout && (
             <button
               className="user-control-btn logout"
