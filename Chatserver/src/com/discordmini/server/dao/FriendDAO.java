@@ -9,8 +9,41 @@ import java.util.List;
 /**
  * FriendDAO: Quản lý mối quan hệ bạn bè và các lời mời kết bạn (Friend Requests).
  * Tương tác với bảng 'friendships' và 'users' trong PostgreSQL.
+ *
+ * Tương thích linh hoạt: Tự động tương thích với cả 2 phiên bản schema database:
+ * - Bản 1: requester_id và addressee_id (theo schema.sql)
+ * - Bản 2: user_id_1 và user_id_2 (theo database thực tế đang chạy)
  */
 public class FriendDAO {
+
+    private static volatile String colReq = null;
+    private static volatile String colAddr = null;
+
+    private static synchronized void initColumns(Connection conn) {
+        if (colReq != null) return;
+        try {
+            DatabaseMetaData meta = conn.getMetaData();
+            try (ResultSet rs = meta.getColumns(null, null, "friendships", "requester_id")) {
+                if (rs.next()) {
+                    colReq = "requester_id";
+                    colAddr = "addressee_id";
+                    return;
+                }
+            }
+        } catch (Exception ignored) {}
+        colReq = "user_id_1";
+        colAddr = "user_id_2";
+    }
+
+    private static String getColReq(Connection conn) {
+        if (colReq == null) initColumns(conn);
+        return colReq;
+    }
+
+    private static String getColAddr(Connection conn) {
+        if (colAddr == null) initColumns(conn);
+        return colAddr;
+    }
 
     /**
      * DTO đại diện cho một lời mời kết bạn đang chờ xử lý.
@@ -56,26 +89,20 @@ public class FriendDAO {
 
     /**
      * Gửi lời mời kết bạn từ senderId tới receiverId.
-     * Trả về kết quả:
-     * - "OK": Gửi thành công.
-     * - "SELF_REQUEST": Cố gắng tự kết bạn với chính mình.
-     * - "ALREADY_FRIENDS": Đã là bạn bè từ trước.
-     * - "ALREADY_REQUESTED": Đã gửi lời mời trước đó đang chờ xử lý.
-     * - "INCOMING_EXISTS": Người kia đã gửi lời mời cho bạn từ trước (có thể chấp nhận luôn).
-     * - "USER_NOT_FOUND": Không tìm thấy người dùng đích.
-     * - "ERROR": Lỗi database.
      */
     public String sendFriendRequest(int senderId, int receiverId) {
         if (senderId == receiverId) {
             return "SELF_REQUEST";
         }
 
-        String checkExistingSql = "SELECT id, requester_id, addressee_id, status FROM friendships " +
-                                  "WHERE (requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)";
-
-        String insertSql = "INSERT INTO friendships (requester_id, addressee_id, status) VALUES (?, ?, 'PENDING') RETURNING id";
-
         try (Connection conn = DatabaseConnection.getConnection()) {
+            String rCol = getColReq(conn);
+            String aCol = getColAddr(conn);
+
+            String checkExistingSql = "SELECT id, " + rCol + ", " + aCol + ", status FROM friendships " +
+                                      "WHERE (" + rCol + " = ? AND " + aCol + " = ?) OR (" + rCol + " = ? AND " + aCol + " = ?)";
+            String insertSql = "INSERT INTO friendships (" + rCol + ", " + aCol + ", status) VALUES (?, ?, 'PENDING') RETURNING id";
+
             try (PreparedStatement checkPs = conn.prepareStatement(checkExistingSql)) {
                 checkPs.setInt(1, senderId);
                 checkPs.setInt(2, receiverId);
@@ -85,7 +112,7 @@ public class FriendDAO {
                 try (ResultSet rs = checkPs.executeQuery()) {
                     if (rs.next()) {
                         String st = rs.getString("status");
-                        int req = rs.getInt("requester_id");
+                        int req = rs.getInt(rCol);
                         if ("ACCEPTED".equalsIgnoreCase(st)) {
                             return "ALREADY_FRIENDS";
                         }
@@ -120,23 +147,27 @@ public class FriendDAO {
      */
     public List<FriendRequestItem> getPendingRequests(int userId) {
         List<FriendRequestItem> list = new ArrayList<>();
-        String sql = "SELECT f.id, f.requester_id, u.username, u.display_name, f.created_at " +
-                     "FROM friendships f JOIN users u ON f.requester_id = u.id " +
-                     "WHERE f.addressee_id = ? AND f.status = 'PENDING' " +
-                     "ORDER BY f.created_at DESC";
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String rCol = getColReq(conn);
+            String aCol = getColAddr(conn);
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, userId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    list.add(new FriendRequestItem(
-                        rs.getInt("id"),
-                        rs.getInt("requester_id"),
-                        rs.getString("username"),
-                        rs.getString("display_name"),
-                        rs.getTimestamp("created_at")
-                    ));
+            String sql = "SELECT f.id, f." + rCol + " AS req_id, u.username, u.display_name, f.created_at " +
+                         "FROM friendships f JOIN users u ON f." + rCol + " = u.id " +
+                         "WHERE f." + aCol + " = ? AND f.status = 'PENDING' " +
+                         "ORDER BY f.created_at DESC";
+
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, userId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        list.add(new FriendRequestItem(
+                            rs.getInt("id"),
+                            rs.getInt("req_id"),
+                            rs.getString("username"),
+                            rs.getString("display_name"),
+                            rs.getTimestamp("created_at")
+                        ));
+                    }
                 }
             }
         } catch (SQLException e) {
@@ -146,16 +177,17 @@ public class FriendDAO {
     }
 
     /**
-     * Chấp nhận lời mời kết bạn theo requestId hoặc theo senderId/receiverId.
+     * Chấp nhận lời mời kết bạn theo requestId.
      */
     public boolean acceptRequest(int requestId, int currentUserId) {
-        String sql = "UPDATE friendships SET status = 'ACCEPTED', updated_at = CURRENT_TIMESTAMP " +
-                     "WHERE id = ? AND addressee_id = ? AND status = 'PENDING'";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, requestId);
-            ps.setInt(2, currentUserId);
-            return ps.executeUpdate() > 0;
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String aCol = getColAddr(conn);
+            String sql = "UPDATE friendships SET status = 'ACCEPTED' WHERE id = ? AND " + aCol + " = ? AND status = 'PENDING'";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, requestId);
+                ps.setInt(2, currentUserId);
+                return ps.executeUpdate() > 0;
+            }
         } catch (SQLException e) {
             System.err.println("[FriendDAO ERROR] acceptRequest by id: " + e.getMessage());
             return false;
@@ -163,16 +195,18 @@ public class FriendDAO {
     }
 
     /**
-     * Chấp nhận lời mời kết bạn theo senderId (người đã gửi lời mời cho currentUserId).
+     * Chấp nhận lời mời kết bạn theo senderId.
      */
     public boolean acceptRequestFromUser(int senderId, int currentUserId) {
-        String sql = "UPDATE friendships SET status = 'ACCEPTED', updated_at = CURRENT_TIMESTAMP " +
-                     "WHERE requester_id = ? AND addressee_id = ? AND status = 'PENDING'";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, senderId);
-            ps.setInt(2, currentUserId);
-            return ps.executeUpdate() > 0;
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String rCol = getColReq(conn);
+            String aCol = getColAddr(conn);
+            String sql = "UPDATE friendships SET status = 'ACCEPTED' WHERE " + rCol + " = ? AND " + aCol + " = ? AND status = 'PENDING'";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, senderId);
+                ps.setInt(2, currentUserId);
+                return ps.executeUpdate() > 0;
+            }
         } catch (SQLException e) {
             System.err.println("[FriendDAO ERROR] acceptRequestFromUser: " + e.getMessage());
             return false;
@@ -183,12 +217,14 @@ public class FriendDAO {
      * Từ chối lời mời kết bạn (Xóa bản ghi PENDING khỏi CSDL).
      */
     public boolean rejectRequest(int requestId, int currentUserId) {
-        String sql = "DELETE FROM friendships WHERE id = ? AND addressee_id = ? AND status = 'PENDING'";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, requestId);
-            ps.setInt(2, currentUserId);
-            return ps.executeUpdate() > 0;
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String aCol = getColAddr(conn);
+            String sql = "DELETE FROM friendships WHERE id = ? AND " + aCol + " = ? AND status = 'PENDING'";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, requestId);
+                ps.setInt(2, currentUserId);
+                return ps.executeUpdate() > 0;
+            }
         } catch (SQLException e) {
             System.err.println("[FriendDAO ERROR] rejectRequest: " + e.getMessage());
             return false;
@@ -200,28 +236,32 @@ public class FriendDAO {
      */
     public List<User> getFriends(int userId) {
         List<User> list = new ArrayList<>();
-        String sql = "SELECT u.id, u.username, u.display_name, u.status, u.created_at " +
-                     "FROM friendships f " +
-                     "JOIN users u ON (CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END) = u.id " +
-                     "WHERE (f.requester_id = ? OR f.addressee_id = ?) AND f.status = 'ACCEPTED' " +
-                     "ORDER BY u.display_name ASC";
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String rCol = getColReq(conn);
+            String aCol = getColAddr(conn);
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, userId);
-            ps.setInt(2, userId);
-            ps.setInt(3, userId);
+            String sql = "SELECT u.id, u.username, u.display_name, u.status, u.created_at " +
+                         "FROM friendships f " +
+                         "JOIN users u ON (CASE WHEN f." + rCol + " = ? THEN f." + aCol + " ELSE f." + rCol + " END) = u.id " +
+                         "WHERE (f." + rCol + " = ? OR f." + aCol + " = ?) AND f.status = 'ACCEPTED' " +
+                         "ORDER BY u.display_name ASC";
 
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    list.add(new User(
-                        rs.getInt("id"),
-                        rs.getString("username"),
-                        "",
-                        rs.getString("display_name"),
-                        rs.getString("status"),
-                        rs.getTimestamp("created_at")
-                    ));
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, userId);
+                ps.setInt(2, userId);
+                ps.setInt(3, userId);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        list.add(new User(
+                            rs.getInt("id"),
+                            rs.getString("username"),
+                            "",
+                            rs.getString("display_name"),
+                            rs.getString("status"),
+                            rs.getTimestamp("created_at")
+                        ));
+                    }
                 }
             }
         } catch (SQLException e) {
@@ -234,15 +274,19 @@ public class FriendDAO {
      * Kiểm tra xem 2 người đã là bạn bè (status = 'ACCEPTED') chưa.
      */
     public boolean areFriends(int userId1, int userId2) {
-        String sql = "SELECT 1 FROM friendships WHERE ((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)) AND status = 'ACCEPTED'";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, userId1);
-            ps.setInt(2, userId2);
-            ps.setInt(3, userId2);
-            ps.setInt(4, userId1);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String rCol = getColReq(conn);
+            String aCol = getColAddr(conn);
+
+            String sql = "SELECT 1 FROM friendships WHERE ((" + rCol + " = ? AND " + aCol + " = ?) OR (" + rCol + " = ? AND " + aCol + " = ?)) AND status = 'ACCEPTED'";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, userId1);
+                ps.setInt(2, userId2);
+                ps.setInt(3, userId2);
+                ps.setInt(4, userId1);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next();
+                }
             }
         } catch (SQLException e) {
             System.err.println("[FriendDAO ERROR] areFriends: " + e.getMessage());

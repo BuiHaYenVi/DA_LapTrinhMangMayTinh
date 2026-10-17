@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Room, User } from '../types/chat';
-import { Hash, Plus, Mic, Headphones, Settings, ChevronDown } from 'lucide-react';
+import { Hash, Plus, Mic, Headphones, Settings, ChevronDown, LogOut } from 'lucide-react';
 
 interface Props {
   rooms: Room[];
@@ -8,6 +8,7 @@ interface Props {
   currentUser: User | null;
   onSelectRoom: (room: Room) => void;
   onCreateRoom: () => void;
+  onLogout?: () => void;
 }
 
 export const RoomSidebar: React.FC<Props> = ({
@@ -15,7 +16,8 @@ export const RoomSidebar: React.FC<Props> = ({
   currentRoom,
   currentUser,
   onSelectRoom,
-  onCreateRoom
+  onCreateRoom,
+  onLogout
 }) => {
   const [isMuted, setIsMuted] = React.useState(false);
   const [isDeafened, setIsDeafened] = React.useState(false);
@@ -95,6 +97,16 @@ export const RoomSidebar: React.FC<Props> = ({
           >
             <Settings size={16} />
           </button>
+          {onLogout && (
+            <button
+              className="icon-btn logout-btn"
+              title="Đăng xuất khỏi tài khoản"
+              style={{ color: 'var(--accent-red)' }}
+              onClick={onLogout}
+            >
+              <LogOut size={16} />
+            </button>
+          )}
         </div>
       </div>
     </div>

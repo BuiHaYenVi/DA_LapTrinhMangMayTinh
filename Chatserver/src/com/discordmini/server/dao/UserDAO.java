@@ -17,7 +17,7 @@ public class UserDAO {
      * Đăng ký tài khoản mới với username và password.
      * Trả về boolean đại diện cho kết quả thành công.
      */
-    public boolean register(String username, String password) {
+    public boolean register(String username, String password) throws SQLException {
         User created = register(username, password, username);
         return created != null;
     }
@@ -26,7 +26,7 @@ public class UserDAO {
      * Đăng ký tài khoản mới đầy đủ thông tin (username, password, display_name).
      * Trả về đối tượng User vừa tạo hoặc null nếu trùng lặp/lỗi.
      */
-    public User register(String username, String password, String displayName) {
+    public User register(String username, String password, String displayName) throws SQLException {
         if (username == null || username.isBlank() || password == null || password.isBlank()) {
             return null;
         }
@@ -61,8 +61,6 @@ public class UserDAO {
                     }
                 }
             }
-        } catch (SQLException e) {
-            System.err.println("[UserDAO ERROR] Lỗi đăng ký user '" + username + "': " + e.getMessage());
         }
         return null;
     }
@@ -71,7 +69,7 @@ public class UserDAO {
      * Xác thực đăng nhập với username và password.
      * Sử dụng PasswordUtil hỗ trợ cả PBKDF2 và tự động nâng cấp plaintext cũ.
      */
-    public User login(String username, String password) {
+    public User login(String username, String password) throws SQLException {
         if (username == null || password == null) return null;
 
         String sql = "SELECT id, username, password, display_name, status, created_at FROM users WHERE LOWER(username) = LOWER(?)";
@@ -104,8 +102,6 @@ public class UserDAO {
                     }
                 }
             }
-        } catch (SQLException e) {
-            System.err.println("[UserDAO ERROR] Lỗi đăng nhập user '" + username + "': " + e.getMessage());
         }
         return null;
     }

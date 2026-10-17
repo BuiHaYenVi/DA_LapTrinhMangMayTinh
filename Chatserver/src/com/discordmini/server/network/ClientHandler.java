@@ -9,6 +9,7 @@ import com.discordmini.server.protocol.ProtocolErrorCode;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.sql.SQLException;
 import java.util.List;
 
 public class ClientHandler implements Runnable {
@@ -134,19 +135,26 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        User created = server.getAuthService().register(
-                username, password, displayName
-        );
-
-        if (created == null) {
-            sendError(
-                    ProtocolErrorCode.USERNAME_TAKEN,
-                    "Username đã tồn tại hoặc dữ liệu không hợp lệ."
+        try {
+            User created = server.getAuthService().register(
+                    username, password, displayName
             );
-        } else {
-            connection.send(
-                    "OK|REGISTERED|"
-                            + ProtocolHandler.encode("Đăng ký thành công.")
+
+            if (created == null) {
+                sendError(
+                        ProtocolErrorCode.USERNAME_TAKEN,
+                        "Username đã tồn tại hoặc dữ liệu không hợp lệ."
+                );
+            } else {
+                connection.send(
+                        "OK|REGISTERED|"
+                                + ProtocolHandler.encode("Đăng ký thành công.")
+                );
+            }
+        } catch (SQLException e) {
+            sendError(
+                    ProtocolErrorCode.INTERNAL_ERROR,
+                    "Lỗi cơ sở dữ liệu khi đăng ký: " + e.getMessage()
             );
         }
     }
@@ -170,7 +178,22 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        User found = server.getAuthService().login(username, password);
+        User found;
+        try {
+            found = server.getAuthService().login(username, password);
+        } catch (SQLException e) {
+            sendError(
+                    ProtocolErrorCode.INTERNAL_ERROR,
+                    "Lỗi cơ sở dữ liệu khi đăng nhập: " + e.getMessage()
+            );
+            return;
+        } catch (Exception e) {
+            sendError(
+                    ProtocolErrorCode.INTERNAL_ERROR,
+                    "Lỗi hệ thống khi đăng nhập: " + e.getMessage()
+            );
+            return;
+        }
 
         if (found == null) {
             sendError(
