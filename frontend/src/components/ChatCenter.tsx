@@ -1,6 +1,9 @@
 import React, { useState, useRef } from 'react';
 import type { Room, MessageItem, User } from '../types/chat';
-import { Hash, Search, UserPlus, LogOut, Plus, Smile, Image, Paperclip, Send, Edit3, Trash2 } from 'lucide-react';
+import { 
+  Hash, Search, UserPlus, LogOut, Plus, Smile, Send, Edit3, Trash2,
+  Bell, Pin, Users, Gift, HelpCircle, ArrowRight
+} from 'lucide-react';
 import { Logo } from './Logo';
 
 interface Props {
@@ -9,6 +12,8 @@ interface Props {
   members?: User[];
   currentUserId: number;
   currentUserRole?: string;
+  isMemberListOpen?: boolean;
+  onToggleMemberList?: () => void;
   onSendMessage: (text: string) => void;
   onEditMessage?: (messageId: number, content: string) => void;
   onDeleteMessage?: (messageId: number) => void;
@@ -58,7 +63,7 @@ function getDateKey(rawTime: string): string {
   return `${y}-${m}-${day}`;
 }
 
-// 3. Hiển thị nhãn ngăn cách ngày: Hôm nay / Hôm qua / dd/mm/yyyy
+// 3. Hiển thị nhãn ngăn cách ngày: Hôm nay / Hôm qua / 28 tháng 6, 2026
 function formatDateLabel(dateKey: string): string {
   if (!dateKey) return '';
   const parts = dateKey.split('-').map(Number);
@@ -76,12 +81,20 @@ function formatDateLabel(dateKey: string): string {
   if (msgDate.getTime() === yesterday.getTime()) {
     return 'Hôm qua';
   }
-  const dd = String(d).padStart(2, '0');
-  const mm = String(m).padStart(2, '0');
-  return `${dd}/${mm}/${y}`;
+  return `${d} tháng ${m}, ${y}`;
 }
 
-// 4. Kiểm tra gom tin nhắn liên tiếp của cùng người trong vòng 5 phút
+// 4. Trích xuất tên người dùng từ tin nhắn hệ thống tham gia
+function extractJoinedUser(content: string): string {
+  // Định dạng có thể là: "🔔 anbao1123 đã tham gia phòng chat." hoặc "Bảo Khang vừa mới xuất hiện!"
+  const m1 = content.match(/🔔\s*(.+?)\s*đã tham gia/i);
+  if (m1) return m1[1].trim();
+  const m2 = content.match(/^(.+?)\s*vừa mới xuất hiện/i);
+  if (m2) return m2[1].trim();
+  return '';
+}
+
+// 5. Kiểm tra gom tin nhắn liên tiếp của cùng người trong vòng 5 phút
 function shouldGroupWithPrevious(
   current: MessageItem,
   previous: MessageItem | undefined,
@@ -108,6 +121,8 @@ export const ChatCenter: React.FC<Props> = ({
   members = [],
   currentUserId,
   currentUserRole,
+  isMemberListOpen = true,
+  onToggleMemberList,
   onSendMessage,
   onEditMessage,
   onDeleteMessage,
@@ -187,37 +202,79 @@ export const ChatCenter: React.FC<Props> = ({
     }
   };
 
+  // Nút vẫy tay chào người mới
+  const handleWave = (username: string) => {
+    onSendMessage(`👋 Chào mừng @${username} vừa gia nhập kênh!`);
+  };
+
   return (
     <div className="chat-center">
-      {/* 1. Header Bar */}
+      {/* 1. Header Bar chuẩn Discord */}
       <div className="chat-header">
         <div className="chat-header-left">
-          <Hash size={24} color="var(--text-muted)" />
+          <Hash size={24} className="channel-hash-icon" />
           <div className="chat-header-title">{currentRoom ? currentRoom.name : 'Chọn phòng chat'}</div>
           {currentRoom && (
             <div className="chat-header-desc">
-              {currentRoom.description || 'Nơi mọi người cùng thảo luận, chia sẻ và học hỏi.'}
+              {currentRoom.description || 'Đây là kênh trò chuyện chính thức.'}
             </div>
           )}
         </div>
 
         <div className="chat-header-right">
-          <div className="search-pill" style={{ position: 'relative' }}>
-            <Search size={14} color="var(--text-muted)" />
+          {/* Các nút công cụ chuẩn Discord như trong ảnh */}
+          <button 
+            className="header-icon-btn" 
+            title="Thông báo"
+            onClick={() => alert('Đã bật thông báo cho kênh này.')}
+          >
+            <Bell size={18} />
+          </button>
+
+          <button 
+            className="header-icon-btn" 
+            title="Tin nhắn đã ghim"
+            onClick={() => alert('Chưa có tin nhắn nào được ghim trong kênh này.')}
+          >
+            <Pin size={18} />
+          </button>
+
+          {onToggleMemberList && (
+            <button 
+              className={`header-icon-btn ${isMemberListOpen ? 'active' : ''}`} 
+              title={isMemberListOpen ? 'Ẩn danh sách thành viên' : 'Hiện danh sách thành viên'}
+              onClick={onToggleMemberList}
+            >
+              <Users size={18} />
+            </button>
+          )}
+
+          {/* Hộp tìm kiếm bo cong tròn chuẩn Discord */}
+          <div className="discord-search-box">
             <input 
-              placeholder="Tìm kiếm trong phòng..." 
+              placeholder={`Tìm kiếm ${currentRoom ? currentRoom.name : ''}`}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
-            {searchTerm && (
+            {searchTerm ? (
               <button 
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px' }}
+                className="search-clear-btn"
                 onClick={() => setSearchTerm('')}
               >
                 ✕
               </button>
+            ) : (
+              <Search size={15} className="search-icon" />
             )}
           </div>
+
+          <button 
+            className="header-icon-btn" 
+            title="Trợ giúp"
+            onClick={() => alert('LTMang Discord Mini - Phiên bản tối ưu giao diện web 2026.')}
+          >
+            <HelpCircle size={18} />
+          </button>
 
           {currentRoom && (
             <>
@@ -251,6 +308,19 @@ export const ChatCenter: React.FC<Props> = ({
               </div>
             )}
 
+            {/* HERO WELCOME BANNER ở đầu kênh (Chuẩn ảnh Discord thật) */}
+            <div className="channel-hero-welcome">
+              <div className="hero-hash-circle">
+                <Hash size={44} />
+              </div>
+              <h1 className="hero-title">
+                Chào mừng đến với {currentRoom.name}
+              </h1>
+              <p className="hero-subtitle">
+                Đây là khởi đầu của máy chủ này.
+              </p>
+            </div>
+
             {displayedMessages.map((msg, idx) => {
               const prevMsg = idx > 0 ? displayedMessages[idx - 1] : undefined;
               const curDateKey = getDateKey(msg.timestamp);
@@ -259,8 +329,13 @@ export const ChatCenter: React.FC<Props> = ({
               const isGrouped = !isNewDay && shouldGroupWithPrevious(msg, prevMsg, curDateKey, prevDateKey);
               const timeInfo = formatMessageTime(msg.timestamp);
 
-              // 6. Tin nhắn hệ thống (System Message)
+              // 6. Tin nhắn hệ thống dạng Discord thật (Mũi tên xanh lá + Nút Vẫy tay để chào!)
               if (msg.senderId === -1 || msg.content.startsWith('🔔') || msg.senderName === 'Hệ thống') {
+                const joinedName = extractJoinedUser(msg.content);
+                const displayContent = joinedName 
+                  ? `${joinedName} vừa mới xuất hiện!` 
+                  : msg.content.replace(/^🔔\s*/, '');
+
                 return (
                   <React.Fragment key={msg.id || idx}>
                     {isNewDay && curDateKey && (
@@ -268,8 +343,29 @@ export const ChatCenter: React.FC<Props> = ({
                         <span className="date-badge">{formatDateLabel(curDateKey)}</span>
                       </div>
                     )}
-                    <div className="system-message-row" id={`msg-${msg.id}`}>
-                      <span>{msg.content}</span>
+                    <div className="discord-system-message-row" id={`msg-${msg.id}`}>
+                      <div className="system-msg-main">
+                        <ArrowRight size={16} className="system-arrow-icon" />
+                        <span className="system-text">
+                          <strong className="joined-username">{joinedName || displayContent}</strong>{' '}
+                          {joinedName ? 'vừa mới xuất hiện!' : ''}{' '}
+                          <span className="system-time">{timeInfo.short}</span>
+                        </span>
+                      </div>
+
+                      {/* Nút Vẫy tay để chào! hệt như ảnh thật */}
+                      {joinedName && (
+                        <div className="wave-container">
+                          <button 
+                            className="wave-hand-btn"
+                            title={`Vẫy tay chào mừng ${joinedName}`}
+                            onClick={() => handleWave(joinedName)}
+                          >
+                            <span className="wave-emoji">👋</span>
+                            <span>Vẫy tay để chào!</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </React.Fragment>
                 );
@@ -435,33 +531,68 @@ export const ChatCenter: React.FC<Props> = ({
         )}
       </div>
 
-      {/* 3. Bottom Input Box */}
+      {/* 3. Bottom Input Box (Chuẩn Discord trong ảnh: Nút +, Nhắn #kênh, Gift, GIF, Sticker, Emoji) */}
       <div className="chat-input-container">
         <div className="chat-input-pill">
-          <button className="icon-btn" title="Đính kèm file">
+          <button 
+            className="chat-attach-btn" 
+            title="Đính kèm file hoặc hình ảnh"
+            onClick={() => alert('Chọn tệp đính kèm (hỗ trợ ảnh PNG/JPG, tệp tài liệu...)')}
+          >
             <Plus size={20} />
           </button>
 
           <input
-            placeholder={currentRoom ? `Nhắn tin trong #${currentRoom.name}...` : 'Hãy chọn phòng để gõ tin nhắn...'}
+            placeholder={currentRoom ? `Nhắn #${currentRoom.name}` : 'Hãy chọn phòng để gõ tin nhắn...'}
             disabled={!currentRoom}
             value={inputText}
             onChange={e => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
           />
 
-          <button className="icon-btn" title="Thêm Emoji" onClick={() => setInputText(prev => prev + ' 😊 ')}><Smile size={18} /></button>
-          <button className="icon-btn" title="Hình ảnh" onClick={() => setInputText(prev => prev + ' [Hình ảnh] ')}><Image size={18} /></button>
-          <button className="icon-btn" title="Đính kèm file" onClick={() => setInputText(prev => prev + ' [File đính kèm] ')}><Paperclip size={18} /></button>
+          <div className="chat-input-tools">
+            <button 
+              className="chat-tool-btn gift" 
+              title="Tặng Nitro / Boost cho phòng"
+              onClick={() => alert('🎁 Tặng Nitro Boost: Tăng cường chất lượng âm thanh và emoji cho phòng!')}
+            >
+              <Gift size={20} />
+            </button>
 
-          <button 
-            className="icon-btn" 
-            style={{ color: inputText.trim() ? 'var(--accent-blurple)' : 'var(--text-muted)' }}
-            onClick={handleSend}
-            disabled={!inputText.trim()}
-          >
-            <Send size={18} />
-          </button>
+            <button 
+              className="chat-tool-btn gif-badge" 
+              title="Chọn ảnh GIF"
+              onClick={() => setInputText(prev => prev + ' [GIF: Tenor] ')}
+            >
+              GIF
+            </button>
+
+            <button 
+              className="chat-tool-btn" 
+              title="Hình dán / Sticker"
+              onClick={() => setInputText(prev => prev + ' 🏷️ ')}
+            >
+              <span style={{ fontSize: 18, lineHeight: 1 }}>📑</span>
+            </button>
+
+            <button 
+              className="chat-tool-btn" 
+              title="Chọn biểu cảm Emoji"
+              onClick={() => setInputText(prev => prev + ' 😊 ')}
+            >
+              <Smile size={20} />
+            </button>
+
+            {inputText.trim() && (
+              <button 
+                className="chat-tool-btn send-btn" 
+                title="Gửi tin nhắn"
+                onClick={handleSend}
+              >
+                <Send size={18} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

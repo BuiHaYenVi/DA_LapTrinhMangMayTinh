@@ -134,10 +134,107 @@ body {
   color: var(--text-header);
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  position: relative;
+  transition: background-color 0.15s ease;
 }
 
-.server-header:hover {
+.server-header:hover, .server-header.open {
   background-color: var(--bg-hover);
+}
+
+.server-title-text {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-header);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.server-chevron {
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+/* SERVER DROPDOWN MENU CHUẨN DISCORD */
+.server-dropdown-menu {
+  position: absolute;
+  top: 52px;
+  left: 8px;
+  width: 224px;
+  background-color: #111214;
+  border-radius: 4px;
+  padding: 6px 8px;
+  z-index: 1000;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  animation: discordMenuFadeIn 0.15s cubic-bezier(0.2, 0, 0, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes discordMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 2px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #949ba4;
+  cursor: pointer;
+  transition: background-color 0.1s ease, color 0.1s ease;
+  margin-bottom: 2px;
+}
+
+.dropdown-item:hover {
+  background-color: #5865f2;
+  color: #ffffff;
+}
+
+.dropdown-item.boost {
+  color: #ff73fa;
+}
+
+.dropdown-item.boost:hover {
+  background-color: #eb459e;
+  color: #ffffff;
+}
+
+.dropdown-item.blurple {
+  color: #5865f2;
+}
+
+.dropdown-item.blurple:hover {
+  background-color: #5865f2;
+  color: #ffffff;
+}
+
+.dropdown-item.danger {
+  color: #f23f43;
+}
+
+.dropdown-item.danger:hover {
+  background-color: #da373c;
+  color: #ffffff;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: #2b2d31;
+  margin: 4px 0;
 }
 
 .room-section {
@@ -196,24 +293,37 @@ body {
   color: var(--text-header);
 }
 
+.channel-settings-btn {
+  padding: 2px;
+  margin-left: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.channel-item:hover .channel-settings-btn {
+  opacity: 1;
+}
+
+/* User Profile Bar ở đáy Cột 2 */
 .user-profile-bar {
   height: 52px;
   background-color: var(--bg-user-bar);
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 8px;
   gap: 8px;
 }
 
 .user-avatar-wrap {
   position: relative;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
 }
 
 .user-avatar-circle {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background-color: var(--accent-blurple);
   display: flex;
@@ -240,11 +350,12 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  line-height: 1.2;
 }
 
 .user-info .name {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 13.5px;
+  font-weight: 700;
   color: var(--text-header);
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -252,7 +363,7 @@ body {
 }
 
 .user-info .status {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text-muted);
 }
 
@@ -262,21 +373,31 @@ body {
   gap: 2px;
 }
 
-.icon-btn {
+.user-control-btn {
   background: none;
   border: none;
-  color: var(--text-muted);
+  color: #b5bac1;
   cursor: pointer;
-  padding: 4px;
+  width: 32px;
+  height: 32px;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.icon-btn:hover {
-  color: var(--text-header);
-  background-color: var(--bg-hover);
+.user-control-btn:hover {
+  background-color: #35373c;
+  color: #dbdee1;
+}
+
+.user-control-btn.muted {
+  color: var(--accent-red);
+}
+
+.user-control-btn.logout:hover {
+  color: var(--accent-red);
 }
 
 /* COLUMN 3: Chat Center */
@@ -296,31 +417,113 @@ body {
   justify-content: space-between;
   border-bottom: 1px solid var(--border-color);
   box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  background-color: var(--bg-chat);
 }
 
 .chat-header-left {
   display: flex;
   align-items: center;
   gap: 8px;
+  overflow: hidden;
+}
+
+.channel-hash-icon {
+  color: #80848e;
+  flex-shrink: 0;
 }
 
 .chat-header-title {
   font-size: 16px;
   font-weight: 700;
   color: var(--text-header);
+  white-space: nowrap;
 }
 
 .chat-header-desc {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
   border-left: 1px solid #4e5058;
-  padding-left: 8px;
+  padding-left: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
 }
 
 .chat-header-right {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-icon-btn {
+  background: none;
+  border: none;
+  color: #b5bac1;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.header-icon-btn:hover, .header-icon-btn.active {
+  color: #f2f3f5;
+  background-color: #35373c;
+}
+
+.discord-search-box {
+  background-color: #1e1f22;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  height: 26px;
+  width: 160px;
+  transition: width 0.2s ease;
+  position: relative;
+}
+
+.discord-search-box:focus-within {
+  width: 240px;
+}
+
+.discord-search-box input {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-header);
+  font-size: 13.5px;
+  width: 100%;
+}
+
+.discord-search-box input::placeholder {
+  color: #949ba4;
+  font-size: 13.5px;
+}
+
+.discord-search-box .search-icon {
+  color: #949ba4;
+  pointer-events: none;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.discord-search-box .search-clear-btn {
+  background: none;
+  border: none;
+  color: #949ba4;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+}
+
+.discord-search-box .search-clear-btn:hover {
+  color: #f2f3f5;
 }
 
 .header-btn {
@@ -349,36 +552,120 @@ body {
   background-color: #da373c;
 }
 
-.search-pill {
-  background-color: var(--bg-primary);
-  border-radius: 4px;
-  padding: 4px 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 140px;
-}
-
-.search-pill input {
-  background: none;
-  border: none;
-  outline: none;
-  color: var(--text-header);
-  font-size: 13px;
-  width: 100%;
-}
-
-.search-pill input::placeholder {
-  color: var(--text-muted);
-}
-
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 16px;
+  padding: 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+}
+
+/* HERO WELCOME BANNER (Chuẩn Discord trong ảnh) */
+.channel-hero-welcome {
+  padding: 28px 16px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.hero-hash-circle {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background-color: #3f4147;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  margin-bottom: 12px;
+}
+
+.hero-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #f2f3f5;
+  margin: 0 0 6px 0;
+  line-height: 1.25;
+}
+
+.hero-subtitle {
+  font-size: 15px;
+  color: #949ba4;
+  margin: 0;
+}
+
+/* DISCORD SYSTEM MESSAGE VỚI MŨI TÊN XANH & VẪY TAY ĐỂ CHÀO! */
+.discord-system-message-row {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 8px;
+  margin: 2px 0;
+  gap: 6px;
+  text-align: left;
+}
+
+.system-msg-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.system-arrow-icon {
+  color: #23a55a;
+  flex-shrink: 0;
+}
+
+.system-text {
+  font-size: 14px;
+  color: #dbdee1;
+  line-height: 1.4;
+}
+
+.joined-username {
+  color: #f2f3f5;
+  font-weight: 600;
+}
+
+.system-time {
+  font-size: 11px;
+  color: #949ba4;
+  margin-left: 6px;
+}
+
+.wave-container {
+  padding-left: 26px;
+}
+
+.wave-hand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #2b2d31;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f2f3f5;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.wave-hand-btn:hover {
+  background-color: #35373c;
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.wave-hand-btn:active {
+  transform: translateY(0);
+}
+
+.wave-emoji {
+  font-size: 16px;
 }
 
 .date-divider {
@@ -533,16 +820,39 @@ body {
 }
 
 .chat-input-container {
-  padding: 0 16px 20px 16px;
+  padding: 0 16px 24px 16px;
+  background-color: var(--bg-chat);
 }
 
 .chat-input-pill {
-  background-color: var(--bg-input);
+  background-color: #383a40;
   border-radius: 8px;
   display: flex;
   align-items: center;
-  padding: 10px 14px;
+  padding: 0 14px;
+  height: 44px;
   gap: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.chat-attach-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #4e5058;
+  border: none;
+  color: #2b2d31;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.chat-attach-btn:hover {
+  background-color: #dbdee1;
+  color: #1e1f22;
 }
 
 .chat-input-pill input {
@@ -551,11 +861,67 @@ body {
   border: none;
   outline: none;
   color: var(--text-header);
-  font-size: 14px;
+  font-size: 14.5px;
+  font-family: var(--font-family);
 }
 
 .chat-input-pill input::placeholder {
-  color: var(--text-muted);
+  color: #80848e;
+  font-size: 14.5px;
+}
+
+.chat-input-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.chat-tool-btn {
+  background: none;
+  border: none;
+  color: #b5bac1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+}
+
+.chat-tool-btn:hover {
+  color: #dbdee1;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.chat-tool-btn.gift:hover {
+  color: #ff73fa;
+}
+
+.chat-tool-btn.gif-badge {
+  font-weight: 800;
+  font-size: 11px;
+  border: 1.5px solid #b5bac1;
+  border-radius: 4px;
+  padding: 1px 4px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.chat-tool-btn.gif-badge:hover {
+  border-color: #dbdee1;
+}
+
+.chat-tool-btn.send-btn {
+  color: var(--accent-blurple);
+  background-color: rgba(88, 101, 242, 0.15);
+}
+
+.chat-tool-btn.send-btn:hover {
+  background-color: var(--accent-blurple);
+  color: white;
+  transform: scale(1.05);
 }
 
 /* COLUMN 4: Right Sidebar */

@@ -28,6 +28,7 @@ export const App: React.FC = () => {
   const [_isConnected, setIsConnected] = useState<boolean>(true);
   const [unreadMap, setUnreadMap] = useState<Record<number, number>>({});
   const [isCreateServerOpen, setIsCreateServerOpen] = useState<boolean>(false);
+  const [isMemberListOpen, setIsMemberListOpen] = useState<boolean>(true);
 
   // 1. Kiểm tra phiên đăng nhập từ cookie khi nạp ứng dụng
   useEffect(() => {
@@ -409,6 +410,8 @@ export const App: React.FC = () => {
         onDeleteRoom={handleDeleteRoom}
         onSetRoomDesc={handleSetRoomDesc}
         onLogout={handleLogout}
+        onInvite={handleInvite}
+        onLeaveRoom={handleLeave}
       />
 
       {/* CỘT 3: Trung tâm Chat, Tin nhắn & Lịch sử */}
@@ -418,6 +421,8 @@ export const App: React.FC = () => {
         members={members}
         currentUserId={currentUser ? currentUser.id : 0}
         currentUserRole={currentUserRole}
+        isMemberListOpen={isMemberListOpen}
+        onToggleMemberList={() => setIsMemberListOpen(prev => !prev)}
         onSendMessage={handleSendMessage}
         onEditMessage={handleEditMessage}
         onDeleteMessage={handleDeleteMessage}
@@ -428,16 +433,18 @@ export const App: React.FC = () => {
         isOwner={isOwner}
       />
 
-      {/* CỘT 4: Thành viên phòng (Trực tuyến & Ngoại tuyến) */}
-      <MemberSidebar
-        members={members}
-        currentUserId={currentUser?.id}
-        currentUserRole={currentUserRole}
-        onDirectMessage={handleDirectMessage}
-        onSetMemberRole={handleSetMemberRole}
-        onTransferOwner={handleTransferOwner}
-        onKickMember={handleKickMember}
-      />
+      {/* CỘT 4: Thành viên phòng (Trực tuyến & Ngoại tuyến - Có thể toggle ẩn/hiện bằng nút Users ở header) */}
+      {isMemberListOpen && (
+        <MemberSidebar
+          members={members}
+          currentUserId={currentUser?.id}
+          currentUserRole={currentUserRole}
+          onDirectMessage={handleDirectMessage}
+          onSetMemberRole={handleSetMemberRole}
+          onTransferOwner={handleTransferOwner}
+          onKickMember={handleKickMember}
+        />
+      )}
 
       {/* Modal Tạo Máy Chủ Chuẩn Discord */}
       <CreateServerModal
