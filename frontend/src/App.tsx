@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import type { User, Room, MessageItem, Friend, PendingFriendRequest } from './types/chat';
 import { chatBridge } from './services/chatBridge';
 import { WorkspaceSidebar } from './components/WorkspaceSidebar';
@@ -21,6 +21,12 @@ export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
+  const currentRoomRef = useRef<Room | null>(null);
+
+  useEffect(() => {
+    currentRoomRef.current = currentRoom;
+  }, [currentRoom]);
+
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [members, setMembers] = useState<User[]>([]);
   const [_friends, setFriends] = useState<Friend[]>([]);
@@ -66,7 +72,7 @@ export const App: React.FC = () => {
       if (data) {
         if (data.user) setCurrentUser(data.user);
         if (data.rooms) setRooms(data.rooms);
-        if (data.currentRoom) setCurrentRoom(data.currentRoom);
+        if (data.currentRoom && !currentRoomRef.current) setCurrentRoom(data.currentRoom);
         if (data.messages) setMessages(data.messages);
         if (data.members) setMembers(data.members);
         if (data.friends) setFriends(data.friends);
@@ -90,7 +96,7 @@ export const App: React.FC = () => {
           setMessages([]);
           break;
         case 'NEW_MESSAGE':
-          if (payload.roomId && currentRoom && payload.roomId !== currentRoom.id) {
+          if (payload.roomId && currentRoomRef.current && payload.roomId !== currentRoomRef.current.id) {
             setUnreadMap((prev) => ({
               ...prev,
               [payload.roomId]: (prev[payload.roomId] || 0) + 1
@@ -185,7 +191,7 @@ export const App: React.FC = () => {
       unsubscribe();
       chatBridge.stopEventStream();
     };
-  }, [authStatus, currentRoom]);
+  }, [authStatus]);
 
   const handleSessionExpired = useCallback(() => {
     chatBridge.stopEventStream();
@@ -228,6 +234,7 @@ export const App: React.FC = () => {
   };
 
   const handleSelectRoom = (room: Room) => {
+    if (currentRoomRef.current?.id === room.id) return;
     setUnreadMap((prev) => ({ ...prev, [room.id]: 0 }));
     chatBridge.joinRoom(room.id);
   };

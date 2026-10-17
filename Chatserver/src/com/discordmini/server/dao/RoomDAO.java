@@ -307,6 +307,37 @@ public class RoomDAO {
     }
 
     /**
+     * Tìm thông tin phòng theo tên phòng.
+     */
+    public Room findRoomByName(String name) {
+        if (name == null || name.isBlank()) return null;
+        String sql = "SELECT id, name, created_by, created_at, description, invite_code FROM rooms WHERE LOWER(name) = LOWER(?)";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Room r = new Room(
+                        rs.getInt("id"),
+                        rs.getString("name"),
+                        rs.getInt("created_by"),
+                        rs.getTimestamp("created_at")
+                    );
+                    try {
+                        r.setDescription(rs.getString("description"));
+                        r.setInviteCode(rs.getString("invite_code"));
+                    } catch (Exception ignored) {}
+                    loadMemberIds(conn, r);
+                    return r;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[RoomDAO ERROR] Lỗi findRoomByName: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
      * Nạp tập hợp ID thành viên của phòng vào đối tượng Room.
      */
     private void loadMemberIds(Connection conn, Room room) {

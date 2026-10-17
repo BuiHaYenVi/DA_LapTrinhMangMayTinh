@@ -43,7 +43,7 @@ public class MessagePanel extends JPanel {
     public void bind(ChatMessage msg) {
         if (msg == null) return;
 
-        String time = msg.getTimestamp() != null ? msg.getTimestamp() : "--:--:--";
+        String time = formatTime(msg.getTimestamp());
         String sender = msg.getSender() != null ? msg.getSender() : "Ẩn danh";
         boolean isMine = msg.isMine();
 
@@ -78,28 +78,45 @@ public class MessagePanel extends JPanel {
         }
     }
 
+    private String formatTime(String raw) {
+        if (raw == null || raw.isBlank()) return "--:--";
+        String t = raw.trim();
+        if (t.contains(" ")) {
+            String[] parts = t.split(" ");
+            t = parts[parts.length - 1];
+        }
+        if (t.contains("T")) {
+            String[] parts = t.split("T");
+            t = parts[parts.length - 1];
+        }
+        if (t.length() >= 5 && t.charAt(2) == ':') {
+            return t.substring(0, 5);
+        }
+        return t;
+    }
+
     private void renderStatusBadge(MessageStatus status, String errorMessage) {
         statusBadge.setFont(new Font("Segoe UI", Font.BOLD, 11));
         switch (status) {
             case PENDING -> {
-                statusBadge.setText("⏳ Đang gửi...");
+                statusBadge.setText("⏳ Đang gửi (PENDING)...");
                 statusBadge.setForeground(new Color(117, 117, 117));
                 statusBadge.setToolTipText("Tin nhắn đang được gửi tới Server...");
             }
             case SENT -> {
-                statusBadge.setText("✓ Đã gửi");
+                statusBadge.setText("✓ Đã gửi (SENT)");
                 statusBadge.setForeground(new Color(46, 125, 50));
                 statusBadge.setToolTipText("Server đã nhận và lưu tin nhắn (Chưa đồng nghĩa người nhận đã đọc)");
             }
             case FAILED -> {
-                statusBadge.setText("✕ Lỗi gửi");
+                statusBadge.setText("✕ Thất bại (FAILED)");
                 statusBadge.setForeground(new Color(198, 40, 40));
-                statusBadge.setToolTipText(errorMessage != null ? errorMessage : "Không thể gửi tin nhắn");
+                statusBadge.setToolTipText((errorMessage != null ? errorMessage : "Không thể gửi tin nhắn") + " - Nhấn chuột vào tin nhắn để gửi lại");
             }
             case UNKNOWN_TIMEOUT -> {
                 statusBadge.setText("? Chưa xác nhận (Timeout)");
                 statusBadge.setForeground(new Color(230, 81, 0));
-                statusBadge.setToolTipText("Server không phản hồi kịp thời (Có thể tin đã được lưu hoặc chưa)");
+                statusBadge.setToolTipText("Server không phản hồi kịp thời - Nhấn chuột vào tin nhắn để gửi lại");
             }
         }
     }

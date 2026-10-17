@@ -128,8 +128,8 @@ public class ClientHandler implements Runnable {
         String password = ProtocolHandler.decode(parts[2]);
         String displayName = ProtocolHandler.decode(parts[3]).trim();
 
-        if (username.isBlank() || username.length() > MAX_USERNAME_LENGTH) {
-            sendError(ProtocolErrorCode.BAD_REQUEST, "Username không hợp lệ.");
+        if (username.isBlank() || username.length() < 3 || username.length() > MAX_USERNAME_LENGTH) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tên đăng nhập phải có từ 3 đến 50 ký tự.");
             return;
         }
 
@@ -212,22 +212,7 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        /*
-         * Nếu tài khoản đã có phiên đăng nhập trước đó:
-         * Xử lý giải phóng phiên cũ an toàn để nhường quyền cho phiên đăng nhập mới hợp lệ (chuẩn Discord/Telegram).
-         */
-        ClientHandler oldClient = server.getClientManager().get(found.getId());
-        if (oldClient != null && oldClient != this) {
-            try {
-                oldClient.sendError(
-                        ProtocolErrorCode.ALREADY_ONLINE,
-                        "Tài khoản của bạn đã được đăng nhập từ một phiên làm việc khác."
-                );
-                oldClient.cleanup();
-            } catch (Exception ignored) {}
-            server.getClientManager().remove(found, oldClient);
-        }
-
+        // Thao tác kiểm tra và thêm phiên nguyên tử: chỉ chấp nhận một phiên duy nhất
         if (!server.getClientManager().tryAdd(found, this)) {
             sendError(
                     ProtocolErrorCode.ALREADY_ONLINE,
@@ -282,7 +267,9 @@ public class ClientHandler implements Runnable {
                             + "|"
                             + ProtocolHandler.encode(room.getName())
             );
-            sendRooms();
+            for (ClientHandler client : server.getClientManager().all()) {
+                client.sendRooms();
+            }
         }
     }
 
@@ -539,28 +526,23 @@ public class ClientHandler implements Runnable {
     private void sendRoomMembers() {
         if (currentRoomId == null) return;
 
-        Room room = server.getRoomService().findRoom(currentRoomId);
         StringBuilder sb = new StringBuilder("ROOM_MEMBERS");
-
-        if (room != null) {
-            // Lấy toàn bộ thành viên phòng từ CSDL
-            List<User> members = server.getRoomService().getRoomMembers(currentRoomId);
-            for (User member : members) {
-                boolean isOnline = server.getClientManager().isOnline(member.getId());
-                String role = server.getRoomService().getMemberRole(currentRoomId, member.getId());
+        for (ClientHandler c : server.getRoomManager().clientsIn(currentRoomId)) {
+            User u = c.getUser();
+            if (u != null) {
+                String role = server.getRoomService().getMemberRole(currentRoomId, u.getId());
                 if (role == null) role = "MEMBER";
 
                 sb.append('|')
-                        .append(member.getId())
+                        .append(u.getId())
                         .append(',')
-                        .append(ProtocolHandler.encode(member.getDisplayName()))
+                        .append(ProtocolHandler.encode(u.getDisplayName()))
                         .append(',')
                         .append(role.toUpperCase())
                         .append(',')
-                        .append(isOnline ? "ONLINE" : "OFFLINE");
+                        .append("ONLINE");
             }
         }
-
         connection.send(sb.toString());
     }
 
@@ -584,13 +566,8 @@ public class ClientHandler implements Runnable {
     private void leaveCurrentRoom(boolean announce) {
         if (currentRoomId == null) return;
 
-        Room room = server.getRoomService().findRoom(currentRoomId);
-
-        server.getRoomManager().leave(currentRoomId, this);
-
-        if (room != null && user != null) {
-            room.getMemberIds().remove(user.getId());
-        }
+        int oldRoomId = currentRoomId;
+        server.getRoomManager().leave(oldRoomId, this);
 
         if (announce && user != null) {
             broadcastRoom(
@@ -603,6 +580,11 @@ public class ClientHandler implements Runnable {
         }
 
         currentRoomId = null;
+
+        // Cập nhật danh sách thành viên cho các client còn lại trong phòng cũ
+        for (ClientHandler c : server.getRoomManager().clientsIn(oldRoomId)) {
+            c.sendRoomMembers();
+        }
 
         if (user != null) {
             sendOnlineUsers();

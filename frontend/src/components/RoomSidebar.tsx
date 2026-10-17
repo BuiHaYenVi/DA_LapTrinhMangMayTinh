@@ -2,8 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { Room, User } from '../types/chat';
 import { 
   Hash, Plus, Settings, ChevronDown, ChevronUp, LogOut, Copy, Check, Trash2, 
-  Sparkles, UserPlus, FolderPlus, Calendar, LayoutGrid, Bell, Shield, Edit2, 
-  Mic, MicOff, Headphones
+  UserPlus, Mic, MicOff, Headphones
 } from 'lucide-react';
 import { Logo } from './Logo';
 
@@ -144,17 +143,6 @@ export const RoomSidebar: React.FC<Props> = ({
         {isServerMenuOpen && (
           <div className="server-dropdown-menu" onClick={e => e.stopPropagation()}>
             <div 
-              className="dropdown-item boost" 
-              onClick={() => {
-                setIsServerMenuOpen(false);
-                alert(`✨ Máy chủ "${serverTitle}" hiện đang ở Level 1! Cần thêm 2 Boost để mở khóa 1080p 60fps & 50 slots emoji.`);
-              }}
-            >
-              <span>Nâng Cấp Máy Chủ</span>
-              <Sparkles size={16} color="#ff73fa" />
-            </div>
-
-            <div 
               className="dropdown-item blurple" 
               onClick={() => {
                 setIsServerMenuOpen(false);
@@ -188,76 +176,6 @@ export const RoomSidebar: React.FC<Props> = ({
             >
               <span>Tạo kênh</span>
               <Plus size={16} />
-            </div>
-
-            <div 
-              className="dropdown-item" 
-              onClick={() => {
-                setIsServerMenuOpen(false);
-                alert('Tạo danh mục mới: Tính năng nhóm các kênh chat theo chủ đề.');
-              }}
-            >
-              <span>Tạo Danh Mục</span>
-              <FolderPlus size={16} />
-            </div>
-
-            <div 
-              className="dropdown-item" 
-              onClick={() => {
-                setIsServerMenuOpen(false);
-                alert('Tạo sự kiện: Lên lịch cuộc họp hoặc buổi chơi game cùng các thành viên.');
-              }}
-            >
-              <span>Tạo Sự kiện</span>
-              <Calendar size={16} />
-            </div>
-
-            <div 
-              className="dropdown-item" 
-              onClick={() => {
-                setIsServerMenuOpen(false);
-                alert('Thư mục App: Khám phá các bot tự động, bot nhạc và minigame cho máy chủ.');
-              }}
-            >
-              <span>Thư Mục App</span>
-              <LayoutGrid size={16} />
-            </div>
-
-            <div className="dropdown-divider" />
-
-            <div 
-              className="dropdown-item" 
-              onClick={() => {
-                setIsServerMenuOpen(false);
-                alert('Cài đặt thông báo: Đang nhận thông báo @tất_cả_tin_nhắn.');
-              }}
-            >
-              <span>Cài đặt thông báo</span>
-              <Bell size={16} />
-            </div>
-
-            <div 
-              className="dropdown-item" 
-              onClick={() => {
-                setIsServerMenuOpen(false);
-                alert('Cài đặt bảo mật: Mức độ kiểm duyệt 2FA và lọc nội dung độc hại tự động.');
-              }}
-            >
-              <span>Cài Đặt Bảo Mật</span>
-              <Shield size={16} />
-            </div>
-
-            <div className="dropdown-divider" />
-
-            <div 
-              className="dropdown-item" 
-              onClick={() => {
-                setIsServerMenuOpen(false);
-                alert(`Chỉnh sửa biệt danh trong máy chủ: ${currentUser?.displayName}`);
-              }}
-            >
-              <span>Chỉnh Sửa Hồ Sơ Theo Máy Chủ</span>
-              <Edit2 size={16} />
             </div>
 
             {currentRoom && onLeaveRoom && (

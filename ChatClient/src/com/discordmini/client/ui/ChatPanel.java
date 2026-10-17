@@ -80,6 +80,27 @@ public class ChatPanel extends JPanel implements ChatEventListener, RoomEventLis
         messageList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         messageList.setCellRenderer(new MessageListCellRenderer());
         messageList.setBackground(new Color(250, 250, 250));
+        messageList.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                int index = messageList.locationToIndex(e.getPoint());
+                if (index >= 0 && index < messageListModel.size()) {
+                    ChatMessage msg = messageListModel.get(index);
+                    if (msg.isMine() && (msg.getStatus() == MessageStatus.FAILED || msg.getStatus() == MessageStatus.UNKNOWN_TIMEOUT)) {
+                        int choice = JOptionPane.showConfirmDialog(
+                                ChatPanel.this,
+                                "Tin nhắn chưa được gửi thành công:\n\"" + msg.getContent() + "\"\n\nBạn có muốn thử gửi lại (Retry) không?",
+                                "Gửi lại tin nhắn",
+                                JOptionPane.YES_NO_OPTION,
+                                JOptionPane.QUESTION_MESSAGE
+                        );
+                        if (choice == JOptionPane.YES_OPTION) {
+                            retrySendMessage(msg, index);
+                        }
+                    }
+                }
+            }
+        });
         add(scrollPane, BorderLayout.CENTER);
 
         // 3. Khung nhập tin nhắn
@@ -154,6 +175,20 @@ public class ChatPanel extends JPanel implements ChatEventListener, RoomEventLis
             addOrUpdateMessage(outgoing);
             messageInput.setText("");
             scrollToBottom();
+        }
+    }
+
+    private void retrySendMessage(ChatMessage oldMsg, int index) {
+        if (chatService == null || roomService == null || !roomService.isInRoom()) {
+            JOptionPane.showMessageDialog(this, "Bạn phải đang trong phòng chat để gửi lại tin nhắn.",
+                    "Chưa vào phòng", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String newRequestId = chatService.sendMessage(oldMsg.getContent());
+        if (newRequestId != null) {
+            ChatMessage retryMsg = ChatMessage.createOutgoing(newRequestId, currentDisplayName, oldMsg.getContent());
+            messageListModel.set(index, retryMsg);
+            smartScrollToBottom(true);
         }
     }
 
