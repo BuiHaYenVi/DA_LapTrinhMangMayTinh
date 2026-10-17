@@ -200,11 +200,11 @@ public class RoomService {
         List<Room> newRooms = new ArrayList<>();
         for (int i = 1; i < parts.length; i++) {
             String item = parts[i];
-            int commaIdx = item.indexOf(',');
-            if (commaIdx > 0) {
+            String[] x = item.split(",", 4);
+            if (x.length >= 2) {
                 try {
-                    int id = Integer.parseInt(item.substring(0, commaIdx));
-                    String name = ProtocolHandler.decode(item.substring(commaIdx + 1));
+                    int id = Integer.parseInt(x[0]);
+                    String name = ProtocolHandler.decode(x[1]);
                     newRooms.add(new Room(id, name));
                 } catch (Exception ignored) {}
             }
@@ -272,10 +272,10 @@ public class RoomService {
         List<String> memberNames = new ArrayList<>();
         for (int i = 1; i < parts.length; i++) {
             String item = parts[i];
-            int commaIdx = item.indexOf(',');
-            if (commaIdx > 0) {
+            String[] x = item.split(",", 4);
+            if (x.length >= 2) {
                 try {
-                    String name = ProtocolHandler.decode(item.substring(commaIdx + 1));
+                    String name = ProtocolHandler.decode(x[1]);
                     memberNames.add(name);
                 } catch (Exception ignored) {}
             }
