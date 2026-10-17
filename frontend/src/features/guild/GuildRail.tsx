@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import {
   Home,
   Plus,
-  Compass,
-  Sun,
-  Moon,
-  Activity,
   X,
   KeyRound,
   Sparkles,
   Radio,
+  Calendar,
+  Bookmark,
+  Settings,
+  Layers,
+  Server,
 } from 'lucide-react';
 import { useAppStore } from '../../shared/state/appStore';
 import type { Guild, FriendRequest } from '../../shared/types/api';
@@ -18,17 +19,13 @@ export const GuildRail: React.FC = () => {
   const {
     currentUser,
     theme,
-    toggleTheme,
     viewMode,
     setViewMode,
     guilds,
-    activeGuildId,
     selectGuild,
     createGuild,
     joinGuildByInvite,
     friendRequests,
-    isMonitorOpen,
-    setMonitorOpen,
     setSettingsOpen,
   } = useAppStore();
 
@@ -131,280 +128,218 @@ export const GuildRail: React.FC = () => {
     <>
       <aside
         aria-label="Thanh máy chủ và điều hướng chính"
-        className={`relative z-20 flex h-full w-[76px] shrink-0 flex-col items-center justify-between border-r py-4 select-none transition-colors duration-200 ${
+        className={`relative z-20 flex h-full w-[72px] shrink-0 flex-col items-center justify-between border-r py-5 select-none transition-colors duration-200 ${
           isDark
             ? 'border-[#1E2B25] bg-[#111815] text-[#F8FAFC]'
-            : 'border-[#E8EFEA] bg-white text-[#0F172A]'
+            : 'border-[#F0F4F1] bg-white text-[#0F172A]'
         }`}
       >
         {/* Top: Cloverleaf Brand Logo + Nav items */}
-        <div className="flex w-full flex-col items-center gap-2.5 overflow-y-auto no-scrollbar">
-          {/* Cloverleaf Abstract Logo */}
+        <div className="flex w-full flex-col items-center gap-4 overflow-y-auto no-scrollbar">
+          {/* Cloverleaf Abstract 4-Petal Floral Logo from Mockup */}
           <div
-            className="flex h-11 w-11 items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95 mb-1"
-            title="Discord Mini Modern"
+            className="flex h-11 w-11 items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95"
+            title="Messages Home"
             onClick={() => setViewMode('friends')}
           >
-            <div className="grid grid-cols-2 gap-1.5 w-6 h-6">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#111820] dark:bg-emerald-400" />
-              <span className="w-2.5 h-2.5 rounded-full bg-[#111820] dark:bg-emerald-400" />
-              <span className="w-2.5 h-2.5 rounded-full bg-[#111820] dark:bg-emerald-400" />
-              <span className="w-2.5 h-2.5 rounded-full bg-[#111820] dark:bg-emerald-400" />
-            </div>
-          </div>
-
-          <div className="h-[1px] w-8 bg-[#E8EFEA] dark:bg-[#1E2B25] mb-1" />
-
-          {/* Direct Messages & Friends Button */}
-          <div
-            className="relative flex w-full items-center justify-center"
-            onMouseEnter={() => setHoveredId('home-dm')}
-            onMouseLeave={() => setHoveredId(null)}
-          >
-            <button
-              type="button"
-              onClick={() => setViewMode('friends')}
-              aria-label="Tin nhắn trực tiếp & Bạn bè"
-              className={`relative flex h-11 w-11 items-center justify-center transition-all duration-200 active:scale-95 ${
-                isHomeActive
-                  ? 'rounded-[16px] bg-[#111820] text-white shadow-md dark:bg-emerald-500 dark:text-[#090E0C]'
-                  : isDark
-                  ? 'rounded-[18px] bg-transparent text-[#94A3B8] hover:bg-[#1B2922] hover:text-[#F8FAFC]'
-                  : 'rounded-[18px] bg-transparent text-[#64748B] hover:bg-[#E8F2EC] hover:text-[#0F172A]'
-              }`}
+            <svg
+              className="w-8 h-8 text-[#111111] dark:text-[#F8FAFC]"
+              viewBox="0 0 32 32"
+              fill="currentColor"
             >
-              <Home className="h-5 w-5" strokeWidth={2.2} />
-
-              {/* Pending Friend Requests Badge */}
-              {pendingIncomingCount > 0 && (
-                <span
-                  title={`${pendingIncomingCount} lời mời kết bạn`}
-                  className="absolute -right-1 -top-1 flex min-w-[18px] items-center justify-center rounded-full bg-[#F43F5E] px-1 py-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#111815]"
-                >
-                  {pendingIncomingCount > 9 ? '9+' : pendingIncomingCount}
-                </span>
-              )}
-            </button>
-
-            {hoveredId === 'home-dm' && (
-              <div
-                role="tooltip"
-                className="pointer-events-none fixed left-[82px] z-50 flex items-center gap-2 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
-              >
-                <span>Tin nhắn riêng & Bạn bè</span>
-              </div>
-            )}
+              <circle cx="16" cy="8" r="4.2" />
+              <circle cx="16" cy="24" r="4.2" />
+              <circle cx="8" cy="16" r="4.2" />
+              <circle cx="24" cy="16" r="4.2" />
+            </svg>
           </div>
 
-          {/* Horizontal Divider */}
-          <div className="my-1 h-[1px] w-8 rounded-full bg-[#E8EFEA] dark:bg-[#1E2B25]" />
+          <div className="flex w-full flex-col items-center gap-3 pt-1">
+            {/* 1. Home Button */}
+            <div
+              className="relative flex w-full items-center justify-center"
+              onMouseEnter={() => setHoveredId('home')}
+              onMouseLeave={() => setHoveredId(null)}
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode('friends')}
+                aria-label="Trang chủ / Bạn bè"
+                className={`relative flex h-10 w-10 items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${
+                  viewMode === 'friends'
+                    ? 'text-[#111111] dark:text-emerald-400'
+                    : 'text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <Home className="h-5 w-5" strokeWidth={1.8} />
+                {pendingIncomingCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex min-w-[16px] h-4 items-center justify-center rounded-full bg-[#F43F5E] px-1 text-[9px] font-bold text-white">
+                    {pendingIncomingCount}
+                  </span>
+                )}
+              </button>
+              {hoveredId === 'home' && (
+                <div className="pointer-events-none fixed left-[78px] z-50 rounded-xl bg-[#111111] px-2.5 py-1 text-xs font-semibold text-white shadow-lg">
+                  Trang chủ
+                </div>
+              )}
+            </div>
 
-          {/* Guild List */}
-          <div className="flex w-full flex-col items-center gap-2">
-            {guilds.map((guild) => {
-              const isActive =
-                viewMode === 'guild' && activeGuildId === guild.id;
-              const isHovered = hoveredId === `guild-${guild.id}`;
-              const unread = getGuildUnread(guild);
+            {/* 2. Plus Button (Add / Create Guild) */}
+            <div
+              className="relative flex w-full items-center justify-center"
+              onMouseEnter={() => setHoveredId('add-server')}
+              onMouseLeave={() => setHoveredId(null)}
+            >
+              <button
+                type="button"
+                onClick={handleOpenCreateModal}
+                aria-label="Tạo máy chủ mới"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all duration-150 active:scale-95"
+              >
+                <Plus className="h-5 w-5" strokeWidth={2.2} />
+              </button>
+              {hoveredId === 'add-server' && (
+                <div className="pointer-events-none fixed left-[78px] z-50 rounded-xl bg-[#111111] px-2.5 py-1 text-xs font-semibold text-white shadow-lg">
+                  Tạo máy chủ mới
+                </div>
+              )}
+            </div>
 
+            {/* 3. Calendar / Schedule Button */}
+            <div
+              className="relative flex w-full items-center justify-center"
+              onMouseEnter={() => setHoveredId('calendar')}
+              onMouseLeave={() => setHoveredId(null)}
+            >
+              <button
+                type="button"
+                onClick={() => setHoveredId(null)}
+                aria-label="Lịch & Sự kiện"
+                className="relative flex h-10 w-10 items-center justify-center rounded-2xl text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all duration-150 active:scale-95"
+              >
+                <Calendar className="h-5 w-5" strokeWidth={1.8} />
+              </button>
+              {hoveredId === 'calendar' && (
+                <div className="pointer-events-none fixed left-[78px] z-50 rounded-xl bg-[#111111] px-2.5 py-1 text-xs font-semibold text-white shadow-lg">
+                  Lịch & Sự kiện
+                </div>
+              )}
+            </div>
+
+            {/* 4. Active Messages Pill (Rounded Black Capsule from Mockup!) */}
+            <div
+              className="relative flex w-full items-center justify-center my-0.5"
+              onMouseEnter={() => setHoveredId('messages')}
+              onMouseLeave={() => setHoveredId(null)}
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode('dm')}
+                aria-label="Hộp thư & Tin nhắn"
+                className={`relative flex h-11 w-11 items-center justify-center rounded-[18px] transition-all duration-200 active:scale-95 ${
+                  viewMode === 'dm' || isHomeActive
+                    ? 'bg-[#111111] text-white shadow-md dark:bg-emerald-500 dark:text-[#090E0C]'
+                    : 'text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <Layers className="h-5 w-5" strokeWidth={2} />
+              </button>
+              {hoveredId === 'messages' && (
+                <div className="pointer-events-none fixed left-[78px] z-50 rounded-xl bg-[#111111] px-2.5 py-1 text-xs font-semibold text-white shadow-lg">
+                  Tin nhắn (Messages)
+                </div>
+              )}
+            </div>
+
+            {/* Guilds / Servers Switcher icon if guilds exist */}
+            {guilds.length > 0 && (() => {
+              const totalGuildUnread = guilds.reduce((acc, g) => acc + getGuildUnread(g), 0);
               return (
                 <div
-                  key={guild.id}
                   className="relative flex w-full items-center justify-center"
-                  onMouseEnter={() => setHoveredId(`guild-${guild.id}`)}
+                  onMouseEnter={() => setHoveredId('guilds-list')}
                   onMouseLeave={() => setHoveredId(null)}
                 >
-                  {/* Animated Left Pill Indicator */}
-                  <span
-                    className={`absolute left-0 w-1 rounded-r-full bg-[#2563EB] transition-all duration-200 ${
-                      isActive
-                        ? 'h-9 opacity-100'
-                        : isHovered
-                        ? 'h-5 opacity-100'
-                        : unread > 0
-                        ? 'h-2.5 opacity-100'
-                        : 'h-0 opacity-0'
-                    }`}
-                  />
-
                   <button
                     type="button"
                     onClick={() => {
                       setViewMode('guild');
-                      selectGuild(guild.id);
+                      if (guilds[0]) selectGuild(guilds[0].id);
                     }}
-                    aria-label={`Máy chủ ${guild.name}`}
-                    className={`relative flex h-11 w-11 items-center justify-center text-xs font-black transition-all duration-200 active:scale-95 ${
-                      isActive
-                        ? 'rounded-[16px] bg-[#111820] text-white shadow-md dark:bg-emerald-500 dark:text-[#090E0C]'
-                        : isDark
-                        ? 'rounded-[18px] bg-[#16201C] text-[#CBD5E1] hover:bg-[#1B2922] hover:text-white'
-                        : 'rounded-[18px] bg-[#F6F9F7] text-[#334155] hover:bg-[#E8F2EC] hover:text-[#0F172A]'
+                    aria-label="Danh sách máy chủ Discord"
+                    className={`relative flex h-10 w-10 items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${
+                      viewMode === 'guild'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400'
+                        : 'text-gray-400 hover:text-gray-900 dark:hover:text-white'
                     }`}
                   >
-                    <span>
-                      {(guild.iconText || guild.name.slice(0, 2)).toUpperCase()}
-                    </span>
-
-                    {/* Unread Count Badge */}
-                    {unread > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#F59E0B] px-1 text-[9px] font-black text-white ring-2 ring-white dark:ring-[#111815]">
-                        {unread > 9 ? '9+' : unread}
+                    <Server className="h-5 w-5" strokeWidth={1.8} />
+                    {totalGuildUnread > 0 && (
+                      <span className="absolute -right-1 -top-1 flex min-w-[16px] h-4 items-center justify-center rounded-full bg-[#F43F5E] px-1 text-[9px] font-bold text-white">
+                        {totalGuildUnread}
                       </span>
                     )}
                   </button>
-
-                  {/* Tooltip */}
-                  {isHovered && (
-                    <div
-                      role="tooltip"
-                      className="pointer-events-none fixed left-[82px] z-50 flex items-center gap-2 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
-                    >
-                      <span>{guild.name}</span>
-                      {unread > 0 && (
-                        <span className="rounded-full bg-[#F43F5E] px-1.5 py-0.5 text-[10px] text-white">
-                          {unread} mới
-                        </span>
-                      )}
+                  {hoveredId === 'guilds-list' && (
+                    <div className="pointer-events-none fixed left-[78px] z-50 rounded-xl bg-[#111111] px-2.5 py-1 text-xs font-semibold text-white shadow-lg">
+                      Máy chủ Discord ({guilds.length})
                     </div>
                   )}
                 </div>
               );
-            })}
-          </div>
-
-          {/* Action Button: Create Guild (+) */}
-          <div
-            className="relative mt-1 flex w-full items-center justify-center"
-            onMouseEnter={() => setHoveredId('create-guild')}
-            onMouseLeave={() => setHoveredId(null)}
-          >
-            <button
-              type="button"
-              onClick={handleOpenCreateModal}
-              aria-label="Tạo máy chủ mới"
-              className={`flex h-11 w-11 items-center justify-center transition-all duration-200 active:scale-95 ${
-                hoveredId === 'create-guild'
-                  ? 'rounded-[16px] bg-[#10B981] text-white shadow-sm'
-                  : isDark
-                  ? 'rounded-[18px] bg-transparent text-[#34D399] hover:bg-[#1B2922]'
-                  : 'rounded-[18px] bg-transparent text-[#059669] hover:bg-[#E8F2EC]'
-              }`}
-            >
-              <Plus className="h-5 w-5" strokeWidth={2.4} />
-            </button>
-
-            {hoveredId === 'create-guild' && (
-              <div
-                role="tooltip"
-                className="pointer-events-none fixed left-[82px] z-50 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
-              >
-                Tạo máy chủ mới (Guild)
-              </div>
-            )}
-          </div>
-
-          {/* Action Button: Join Guild by Invite Code */}
-          <div
-            className="relative flex w-full items-center justify-center"
-            onMouseEnter={() => setHoveredId('join-guild')}
-            onMouseLeave={() => setHoveredId(null)}
-          >
-            <button
-              type="button"
-              onClick={handleOpenJoinModal}
-              aria-label="Tham gia máy chủ bằng mã mời"
-              className={`flex h-11 w-11 items-center justify-center transition-all duration-200 active:scale-95 ${
-                hoveredId === 'join-guild'
-                  ? 'rounded-[16px] bg-[#0284C7] text-white shadow-sm'
-                  : isDark
-                  ? 'rounded-[18px] bg-transparent text-[#38BDF8] hover:bg-[#1B2922]'
-                  : 'rounded-[18px] bg-transparent text-[#0284C7] hover:bg-[#E8F2EC]'
-              }`}
-            >
-              <Compass className="h-5 w-5" strokeWidth={2.2} />
-            </button>
-
-            {hoveredId === 'join-guild' && (
-              <div
-                role="tooltip"
-                className="pointer-events-none fixed left-[82px] z-50 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
-              >
-                Tham gia bằng Mã Mời
-              </div>
-            )}
+            })()}
           </div>
         </div>
 
-        {/* Bottom Utility Actions: Network Monitor + Theme Toggle + Monogram */}
-        <div className="flex w-full flex-col items-center gap-2 pt-2">
-          {/* Network Monitor */}
+        {/* Bottom Stack: Bookmark + Settings + User Profile Avatar ("N") */}
+        <div className="flex w-full flex-col items-center gap-3 pt-2">
+          {/* Bookmark / Saved Messages */}
           <div
             className="relative flex w-full items-center justify-center"
-            onMouseEnter={() => setHoveredId('rail-monitor')}
+            onMouseEnter={() => setHoveredId('bookmark')}
             onMouseLeave={() => setHoveredId(null)}
           >
             <button
               type="button"
-              onClick={() => setMonitorOpen(!isMonitorOpen)}
-              aria-label="Bật/Tắt bảng giám sát giao thức mạng TCP/UDP"
-              className={`relative flex h-10 w-10 items-center justify-center rounded-[14px] transition-all duration-150 active:scale-95 ${
-                isMonitorOpen
-                  ? 'bg-[#111820] text-white dark:bg-emerald-500 dark:text-black shadow-xs'
-                  : isDark
-                  ? 'bg-transparent text-[#94A3B8] hover:bg-[#1B2922] hover:text-white'
-                  : 'bg-transparent text-[#64748B] hover:bg-[#E8F2EC] hover:text-[#0F172A]'
-              }`}
+              onClick={() => setHoveredId(null)}
+              aria-label="Tin nhắn đã lưu"
+              className="flex h-9 w-9 items-center justify-center rounded-2xl text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all active:scale-95"
             >
-              <Activity className="h-4 w-4" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#10B981]" />
+              <Bookmark className="h-5 w-5" strokeWidth={1.8} />
             </button>
-
-            {hoveredId === 'rail-monitor' && (
-              <div
-                role="tooltip"
-                className="pointer-events-none fixed left-[82px] z-50 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
-              >
-                Network Monitor (TCP :5000 / UDP :5001)
+            {hoveredId === 'bookmark' && (
+              <div className="pointer-events-none fixed left-[78px] z-50 rounded-xl bg-[#111111] px-2.5 py-1 text-xs font-semibold text-white shadow-lg">
+                Đã lưu
               </div>
             )}
           </div>
 
-          {/* Quick Theme Switcher */}
+          {/* Settings / Gear */}
           <div
             className="relative flex w-full items-center justify-center"
-            onMouseEnter={() => setHoveredId('rail-theme')}
+            onMouseEnter={() => setHoveredId('settings')}
             onMouseLeave={() => setHoveredId(null)}
           >
             <button
               type="button"
-              onClick={toggleTheme}
-              aria-label={isDark ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang giao diện Tối'}
-              className={`flex h-10 w-10 items-center justify-center rounded-[14px] transition-all duration-150 active:scale-95 ${
-                isDark
-                  ? 'text-[#F59E0B] hover:bg-[#1B2922]'
-                  : 'text-[#10B981] hover:bg-[#E8F2EC]'
-              }`}
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Cài đặt hệ thống"
+              className="flex h-9 w-9 items-center justify-center rounded-2xl text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all active:scale-95"
             >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              <Settings className="h-5 w-5" strokeWidth={1.8} />
             </button>
-
-            {hoveredId === 'rail-theme' && (
-              <div
-                role="tooltip"
-                className="pointer-events-none fixed left-[82px] z-50 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
-              >
-                {isDark ? 'Chế độ Sáng (Sage Light)' : 'Chế độ Tối (Emerald Dark)'}
+            {hoveredId === 'settings' && (
+              <div className="pointer-events-none fixed left-[78px] z-50 rounded-xl bg-[#111111] px-2.5 py-1 text-xs font-semibold text-white shadow-lg">
+                Cài đặt & Giao diện
               </div>
             )}
           </div>
 
-          <div className="h-[1px] w-8 bg-[#E8EFEA] dark:bg-[#1E2B25] my-1" />
-
-          {/* Bottom Monogram Avatar (Matching reference image "N" avatar) */}
+          {/* Monogram "N" / Current User Avatar Circle (from reference mockup) */}
           <div
-            className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[#111820] dark:bg-emerald-500 text-white dark:text-[#090E0C] font-black text-sm shadow-sm cursor-pointer transition-transform hover:scale-105 active:scale-95"
-            title={currentUser?.displayName || 'User'}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111111] dark:bg-emerald-500 text-white dark:text-[#090E0C] font-extrabold text-sm shadow-xs cursor-pointer transition-transform hover:scale-105 active:scale-95 mt-1"
+            title={currentUser?.displayName || 'Tài khoản'}
             onClick={() => setSettingsOpen(true)}
           >
             {currentUser?.displayName?.[0]?.toUpperCase() || 'N'}
@@ -511,6 +446,16 @@ export const GuildRail: React.FC = () => {
               )}
 
               <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreateModalOpen(false);
+                    handleOpenJoinModal();
+                  }}
+                  className="mr-auto text-xs font-semibold text-[#2563EB] hover:underline"
+                >
+                  Tham gia bằng mã mời
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}

@@ -12,8 +12,6 @@ import {
   Video,
   VideoOff,
   Settings,
-  Activity,
-  Users,
   Copy,
   Check,
   CheckCheck,
@@ -83,16 +81,12 @@ export const ChannelSidebar: React.FC = () => {
     dmConversations,
     activeDmId,
     selectDm,
-    friendRequests,
     activeVoiceChannelId,
     voiceParticipants,
     localVoiceState,
     joinVoiceChannel,
     leaveVoiceChannel,
     updateLocalVoiceState,
-    rttSamples,
-    isMonitorOpen,
-    setMonitorOpen,
     setSettingsOpen,
     setCommandPaletteOpen,
     updatePresence,
@@ -139,17 +133,9 @@ export const ChannelSidebar: React.FC = () => {
   const voiceChannels = channels.filter((c) => c.type === 'voice');
 
   // Latest RTT in ms for live badge
-  const latestSample =
-    Array.isArray(rttSamples) && rttSamples.length > 0
-      ? rttSamples[rttSamples.length - 1]
-      : null;
-  const liveRttMs = latestSample
-    ? Math.round(latestSample.udpRttMs ?? latestSample.wsRttMs ?? 12)
-    : 12;
 
-  const pendingIncomingCount = Array.isArray(friendRequests)
-    ? friendRequests.filter((r) => r.direction === 'INCOMING').length
-    : 0;
+
+
 
   const handleOpenInviteModal = async () => {
     setIsInviteModalOpen(true);
@@ -247,17 +233,17 @@ export const ChannelSidebar: React.FC = () => {
     <>
       <aside
         aria-label="Danh sách kênh và tin nhắn trực tiếp"
-        className={`relative flex h-full w-[280px] shrink-0 flex-col border-r select-none transition-colors duration-200 ${
+        className={`relative flex h-full w-[320px] shrink-0 flex-col border-r select-none transition-colors duration-200 ${
           isDark
             ? 'border-[#1E2B25] bg-[#111815] text-[#F8FAFC]'
-            : 'border-[#E8EFEA] bg-white text-[#0F172A]'
+            : 'border-[#F0F4F1] bg-white text-[#0F172A]'
         }`}
       >
-        {/* TOP HEADER (64px) */}
+        {/* TOP HEADER (Only for Guild mode) */}
         {viewMode === 'guild' ? (
           <div
             className={`flex h-[64px] shrink-0 items-center justify-between border-b px-4 ${
-              isDark ? 'border-[#1E2B25]' : 'border-[#E8EFEA]'
+              isDark ? 'border-[#1E2B25]' : 'border-[#F0F4F1]'
             }`}
           >
             <div className="min-w-0 flex-1 pr-2">
@@ -304,64 +290,31 @@ export const ChannelSidebar: React.FC = () => {
               <span>Mời</span>
             </button>
           </div>
-        ) : (
+        ) : null}
+
+        {/* QUICK SEARCH PILL (Exact Pill from Reference Mockup) */}
+        <div className="px-4 pt-4 pb-2">
           <div
-            className={`flex h-[64px] shrink-0 items-center justify-between border-b px-4 ${
-              isDark ? 'border-[#1E2B25]' : 'border-[#E8EFEA]'
+            onClick={() => setCommandPaletteOpen(true)}
+            className={`flex h-10 w-full items-center gap-2.5 rounded-full border px-4 cursor-pointer transition ${
+              isDark
+                ? 'border-[#283830] bg-[#141C18] text-[#CBD5E1]'
+                : 'border-[#EDF2EF] bg-[#FBFDFB] text-[#475569]'
             }`}
           >
-            <h2 className="text-lg font-extrabold tracking-tight text-[#0F172A] dark:text-[#F8FAFC]">
-              Tin nhắn
+            <Search className="h-4 w-4 text-gray-400 shrink-0" />
+            <span className="text-sm font-medium text-gray-400">Search</span>
+          </div>
+        </div>
+
+        {/* SECTION TITLE: "Messages" (Matching Mockup) */}
+        {viewMode !== 'guild' && (
+          <div className="px-5 pt-2 pb-1 flex items-center justify-between">
+            <h2 className="text-[22px] font-bold tracking-tight text-gray-900 dark:text-white">
+              Messages
             </h2>
-            <button
-              type="button"
-              onClick={() => setViewMode('friends')}
-              title="Quản lý bạn bè"
-              className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-bold transition ${
-                viewMode === 'friends'
-                  ? 'border-[#10B981] bg-[#10B981] text-white shadow-xs'
-                  : isDark
-                  ? 'border-[#283830] bg-[#141C18] text-[#CBD5E1] hover:text-white'
-                  : 'border-[#E5EFE9] bg-[#F7FAF8] text-[#475569] hover:text-[#0F172A]'
-              }`}
-            >
-              <Users className="h-3.5 w-3.5" />
-              <span>Bạn bè</span>
-              {pendingIncomingCount > 0 && (
-                <span className="rounded-full bg-[#F43F5E] px-1.5 py-0.2 text-[10px] font-bold text-white">
-                  {pendingIncomingCount}
-                </span>
-              )}
-            </button>
           </div>
         )}
-
-        {/* QUICK SEARCH PILL */}
-        <div className="px-3 pt-3 pb-1">
-          <button
-            type="button"
-            onClick={() => setCommandPaletteOpen(true)}
-            className={`flex h-9 w-full items-center justify-between rounded-2xl border px-3 text-xs font-medium transition ${
-              isDark
-                ? 'border-[#283830] bg-[#141C18] text-[#94A3B8] hover:border-[#10B981] hover:text-white'
-                : 'border-[#E5EFE9] bg-[#F7FAF8] text-[#64748B] hover:border-[#10B981] hover:text-[#0F172A]'
-            }`}
-          >
-            <span className="flex items-center gap-2 truncate">
-              <Search className="h-3.5 w-3.5 text-[#10B981]" />
-              <span>{viewMode === 'guild' ? 'Tìm nhanh kênh / lệnh...' : 'Tìm kiếm hội thoại...'}</span>
-            </span>
-            <kbd
-              className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ${
-                isDark
-                  ? 'bg-[#090E0C] text-[#94A3B8]'
-                  : 'bg-white text-[#475569] shadow-2xs'
-              }`}
-            >
-              Ctrl+K
-            </kbd>
-          </button>
-        </div>
 
         {/* SCROLLABLE MIDDLE CONTENT */}
         <div className="flex-1 space-y-4 overflow-y-auto px-2 py-2.5">
@@ -613,182 +566,105 @@ export const ChannelSidebar: React.FC = () => {
               </div>
             </>
           ) : (
-            /* FRIENDS & DIRECT MESSAGES SIDEBAR */
-            <div className="space-y-4">
-              {/* Friends Navigation Button */}
-              <button
-                type="button"
-                onClick={() => setViewMode('friends')}
-                className={`flex h-10 w-full items-center justify-between rounded-2xl px-3 text-sm font-bold transition ${
-                  viewMode === 'friends'
-                    ? 'bg-[#111820] text-white shadow-xs dark:bg-[#1E2B25] dark:text-[#10B981]'
-                    : isDark
-                    ? 'text-[#CBD5E1] hover:bg-[#16221C]'
-                    : 'text-[#475569] hover:bg-[#F2F7F4]'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <Users className="h-4 w-4" />
-                  <span>Bạn bè (Friends)</span>
-                </span>
-                {pendingIncomingCount > 0 && (
-                  <span className="rounded-full bg-[#10B981] px-2 py-0.5 text-[11px] font-bold text-white">
-                    {pendingIncomingCount}
-                  </span>
-                )}
-              </button>
+            /* FRIENDS & DIRECT MESSAGES SIDEBAR (Mockup Matched List) */
+            <div className="space-y-1 px-1">
+              {Array.isArray(dmConversations) && dmConversations.length > 0 ? (
+                dmConversations.map((conv: DirectConversation) => {
+                  const isActiveDm = viewMode === 'dm' && activeDmId === conv.id;
+                  const peer = conv.peerUser;
+                  const unread = conv.unreadCount ?? 0;
+                  const isTyping =
+                    (Array.isArray(typingUsers) && typingUsers.some((u) => u.userId === peer?.id)) ||
+                    conv.lastMessagePreview === '... is typing';
 
-              {/* Direct Messages List */}
-              <div>
-                <div className="mb-2 flex items-center justify-between px-2">
-                  <span
-                    className={`text-[11px] font-bold tracking-[0.06em] uppercase ${
-                      isDark ? 'text-[#94A3B8]' : 'text-[#64748B]'
-                    }`}
-                  >
-                    TIN NHẮN TRỰC TIẾP (DM)
-                  </span>
-                </div>
+                  // Mockup timestamps mapping
+                  const mockTime =
+                    conv.id === 510 ? '4:45 pm' :
+                    conv.id === 511 ? '5:38 pm' :
+                    conv.id === 512 ? '5:04 pm' :
+                    conv.id === 513 ? '4:22 pm' :
+                    conv.id === 514 ? '3:59 pm' :
+                    conv.id === 515 ? '3:24 am' :
+                    conv.id === 516 ? '1:06 pm' :
+                    conv.id === 500 ? '12:57 am' :
+                    conv.id === 517 ? '12:43 pm' :
+                    conv.id === 518 ? '12:17 pm' : '12:45 pm';
 
-                <div className="space-y-1.5">
-                  {Array.isArray(dmConversations) &&
-                  dmConversations.length > 0 ? (
-                    dmConversations.map((conv: DirectConversation) => {
-                      const isActiveDm =
-                        viewMode === 'dm' && activeDmId === conv.id;
-                      const peer = conv.peerUser;
-                      const unread = conv.unreadCount ?? 0;
-                      const isTyping =
-                        Array.isArray(typingUsers) &&
-                        typingUsers.some((u) => u.userId === peer?.id);
-
-                      return (
-                        <button
-                          key={conv.id}
-                          type="button"
-                          onClick={() => {
-                            setViewMode('dm');
-                            selectDm(conv.id);
-                          }}
-                          className={`group flex w-full items-center justify-between rounded-2xl p-2.5 text-left transition-all ${
-                            isActiveDm
-                              ? 'bg-[#111820] text-white shadow-xs dark:bg-[#1E2B25] dark:text-[#10B981]'
-                              : isDark
-                              ? 'text-[#CBD5E1] hover:bg-[#16221C] hover:text-white'
-                              : 'text-[#475569] hover:bg-[#F2F7F4] hover:text-[#0F172A]'
-                          }`}
-                        >
-                          <div className="flex min-w-0 flex-1 items-center gap-3">
-                            <div className="relative shrink-0">
-                              <div
-                                className={`flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white shadow-2xs ${
-                                  isActiveDm
-                                    ? 'bg-[#10B981] text-white'
-                                    : 'bg-[#111820] dark:bg-emerald-600'
-                                }`}
-                                style={
-                                  peer?.avatarColor
-                                    ? { backgroundColor: peer.avatarColor }
-                                    : undefined
-                                }
-                              >
-                                {(
-                                  peer?.displayName ||
-                                  peer?.username ||
-                                  'U'
-                                )
-                                  .slice(0, 2)
-                                  .toUpperCase()}
-                              </div>
-                              <span
-                                className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ${
-                                  isActiveDm
-                                    ? isDark
-                                      ? 'ring-[#1E2B25]'
-                                      : 'ring-[#111820]'
-                                    : isDark
-                                    ? 'ring-[#111815]'
-                                    : 'ring-white'
-                                } ${getPresenceDotClass(peer?.status)}`}
-                              />
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="mb-0.5 flex items-center justify-between gap-1">
-                                <span
-                                  className={`truncate text-sm font-extrabold ${
-                                    isActiveDm
-                                      ? 'text-white dark:text-[#10B981]'
-                                      : 'text-[#0F172A] dark:text-[#F8FAFC]'
-                                  }`}
-                                >
-                                  {peer?.displayName || peer?.username}
-                                </span>
-                                <span
-                                  className={`shrink-0 text-[10.5px] font-medium ${
-                                    isActiveDm
-                                      ? 'text-slate-300 dark:text-emerald-300'
-                                      : 'text-slate-400'
-                                  }`}
-                                >
-                                  12:45
-                                </span>
-                              </div>
-
-                              <div className="flex items-center justify-between gap-1">
-                                {isTyping ? (
-                                  <div className="flex items-center gap-1.5 text-xs font-medium text-[#10B981]">
-                                    <span className="h-1.5 w-1.5 animate-ping rounded-full bg-[#10B981]" />
-                                    <span>Đang nhập...</span>
-                                  </div>
-                                ) : (
-                                  <span
-                                    className={`truncate text-xs ${
-                                      isActiveDm
-                                        ? 'text-slate-300 dark:text-slate-200'
-                                        : isDark
-                                        ? 'text-[#94A3B8]'
-                                        : 'text-[#64748B]'
-                                    }`}
-                                  >
-                                    {conv.lastMessagePreview ||
-                                      peer?.customStatus ||
-                                      `@${peer?.username}`}
-                                  </span>
-                                )}
-
-                                {unread > 0 ? (
-                                  <span className="ml-1 shrink-0 rounded-full bg-[#10B981] px-1.5 py-0.2 text-[10px] font-bold text-white">
-                                    {unread}
-                                  </span>
-                                ) : (
-                                  <CheckCheck
-                                    className={`h-3.5 w-3.5 shrink-0 ${
-                                      isActiveDm
-                                        ? 'text-[#10B981]'
-                                        : 'text-slate-400'
-                                    }`}
-                                  />
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <div
-                      className={`rounded-2xl border border-dashed p-4 text-center text-xs ${
-                        isDark
-                          ? 'border-[#283830] text-[#94A3B8]'
-                          : 'border-[#E5EFE9] text-[#64748B]'
+                  return (
+                    <button
+                      key={conv.id}
+                      type="button"
+                      onClick={() => {
+                        setViewMode('dm');
+                        selectDm(conv.id);
+                      }}
+                      className={`group flex w-full items-center justify-between rounded-[22px] p-2.5 px-3 text-left transition-all ${
+                        isActiveDm
+                          ? 'bg-[#EBF3EE] dark:bg-[#1A2620] shadow-2xs font-semibold'
+                          : isDark
+                          ? 'hover:bg-[#15201A] text-gray-300'
+                          : 'hover:bg-[#F6FAF7] text-gray-800'
                       }`}
                     >
-                      Chưa có cuộc trò chuyện riêng nào.
-                    </div>
-                  )}
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="relative shrink-0">
+                          <div
+                            className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white shadow-2xs bg-[#111111] dark:bg-emerald-700"
+                            style={peer?.avatarColor ? { backgroundColor: peer.avatarColor } : undefined}
+                          >
+                            {(peer?.displayName || peer?.username || 'U').slice(0, 2).toUpperCase()}
+                          </div>
+                          <span
+                            className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-white dark:ring-[#111815] ${
+                              peer?.status === 'OFFLINE' ? 'bg-gray-400' : 'bg-[#10B981]'
+                            }`}
+                          />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-0.5 flex items-center justify-between gap-1">
+                            <span className="truncate text-[13.5px] font-bold text-gray-900 dark:text-white">
+                              {peer?.displayName || peer?.username}
+                            </span>
+                            <span className="shrink-0 text-[10.5px] font-medium text-gray-400">
+                              {mockTime}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-1">
+                            {isTyping ? (
+                              <div className="flex items-center gap-1.5 text-xs font-medium text-[#10B981]">
+                                <span className="h-1.5 w-1.5 animate-ping rounded-full bg-[#10B981]" />
+                                <span>... is typing</span>
+                              </div>
+                            ) : (
+                              <span className="truncate text-xs text-gray-500 dark:text-gray-400">
+                                {conv.lastMessagePreview || peer?.customStatus || `@${peer?.username}`}
+                              </span>
+                            )}
+
+                            {unread > 0 ? (
+                              <span className="ml-1 flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded-full bg-[#F59E0B] px-1 text-[10px] font-bold text-white">
+                                {unread}
+                              </span>
+                            ) : (
+                              <CheckCheck className="h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div
+                  className={`rounded-2xl border border-dashed p-4 text-center text-xs ${
+                    isDark ? 'border-[#283830] text-[#94A3B8]' : 'border-[#E5EFE9] text-[#64748B]'
+                  }`}
+                >
+                  Chưa có cuộc trò chuyện riêng nào.
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -953,25 +829,6 @@ export const ChannelSidebar: React.FC = () => {
               ) : (
                 <Headphones className="h-4 w-4" />
               )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMonitorOpen(!isMonitorOpen)}
-              aria-label="Mở Network Monitor"
-              title={`Network Monitor — RTT: ${liveRttMs} ms`}
-              className={`relative flex h-8 items-center gap-1 rounded-xl px-2 transition ${
-                isMonitorOpen
-                  ? 'bg-[#10B981] text-white shadow-xs'
-                  : isDark
-                  ? 'text-[#10B981] hover:bg-[#18241F]'
-                  : 'text-[#059669] hover:bg-[#EAEFEA]'
-              }`}
-            >
-              <Activity className="h-3.5 w-3.5" />
-              <span className="font-mono text-[10px] font-bold">
-                {liveRttMs}ms
-              </span>
             </button>
 
             <button
