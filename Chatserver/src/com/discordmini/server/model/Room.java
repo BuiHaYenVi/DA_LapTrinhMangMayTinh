@@ -11,6 +11,14 @@ public class Room {
     private int createdBy;
     private Timestamp createdAt;
     private final Set<Integer> memberIds = Collections.synchronizedSet(new LinkedHashSet<>());
+    private int guildId = 1;
+    private String channelType = "text";
+    private int position = 0;
+    private String topic = "";
+    private int unreadCount = 0;
+
+    public Room() {
+    }
 
     public Room(int id, String name) {
         this(id, name, 0, null);
@@ -21,6 +29,15 @@ public class Room {
         this.name = name;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
+    }
+
+    public Room(int id, String name, int createdBy, Timestamp createdAt,
+                int guildId, String channelType, int position, String topic) {
+        this(id, name, createdBy, createdAt);
+        this.guildId = guildId > 0 ? guildId : 1;
+        this.channelType = (channelType != null && !channelType.isBlank()) ? channelType : "text";
+        this.position = position;
+        this.topic = topic != null ? topic : "";
     }
 
     public int getId() { return id; }
@@ -37,8 +54,24 @@ public class Room {
 
     public Set<Integer> getMemberIds() { return memberIds; }
 
+    public int getGuildId() { return guildId; }
+    public void setGuildId(int guildId) { this.guildId = guildId; }
+
+    public String getChannelType() { return channelType; }
+    public void setChannelType(String channelType) { this.channelType = channelType != null ? channelType : "text"; }
+
+    public int getPosition() { return position; }
+    public void setPosition(int position) { this.position = position; }
+
+    public String getTopic() { return topic; }
+    public void setTopic(String topic) { this.topic = topic != null ? topic : ""; }
+
+    public int getUnreadCount() { return unreadCount; }
+    public void setUnreadCount(int unreadCount) { this.unreadCount = unreadCount; }
+
     @Override
     public String toString() {
-        return "Room{id=" + id + ", name='" + name + "', createdBy=" + createdBy + "}";
+        return "Room{id=" + id + ", guildId=" + guildId + ", name='" + name +
+               "', channelType='" + channelType + "', createdBy=" + createdBy + "}";
     }
 }

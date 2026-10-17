@@ -1,200 +1,279 @@
-import React, { useEffect, useState } from 'react';
-import type { User, Room, MessageItem, Friend, PendingFriendRequest } from './types/chat';
-import { chatBridge } from './services/chatBridge';
-import { WorkspaceSidebar } from './components/WorkspaceSidebar';
-import { RoomSidebar } from './components/RoomSidebar';
-import { ChatCenter } from './components/ChatCenter';
-import { MemberSidebar } from './components/MemberSidebar';
-import './styles/discord.css';
+import React from 'react';
+import {
+  Activity,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  Menu,
+  Search,
+  Users,
+  X,
+} from 'lucide-react';
+import { AppStoreProvider, useAppStore } from './shared/state/appStore';
+import { AuthScreen } from './features/auth/AuthScreen';
+import { GuildRail } from './features/guild/GuildRail';
+import { ChannelSidebar } from './features/guild/ChannelSidebar';
+import { MemberSidebar } from './features/guild/MemberSidebar';
+import { ChatStage } from './features/chat/ChatStage';
+import { FriendsAndDmStage } from './features/friends/FriendsAndDmStage';
+import { NetworkMonitorPanel } from './features/monitor/NetworkMonitorPanel';
+import { VoiceCallStage } from './features/voice/VoiceCallStage';
+import { SettingsModal } from './features/settings/SettingsModal';
+import { CommandPalette } from './features/settings/CommandPalette';
+import './App.css';
 
-export const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
-  const [messages, setMessages] = useState<MessageItem[]>([]);
-  const [members, setMembers] = useState<User[]>([]);
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<PendingFriendRequest[]>([]);
-  const [_isConnected, setIsConnected] = useState<boolean>(true);
+const WorkspaceContent: React.FC = () => {
+  const {
+    isAuthenticated,
+    viewMode,
+    activeGuild,
+    activeChannel,
+    activeVoiceChannelId,
+    isMonitorOpen,
+    setMonitorOpen,
+    isMemberSidebarOpen,
+    setCommandPaletteOpen,
+    mobileDrawerOpen,
+    setMobileDrawerOpen,
+    toasts,
+    dismissToast,
+  } = useAppStore();
 
-  // Subscribe Bridge Realtime Events from Java TCP Socket
-  useEffect(() => {
-    // 1. Initial State Load
-    chatBridge.getInitialState().then(data => {
-      if (data) {
-        if (data.user) setCurrentUser(data.user);
-        if (data.rooms) setRooms(data.rooms);
-        if (data.currentRoom) setCurrentRoom(data.currentRoom);
-        if (data.messages) setMessages(data.messages);
-        if (data.members) setMembers(data.members);
-        if (data.friends) setFriends(data.friends);
-        if (data.pendingRequests) setPendingRequests(data.pendingRequests);
-      }
-    }).catch(err => {
-      console.warn("Bridge connecting...", err);
-    });
-
-    // 2. Realtime SSE Events
-    const unsubscribe = chatBridge.subscribe((event, payload) => {
-      switch (event) {
-        case 'STATUS':
-          setIsConnected(payload.connected);
-          break;
-        case 'ROOMS':
-          setRooms(payload.rooms);
-          break;
-        case 'ROOM_JOINED':
-          setCurrentRoom(payload.room);
-          setMessages([]);
-          break;
-        case 'NEW_MESSAGE':
-          setMessages(prev => {
-            if (payload.message && payload.message.id) {
-              if (prev.some(m => m.id === payload.message.id)) {
-                return prev;
-              }
-            }
-            return [...prev, payload.message];
-          });
-          break;
-        case 'HISTORY':
-          setMessages(payload.messages || []);
-          break;
-        case 'MEMBERS':
-          setMembers(payload.members || []);
-          break;
-        case 'FRIENDS':
-          setFriends(payload.friends || []);
-          break;
-        case 'PENDING_REQUESTS':
-          setPendingRequests(payload.requests || []);
-          break;
-        case 'FRIEND_SEARCH_RESULT':
-          if (payload.results && payload.results.length > 0) {
-            const first = payload.results[0];
-            if (confirm(`Tìm thấy người dùng "${first.displayName}" (@${first.username}). Bạn có muốn gửi lời mời kết bạn không?`)) {
-              chatBridge.sendFriendRequest(first.id);
-            }
-          } else {
-            alert('Không tìm thấy người dùng phù hợp.');
-          }
-          break;
-        case 'ERROR':
-          alert(payload.message || 'Đã xảy ra lỗi.');
-          break;
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const handleSelectRoom = (room: Room) => {
-    chatBridge.joinRoom(room.id);
-  };
-
-  const handleCreateRoom = () => {
-    const name = prompt('Nhập tên phòng chat mới:');
-    if (name && name.trim()) {
-      chatBridge.createRoom(name.trim());
-    }
-  };
-
-  const handleSendMessage = (text: string) => {
-    chatBridge.sendMessage(text);
-  };
-
-  const handleInvite = () => {
-    if (!currentRoom) return;
-    const input = prompt('Nhập ID người dùng muốn mời vào phòng:');
-    if (input && !isNaN(Number(input))) {
-      chatBridge.inviteMember(currentRoom.id, Number(input));
-    }
-  };
-
-  const handleKick = () => {
-    if (!currentRoom) return;
-    const input = prompt('Nhập ID người dùng muốn xóa (kick) khỏi phòng:');
-    if (input && !isNaN(Number(input))) {
-      chatBridge.kickMember(currentRoom.id, Number(input));
-    }
-  };
-
-  const handleLeave = () => {
-    if (confirm('Bạn có chắc chắn muốn rời phòng?')) {
-      chatBridge.leaveRoom();
-      setCurrentRoom(null);
-      setMessages([]);
-      setMembers([]);
-    }
-  };
-
-  const handleDirectMessage = (userId: number, name: string) => {
-    const text = prompt(`Nhập tin nhắn riêng tới ${name}:`);
-    if (text && text.trim()) {
-      chatBridge.sendPrivateMessage(userId, text.trim());
-    }
-  };
-
-  const handleAddFriend = () => {
-    const input = prompt('Nhập Tên tài khoản (username) hoặc ID người dùng muốn kết bạn:');
-    if (!input || !input.trim()) return;
-
-    const trimmed = input.trim();
-    if (!isNaN(Number(trimmed))) {
-      chatBridge.sendFriendRequest(Number(trimmed));
-    } else {
-      // Tìm kiếm user theo username trước
-      chatBridge.searchFriends(trimmed);
-      alert(`Đang tìm kiếm người dùng "${trimmed}". Nếu người dùng tồn tại, yêu cầu sẽ được gửi!`);
-    }
-  };
-
-  const isOwner = Boolean(
-    members.find(m => m.id === currentUser?.id && m.role === 'OWNER')
-  );
+  if (!isAuthenticated) {
+    return (
+      <>
+        <AuthScreen />
+        <ToastOverlay toasts={toasts} onDismiss={dismissToast} />
+      </>
+    );
+  }
 
   return (
-    <div className="app-container">
-      {/* Cột 1: Dải Server/Guild */}
-      <WorkspaceSidebar 
-        onDirectMessage={() => setCurrentRoom(null)}
-        onOpenExplore={() => alert("Khám phá máy chủ công khai")}
-        onAddServer={handleCreateRoom}
-      />
+    <div className="workspace-grid" role="application" aria-label="Discord Mini Oceanic Workspace">
+      {/* Column 1: Guild Rail (72px) */}
+      <GuildRail />
 
-      {/* Cột 2: Kênh chat (#) */}
-      <RoomSidebar 
-        rooms={rooms}
-        currentRoom={currentRoom}
-        currentUser={currentUser}
-        onSelectRoom={handleSelectRoom}
-        onCreateRoom={handleCreateRoom}
-      />
+      {/* Mobile backdrop for slide-over drawers */}
+      {mobileDrawerOpen !== 'none' && (
+        <div
+          onClick={() => setMobileDrawerOpen('none')}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.45)',
+            zIndex: 55,
+          }}
+          aria-hidden="true"
+        />
+      )}
 
-      {/* Cột 3: Trung tâm Chat */}
-      <ChatCenter 
-        currentRoom={currentRoom}
-        messages={messages}
-        currentUserId={currentUser?.id || 0}
-        onSendMessage={handleSendMessage}
-        onInvite={handleInvite}
-        onLeave={handleLeave}
-        onKick={handleKick}
-        isOwner={isOwner}
-      />
+      {/* Column 2: Channel & DM Sidebar (240px) */}
+      <div
+        className={`desktop-sidebar-wrapper ${
+          mobileDrawerOpen === 'channels' ? 'drawer-open' : ''
+        }`}
+      >
+        <ChannelSidebar />
+      </div>
 
-      {/* Cột 4: Thành viên & Bạn bè */}
-      <MemberSidebar 
-        members={members}
-        friends={friends}
-        pendingRequests={pendingRequests}
-        onDirectMessage={handleDirectMessage}
-        onAcceptFriend={reqId => chatBridge.acceptFriendRequest(reqId)}
-        onRejectFriend={reqId => chatBridge.rejectFriendRequest(reqId)}
-        onAddFriend={handleAddFriend}
-        onRefreshFriends={() => chatBridge.refreshFriends()}
-      />
+      {/* Column 3: Main Chat / Friends / Voice / Network Monitor Stage (1fr) */}
+      <main className="workspace-main-column">
+        {/* Responsive mobile topbar (< 1024px) */}
+        <div className="mobile-topbar">
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() =>
+              setMobileDrawerOpen(
+                mobileDrawerOpen === 'channels' ? 'none' : 'channels',
+              )
+            }
+            aria-label="Mở danh sách kênh"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 10px',
+              borderRadius: '8px',
+            }}
+          >
+            <Menu size={16} />
+            <span style={{ fontWeight: 700, fontSize: '13px' }}>
+              {viewMode === 'guild'
+                ? `#${activeChannel?.name || activeGuild?.name || 'general'}`
+                : 'Bạn bè & DM'}
+            </span>
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => setCommandPaletteOpen(true)}
+              aria-label="Tìm kiếm nhanh Ctrl+K"
+              style={{ padding: '6px', borderRadius: '8px' }}
+            >
+              <Search size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => setMonitorOpen(!isMonitorOpen)}
+              aria-label="Bật/tắt Network Monitor"
+              style={{ padding: '6px', borderRadius: '8px' }}
+            >
+              <Activity size={16} />
+            </button>
+            {viewMode === 'guild' && (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() =>
+                  setMobileDrawerOpen(
+                    mobileDrawerOpen === 'members' ? 'none' : 'members',
+                  )
+                }
+                aria-label="Mở danh sách thành viên"
+                style={{ padding: '6px', borderRadius: '8px' }}
+              >
+                <Users size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* WebRTC Voice/Video Call Stage (when connected to a voice channel) */}
+        {activeVoiceChannelId !== null && <VoiceCallStage />}
+
+        {/* Main Content: Guild Channel Chat OR Friends & 1-on-1 DM Stage */}
+        <div
+          style={{
+            flex: '1 1 0%',
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
+          {viewMode === 'guild' ? <ChatStage /> : <FriendsAndDmStage />}
+        </div>
+
+        {/* Network Monitor Telemetry Panel (TCP :5000 vs UDP :5001 RTT & Protocol Frame Dissector) */}
+        {isMonitorOpen && <NetworkMonitorPanel />}
+      </main>
+
+      {/* Column 4: Member & Role Sidebar (260px) */}
+      {viewMode === 'guild' && isMemberSidebarOpen && (
+        <div
+          className={`desktop-member-wrapper ${
+            mobileDrawerOpen === 'members' ? 'drawer-open' : ''
+          }`}
+        >
+          <MemberSidebar />
+        </div>
+      )}
+
+      {/* Global Modals & Overlays */}
+      <SettingsModal />
+      <CommandPalette />
+      <ToastOverlay toasts={toasts} onDismiss={dismissToast} />
     </div>
+  );
+};
+
+interface ToastOverlayProps {
+  toasts: {
+    id: string;
+    type: 'info' | 'success' | 'warning' | 'error';
+    title: string;
+    message?: string;
+  }[];
+  onDismiss: (id: string) => void;
+}
+
+const ToastOverlay: React.FC<ToastOverlayProps> = ({ toasts, onDismiss }) => {
+  if (!toasts.length) return null;
+
+  const getBorderColor = (type: string) => {
+    switch (type) {
+      case 'success':
+        return '#10B981';
+      case 'warning':
+        return '#F59E0B';
+      case 'error':
+        return '#F43F5E';
+      default:
+        return '#2563EB';
+    }
+  };
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'success':
+        return <CheckCircle2 size={16} style={{ color: '#10B981', flexShrink: 0 }} />;
+      case 'warning':
+      case 'error':
+        return (
+          <AlertCircle
+            size={16}
+            style={{ color: type === 'error' ? '#F43F5E' : '#F59E0B', flexShrink: 0 }}
+          />
+        );
+      default:
+        return <Info size={16} style={{ color: '#2563EB', flexShrink: 0 }} />;
+    }
+  };
+
+  return (
+    <div className="toast-stack" role="status" aria-live="polite">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className="toast-card"
+          style={{ borderLeft: `4px solid ${getBorderColor(t.type)}` }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+            {getIcon(t.type)}
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '13px' }}>{t.title}</div>
+              {t.message && (
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--text-secondary)',
+                    marginTop: '2px',
+                  }}
+                >
+                  {t.message}
+                </div>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onDismiss(t.id)}
+            aria-label="Đóng thông báo"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              padding: '2px',
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <AppStoreProvider>
+      <WorkspaceContent />
+    </AppStoreProvider>
   );
 };
 

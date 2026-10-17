@@ -1,145 +1,525 @@
 package com.discordmini.server.dao;
 
+import com.discordmini.server.model.Attachment;
 import com.discordmini.server.model.Message;
+import com.discordmini.server.model.ReactionSummary;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * [HAI-05 & HAI-07] Message DAO: Ghi nhận tin nhắn và truy vấn lịch sử tin nhắn.
- * Đảm bảo dữ liệu bền vững (Persistence) trước khi phát tán.
+ * [HAI-05 & HAI-07] Message DAO: Ghi nhận tin nhắn, phản hồi (reply), chỉnh sửa,
+ * xóa mềm, ghim (pin), cảm xúc (reactions), tệp đính kèm và tìm kiếm toàn văn (FTS).
  */
 public class MessageDAO {
 
-    /**
-     * [HAI-05] Lưu tin nhắn vào PostgreSQL.
-     * Trả về đối tượng Message hoàn chỉnh với ID tự sinh và thời gian sent_at từ CSDL.
-     */
-    public Message saveMessage(int roomId, int senderId, String content) {
-        if (content == null || content.isBlank()) return null;
+    private final AttachmentDAO attachmentDAO = new AttachmentDAO();
 
-        String insertSql = "INSERT INTO messages (room_id, sender_id, content) VALUES (?, ?, ?) RETURNING id, sent_at";
-        String fetchSenderSql = "SELECT display_name FROM users WHERE id = ?";
+    private Message mapRichRow(ResultSet rs) throws SQLException {
+        int id = rs.getInt("id");
+        int roomId = rs.getInt("room_id");
+        int senderId = rs.getInt("sender_id");
+        String displayName = rs.getString("display_name");
+        String content = rs.getString("content");
+        Timestamp sentTs = rs.getTimestamp("sent_at");
+        String sentStr = sentTs != null ? sentTs.toString() : "";
 
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            // 1. Tìm tên hiển thị người gửi
-            String senderDisplayName = "User#" + senderId;
-            try (PreparedStatement senderPs = conn.prepareStatement(fetchSenderSql)) {
-                senderPs.setInt(1, senderId);
-                try (ResultSet sRs = senderPs.executeQuery()) {
-                    if (sRs.next()) {
-                        senderDisplayName = sRs.getString("display_name");
-                    }
-                }
+        Message msg = new Message(id, roomId, senderId,
+                displayName != null ? displayName : ("User#" + senderId),
+                content != null ? content : "",
+                sentStr);
+
+        try {
+            Object replyObj = rs.getObject("reply_to_id");
+            if (replyObj != null) {
+                msg.setReplyToId(rs.getInt("reply_to_id"));
+                msg.setReplyToSender(rs.getString("reply_sender_name"));
+                msg.setReplyToContent(rs.getString("reply_content"));
             }
-
-            // 2. Lưu tin nhắn
-            try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
-                ps.setInt(1, roomId);
-                ps.setInt(2, senderId);
-                ps.setString(3, content.trim());
-
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        int id = rs.getInt("id");
-                        Timestamp ts = rs.getTimestamp("sent_at");
-                        String timeStr = ts != null ? ts.toString() : "";
-                        return new Message(id, roomId, senderId, senderDisplayName, content.trim(), timeStr);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            System.err.println("[MessageDAO ERROR] Lỗi saveMessage (roomID=" + roomId + ", senderID=" + senderId + "): " + e.getMessage());
+        } catch (SQLException ignored) {
         }
-        return null;
+
+        try {
+            Timestamp editedTs = rs.getTimestamp("edited_at");
+            if (editedTs != null) {
+                msg.setEditedAt(editedTs.toString());
+            }
+        } catch (SQLException ignored) {
+        }
+
+        try {
+            Timestamp deletedTs = rs.getTimestamp("deleted_at");
+            if (deletedTs != null) {
+                msg.setDeletedAt(deletedTs.toString());
+            }
+        } catch (SQLException ignored) {
+        }
+
+        try {
+            msg.setPinned(rs.getBoolean("pinned"));
+        } catch (SQLException ignored) {
+        }
+
+        return msg;
+    }
+
+    private void hydrateReactionsAndAttachments(Connection conn, List<Message> messages) {
+        if (messages == null || messages.isEmpty()) return;
+
+        Map<Integer, Message> byId = new LinkedHashMap<>();
+        StringBuilder placeholders = new StringBuilder();
+        for (Message m : messages) {
+            byId.put(m.getId(), m);
+            if (placeholders.length() > 0) placeholders.append(",");
+            placeholders.append("?");
+        }
+
+        // 1. Nạp reactions theo batch
+        String reactionSql = "SELECT message_id, reaction, user_id FROM message_reactions " +
+                             "WHERE message_id IN (" + placeholders + ") ORDER BY created_at ASC, user_id ASC";
+        try (PreparedStatement ps = conn.prepareStatement(reactionSql)) {
+            int idx = 1;
+            for (Integer id : byId.keySet()) {
+                ps.setInt(idx++, id);
+            }
+            Map<Integer, Map<String, ReactionSummary>> grouped = new LinkedHashMap<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int msgId = rs.getInt("message_id");
+                    String emoji = rs.getString("reaction");
+                    int uid = rs.getInt("user_id");
+                    Map<String, ReactionSummary> emojiMap = grouped.computeIfAbsent(msgId, k -> new LinkedHashMap<>());
+                    ReactionSummary summary = emojiMap.computeIfAbsent(emoji, e -> new ReactionSummary(e, 0, new ArrayList<>()));
+                    summary.getUserIds().add(uid);
+                    summary.setCount(summary.getUserIds().size());
+                }
+            }
+            for (Map.Entry<Integer, Map<String, ReactionSummary>> entry : grouped.entrySet()) {
+                Message target = byId.get(entry.getKey());
+                if (target != null) {
+                    target.setReactions(new ArrayList<>(entry.getValue().values()));
+                }
+            }
+        } catch (SQLException ignored) {
+        }
+
+        // 2. Nạp attachments metadata theo batch
+        String attSql = "SELECT id, uploader_id, room_id, direct_conversation_id, message_id, " +
+                        "original_name, stored_name, content_type, size_bytes, sha256, created_at " +
+                        "FROM attachments WHERE message_id IN (" + placeholders + ") ORDER BY id ASC";
+        try (PreparedStatement ps = conn.prepareStatement(attSql)) {
+            int idx = 1;
+            for (Integer id : byId.keySet()) {
+                ps.setInt(idx++, id);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int msgId = rs.getInt("message_id");
+                    Message target = byId.get(msgId);
+                    if (target != null) {
+                        Integer rId = rs.getObject("room_id") != null ? rs.getInt("room_id") : null;
+                        Long dmId = rs.getObject("direct_conversation_id") != null ? rs.getLong("direct_conversation_id") : null;
+                        Timestamp ts = rs.getTimestamp("created_at");
+                        target.getAttachments().add(new Attachment(
+                            rs.getLong("id"),
+                            rs.getInt("uploader_id"),
+                            rId,
+                            dmId,
+                            msgId,
+                            rs.getString("original_name"),
+                            rs.getString("stored_name"),
+                            rs.getString("content_type"),
+                            rs.getLong("size_bytes"),
+                            rs.getString("sha256"),
+                            ts != null ? ts.toString() : ""
+                        ));
+                    }
+                }
+            }
+        } catch (SQLException ignored) {
+        }
     }
 
     /**
-     * Overload method lưu tin nhắn với tên hiển thị trực tiếp để giảm thiểu roundtrip query DB.
+     * [HAI-05] Lưu tin nhắn vào PostgreSQL.
+     */
+    public Message saveMessage(int roomId, int senderId, String content) {
+        return saveRichMessage(roomId, senderId, null, content, null, null);
+    }
+
+    /**
+     * Overload method lưu tin nhắn với tên hiển thị trực tiếp.
      */
     public Message save(int roomId, int senderId, String senderDisplayName, String content) {
-        if (content == null || content.isBlank()) return null;
+        return saveRichMessage(roomId, senderId, senderDisplayName, content, null, null);
+    }
 
-        String name = (senderDisplayName != null && !senderDisplayName.isBlank()) ? senderDisplayName : null;
-        String insertSql = "INSERT INTO messages (room_id, sender_id, content) VALUES (?, ?, ?) RETURNING id, sent_at";
+    /**
+     * Lưu tin nhắn đầy đủ (hỗ trợ reply_to_id và danh sách attachmentIds).
+     */
+    public Message saveRichMessage(int roomId, int senderId, String senderDisplayName,
+                                   String content, Integer replyToId, List<Long> attachmentIds) {
+        boolean hasAttachments = attachmentIds != null && !attachmentIds.isEmpty();
+        if ((content == null || content.isBlank()) && !hasAttachments) {
+            return null;
+        }
+        String finalContent = (content != null) ? content.trim() : "";
+
+        String insertSql = "INSERT INTO messages (room_id, user_id, sender_id, content, reply_to_id) " +
+                           "VALUES (?, ?, ?, ?, ?) RETURNING id, sent_at";
 
         try (Connection conn = DatabaseConnection.getConnection()) {
-            if (name == null) {
-                String fetchSenderSql = "SELECT display_name FROM users WHERE id = ?";
-                try (PreparedStatement senderPs = conn.prepareStatement(fetchSenderSql)) {
-                    senderPs.setInt(1, senderId);
-                    try (ResultSet sRs = senderPs.executeQuery()) {
-                        if (sRs.next()) {
-                            name = sRs.getString("display_name");
+            int newMsgId = -1;
+            String sentAtStr = "";
+            try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+                ps.setInt(1, roomId);
+                ps.setInt(2, senderId);
+                ps.setInt(3, senderId);
+                ps.setString(4, finalContent);
+                if (replyToId != null && replyToId > 0) {
+                    ps.setInt(5, replyToId);
+                } else {
+                    ps.setNull(5, Types.INTEGER);
+                }
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        newMsgId = rs.getInt("id");
+                        Timestamp ts = rs.getTimestamp("sent_at");
+                        sentAtStr = ts != null ? ts.toString() : "";
+                    }
+                }
+            } catch (SQLException fallbackEx) {
+                // Fallback nếu cột reply_to_id chưa được migrate
+                String fallbackSql = "INSERT INTO messages (room_id, sender_id, content) VALUES (?, ?, ?) RETURNING id, sent_at";
+                try (PreparedStatement ps2 = conn.prepareStatement(fallbackSql)) {
+                    ps2.setInt(1, roomId);
+                    ps2.setInt(2, senderId);
+                    ps2.setString(3, finalContent);
+                    try (ResultSet rs = ps2.executeQuery()) {
+                        if (rs.next()) {
+                            newMsgId = rs.getInt("id");
+                            Timestamp ts = rs.getTimestamp("sent_at");
+                            sentAtStr = ts != null ? ts.toString() : "";
                         }
                     }
                 }
             }
-            if (name == null) name = "User#" + senderId;
 
-            try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
-                ps.setInt(1, roomId);
-                ps.setInt(2, senderId);
-                ps.setString(3, content.trim());
-
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        int id = rs.getInt("id");
-                        Timestamp ts = rs.getTimestamp("sent_at");
-                        String timeStr = ts != null ? ts.toString() : "";
-                        return new Message(id, roomId, senderId, name, content.trim(), timeStr);
-                    }
+            if (newMsgId > 0) {
+                if (hasAttachments) {
+                    attachmentDAO.linkAttachmentsToMessage(newMsgId, roomId, attachmentIds);
                 }
+                Message loaded = findById(newMsgId);
+                if (loaded != null) {
+                    return loaded;
+                }
+                String name = (senderDisplayName != null && !senderDisplayName.isBlank())
+                        ? senderDisplayName
+                        : ("User#" + senderId);
+                return new Message(newMsgId, roomId, senderId, name, finalContent, sentAtStr);
             }
         } catch (SQLException e) {
-            System.err.println("[MessageDAO ERROR] Lỗi save (roomID=" + roomId + ", senderID=" + senderId + "): " + e.getMessage());
+            System.err.println("[MessageDAO ERROR] Lỗi saveRichMessage (roomID=" + roomId + ", senderID=" + senderId + "): " + e.getMessage());
         }
         return null;
     }
 
     /**
-     * [HAI-07] Lấy ra danh sách N tin nhắn gần nhất theo thứ tự thời gian TĂNG DẦN (ASC).
-     * @param roomId ID phòng chat
-     * @param limit Số lượng tin nhắn tối đa cần nạp (ví dụ: 50, 100)
+     * Lấy danh sách tin nhắn phân trang theo con trỏ (cursor pagination: id < beforeId)
+     * kèm thông tin reply, reactions và attachments, trả về theo thứ tự thời gian TĂNG DẦN (ASC).
      */
-    public List<Message> getMessageHistory(int roomId, int limit) {
+    public List<Message> getMessagesCursor(int roomId, Integer beforeId, int limit) {
         List<Message> list = new ArrayList<>();
-        if (limit <= 0) limit = 50;
+        int validLimit = (limit <= 0 || limit > 200) ? 50 : limit;
+        boolean hasCursor = beforeId != null && beforeId > 0;
 
-        // Subquery lấy N tin mới nhất (sent_at DESC) rồi sắp xếp lại tăng dần (ASC)
-        String sql = "SELECT sub.id, sub.room_id, sub.sender_id, sub.display_name, sub.content, sub.sent_at FROM (" +
-                     "   SELECT m.id, m.room_id, m.sender_id, u.display_name, m.content, m.sent_at " +
-                     "   FROM messages m JOIN users u ON m.sender_id = u.id " +
-                     "   WHERE m.room_id = ? " +
-                     "   ORDER BY m.sent_at DESC, m.id DESC " +
-                     "   LIMIT ? " +
-                     ") sub ORDER BY sub.sent_at ASC, sub.id ASC";
+        String sql = "SELECT m.id, m.room_id, COALESCE(m.sender_id, m.user_id) AS sender_id, " +
+                     "u.display_name, m.content, COALESCE(m.sent_at, m.created_at) AS sent_at, " +
+                     "m.reply_to_id, ru.display_name AS reply_sender_name, rm.content AS reply_content, " +
+                     "m.edited_at, m.deleted_at, m.pinned " +
+                     "FROM messages m " +
+                     "LEFT JOIN users u ON COALESCE(m.sender_id, m.user_id) = u.id " +
+                     "LEFT JOIN messages rm ON m.reply_to_id = rm.id " +
+                     "LEFT JOIN users ru ON COALESCE(rm.sender_id, rm.user_id) = ru.id " +
+                     "WHERE m.room_id = ? " +
+                     (hasCursor ? "AND m.id < ? " : "") +
+                     "ORDER BY m.id DESC LIMIT ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            int idx = 1;
+            ps.setInt(idx++, roomId);
+            if (hasCursor) {
+                ps.setInt(idx++, beforeId);
+            }
+            ps.setInt(idx, validLimit);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRichRow(rs));
+                }
+            }
+            Collections.reverse(list);
+            hydrateReactionsAndAttachments(conn, list);
+        } catch (SQLException e) {
+            System.err.println("[MessageDAO ERROR] Lỗi getMessagesCursor (roomID=" + roomId + "): " + e.getMessage());
+        }
+        return list;
+    }
+
+    /**
+     * Tìm thông tin chi tiết một tin nhắn theo ID.
+     */
+    public Message findById(int messageId) {
+        String sql = "SELECT m.id, m.room_id, COALESCE(m.sender_id, m.user_id) AS sender_id, " +
+                     "u.display_name, m.content, COALESCE(m.sent_at, m.created_at) AS sent_at, " +
+                     "m.reply_to_id, ru.display_name AS reply_sender_name, rm.content AS reply_content, " +
+                     "m.edited_at, m.deleted_at, m.pinned " +
+                     "FROM messages m " +
+                     "LEFT JOIN users u ON COALESCE(m.sender_id, m.user_id) = u.id " +
+                     "LEFT JOIN messages rm ON m.reply_to_id = rm.id " +
+                     "LEFT JOIN users ru ON COALESCE(rm.sender_id, rm.user_id) = ru.id " +
+                     "WHERE m.id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, messageId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Message msg = mapRichRow(rs);
+                    hydrateReactionsAndAttachments(conn, Collections.singletonList(msg));
+                    return msg;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[MessageDAO ERROR] Lỗi findById (messageId=" + messageId + "): " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Chỉnh sửa nội dung tin nhắn (chỉ người gửi mới có quyền chỉnh sửa khi tin nhắn chưa bị xóa).
+     */
+    public Message editMessage(int messageId, int actorUserId, String newContent) {
+        if (newContent == null || newContent.isBlank()) return null;
+
+        String sql = "UPDATE messages SET content = ?, edited_at = CURRENT_TIMESTAMP " +
+                     "WHERE id = ? AND COALESCE(sender_id, user_id) = ? AND deleted_at IS NULL";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, newContent.trim());
+            ps.setInt(2, messageId);
+            ps.setInt(3, actorUserId);
+
+            if (ps.executeUpdate() > 0) {
+                return findById(messageId);
+            }
+        } catch (SQLException e) {
+            System.err.println("[MessageDAO ERROR] Lỗi editMessage (messageId=" + messageId + "): " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Xóa mềm (soft-delete) một tin nhắn. Cho phép người gửi hoặc ADMIN/OWNER thực hiện.
+     */
+    public boolean deleteMessage(int messageId, int actorUserId, boolean isAdminOrOwner) {
+        String sql = "UPDATE messages SET deleted_at = CURRENT_TIMESTAMP, " +
+                     "content = '[tin nhắn đã bị xóa]', pinned = false " +
+                     "WHERE id = ? AND (COALESCE(sender_id, user_id) = ? OR ? = true) AND deleted_at IS NULL";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, messageId);
+            ps.setInt(2, actorUserId);
+            ps.setBoolean(3, isAdminOrOwner);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("[MessageDAO ERROR] Lỗi deleteMessage (messageId=" + messageId + "): " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Ghim hoặc bỏ ghim một tin nhắn trong kênh.
+     */
+    public Message pinMessage(int messageId, boolean pinned) {
+        String sql = "UPDATE messages SET pinned = ? WHERE id = ? AND deleted_at IS NULL";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setBoolean(1, pinned);
+            ps.setInt(2, messageId);
+            if (ps.executeUpdate() > 0) {
+                return findById(messageId);
+            }
+        } catch (SQLException e) {
+            System.err.println("[MessageDAO ERROR] Lỗi pinMessage (messageId=" + messageId + "): " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Lấy danh sách các tin nhắn đang được ghim trong phòng chat.
+     */
+    public List<Message> getPinnedMessages(int roomId) {
+        List<Message> list = new ArrayList<>();
+        String sql = "SELECT m.id, m.room_id, COALESCE(m.sender_id, m.user_id) AS sender_id, " +
+                     "u.display_name, m.content, COALESCE(m.sent_at, m.created_at) AS sent_at, " +
+                     "m.reply_to_id, ru.display_name AS reply_sender_name, rm.content AS reply_content, " +
+                     "m.edited_at, m.deleted_at, m.pinned " +
+                     "FROM messages m " +
+                     "LEFT JOIN users u ON COALESCE(m.sender_id, m.user_id) = u.id " +
+                     "LEFT JOIN messages rm ON m.reply_to_id = rm.id " +
+                     "LEFT JOIN users ru ON COALESCE(rm.sender_id, rm.user_id) = ru.id " +
+                     "WHERE m.room_id = ? AND m.pinned = true AND m.deleted_at IS NULL " +
+                     "ORDER BY m.id DESC";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, roomId);
-            ps.setInt(2, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRichRow(rs));
+                }
+            }
+            hydrateReactionsAndAttachments(conn, list);
+        } catch (SQLException e) {
+            System.err.println("[MessageDAO ERROR] Lỗi getPinnedMessages (roomID=" + roomId + "): " + e.getMessage());
+        }
+        return list;
+    }
+
+    /**
+     * Tìm kiếm toàn văn (Full-Text Search kết hợp ILIKE) trên tin nhắn theo guildId và/hoặc roomId.
+     */
+    public List<Message> searchMessages(Integer guildId, Integer roomId, String query, int limit) {
+        List<Message> list = new ArrayList<>();
+        if (query == null || query.isBlank()) return list;
+
+        int validLimit = (limit <= 0 || limit > 100) ? 25 : limit;
+        String cleanQuery = query.trim();
+
+        StringBuilder sql = new StringBuilder(
+            "SELECT m.id, m.room_id, COALESCE(m.sender_id, m.user_id) AS sender_id, " +
+            "u.display_name, m.content, COALESCE(m.sent_at, m.created_at) AS sent_at, " +
+            "m.reply_to_id, ru.display_name AS reply_sender_name, rm.content AS reply_content, " +
+            "m.edited_at, m.deleted_at, m.pinned " +
+            "FROM messages m " +
+            "JOIN rooms r ON m.room_id = r.id " +
+            "LEFT JOIN users u ON COALESCE(m.sender_id, m.user_id) = u.id " +
+            "LEFT JOIN messages rm ON m.reply_to_id = rm.id " +
+            "LEFT JOIN users ru ON COALESCE(rm.sender_id, rm.user_id) = ru.id " +
+            "WHERE m.deleted_at IS NULL " +
+            "  AND (m.search_vector @@ plainto_tsquery('simple', ?) OR m.content ILIKE ?) "
+        );
+
+        if (guildId != null && guildId > 0) {
+            sql.append("AND COALESCE(r.guild_id, 1) = ? ");
+        }
+        if (roomId != null && roomId > 0) {
+            sql.append("AND m.room_id = ? ");
+        }
+        sql.append("ORDER BY m.id DESC LIMIT ?");
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+
+            int idx = 1;
+            ps.setString(idx++, cleanQuery);
+            ps.setString(idx++, "%" + cleanQuery + "%");
+            if (guildId != null && guildId > 0) {
+                ps.setInt(idx++, guildId);
+            }
+            if (roomId != null && roomId > 0) {
+                ps.setInt(idx++, roomId);
+            }
+            ps.setInt(idx, validLimit);
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    Timestamp ts = rs.getTimestamp("sent_at");
-                    String timeStr = ts != null ? ts.toString() : "";
-                    list.add(new Message(
-                        rs.getInt("id"),
-                        rs.getInt("room_id"),
-                        rs.getInt("sender_id"),
-                        rs.getString("display_name"),
-                        rs.getString("content"),
-                        timeStr
-                    ));
+                    list.add(mapRichRow(rs));
                 }
             }
+            hydrateReactionsAndAttachments(conn, list);
         } catch (SQLException e) {
-            System.err.println("[MessageDAO ERROR] Lỗi getMessageHistory (roomID=" + roomId + "): " + e.getMessage());
+            System.err.println("[MessageDAO ERROR] Lỗi searchMessages ('" + cleanQuery + "'): " + e.getMessage());
         }
         return list;
+    }
+
+    /**
+     * Bật/tắt (toggle) biểu tượng cảm xúc (emoji reaction) của userId cho messageId,
+     * trả về danh sách ReactionSummary mới nhất của tin nhắn đó.
+     */
+    public List<ReactionSummary> toggleReaction(int messageId, int userId, String emoji) {
+        if (messageId <= 0 || userId <= 0 || emoji == null || emoji.isBlank()) {
+            return Collections.emptyList();
+        }
+        String cleanEmoji = emoji.trim();
+        if (cleanEmoji.length() > 32) {
+            cleanEmoji = cleanEmoji.substring(0, 32);
+        }
+
+        String deleteSql = "DELETE FROM message_reactions WHERE message_id = ? AND user_id = ? AND reaction = ?";
+        String insertSql = "INSERT INTO message_reactions (message_id, user_id, reaction) VALUES (?, ?, ?) " +
+                           "ON CONFLICT (message_id, user_id, reaction) DO NOTHING";
+        String selectSql = "SELECT reaction, user_id FROM message_reactions WHERE message_id = ? ORDER BY created_at ASC, user_id ASC";
+
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            int deleted;
+            try (PreparedStatement delPs = conn.prepareStatement(deleteSql)) {
+                delPs.setInt(1, messageId);
+                delPs.setInt(2, userId);
+                delPs.setString(3, cleanEmoji);
+                deleted = delPs.executeUpdate();
+            }
+
+            if (deleted == 0) {
+                try (PreparedStatement insPs = conn.prepareStatement(insertSql)) {
+                    insPs.setInt(1, messageId);
+                    insPs.setInt(2, userId);
+                    insPs.setString(3, cleanEmoji);
+                    insPs.executeUpdate();
+                }
+            }
+
+            Map<String, ReactionSummary> emojiMap = new LinkedHashMap<>();
+            try (PreparedStatement selPs = conn.prepareStatement(selectSql)) {
+                selPs.setInt(1, messageId);
+                try (ResultSet rs = selPs.executeQuery()) {
+                    while (rs.next()) {
+                        String em = rs.getString("reaction");
+                        int uid = rs.getInt("user_id");
+                        ReactionSummary summary = emojiMap.computeIfAbsent(em, k -> new ReactionSummary(k, 0, new ArrayList<>()));
+                        summary.getUserIds().add(uid);
+                        summary.setCount(summary.getUserIds().size());
+                    }
+                }
+            }
+            return new ArrayList<>(emojiMap.values());
+        } catch (SQLException e) {
+            System.err.println("[MessageDAO ERROR] Lỗi toggleReaction (messageId=" + messageId + "): " + e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * [HAI-07] Lấy ra danh sách N tin nhắn gần nhất theo thứ tự thời gian TĂNG DẦN (ASC).
+     */
+    public List<Message> getMessageHistory(int roomId, int limit) {
+        return getMessagesCursor(roomId, null, limit);
     }
 
     /**

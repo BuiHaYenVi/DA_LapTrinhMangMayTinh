@@ -22,5 +22,19 @@ public enum MessageType {
     FRIEND_PENDING_LIST,
     FRIEND_ACCEPT,
     FRIEND_REJECT,
-    FRIEND_LIST
+    FRIEND_LIST,
+    // Protocol v2 Extensions
+    AUTH_TOKEN,
+    LIST_GUILDS,
+    CREATE_GUILD,
+    CREATE_CHANNEL,
+    EDIT_MSG,
+    DELETE_MSG,
+    REACT_MSG,
+    PIN_MSG,
+    MARK_READ,
+    PRESENCE,
+    SIGNAL_OFFER,
+    SIGNAL_ANSWER,
+    SIGNAL_ICE
 }
