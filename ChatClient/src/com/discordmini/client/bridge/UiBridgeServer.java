@@ -50,6 +50,7 @@ public class UiBridgeServer {
     private final int chatServerPort;
 
     private HttpServer server;
+    private ExecutorService httpExecutor;
     private int actualPort;
 
     private final Map<String, UserSession> sessions = new ConcurrentHashMap<>();
@@ -151,7 +152,12 @@ public class UiBridgeServer {
         // Phục vụ frontend tĩnh với SPA fallback
         server.createContext("/", new StaticFileHandler());
 
-        server.setExecutor(Executors.newCachedThreadPool());
+        httpExecutor = Executors.newCachedThreadPool(r -> {
+            Thread t = new Thread(r, "UiBridge-HttpWorker");
+            t.setDaemon(true);
+            return t;
+        });
+        server.setExecutor(httpExecutor);
         server.start();
     }
 
@@ -164,6 +170,9 @@ public class UiBridgeServer {
         sessions.clear();
         if (server != null) {
             server.stop(0);
+        }
+        if (httpExecutor != null) {
+            httpExecutor.shutdownNow();
         }
     }
 

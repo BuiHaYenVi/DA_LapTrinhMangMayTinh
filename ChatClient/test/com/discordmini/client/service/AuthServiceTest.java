@@ -131,6 +131,7 @@ public final class AuthServiceTest {
                     String trigger = serverCommands.poll(3, TimeUnit.SECONDS);
                     if ("SEND_OK".equals(trigger)) {
                         writer.println("OK|LOGIN|200|" + ProtocolHandler.encode("Xac Thuc Hop Le"));
+                        Thread.sleep(1000);
                     }
                 } catch (Exception ignored) {}
             });
