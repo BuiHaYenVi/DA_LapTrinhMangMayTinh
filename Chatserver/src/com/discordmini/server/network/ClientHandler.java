@@ -35,6 +35,7 @@ public class ClientHandler implements Runnable {
     public User getUser() { return user; }
     public Integer getCurrentRoomId() { return currentRoomId; }
     public void sendPacket(String packet) { connection.send(packet); }
+    public boolean isConnected() { return connection != null && connection.isConnected(); }
 
     @Override
     public void run() {
@@ -212,9 +213,21 @@ public class ClientHandler implements Runnable {
         }
 
         /*
-         * tryAdd cần thực hiện kiểm tra và thêm phiên đăng nhập một cách
-         * nguyên tử để tránh hai client đăng nhập cùng tài khoản đồng thời.
+         * Nếu tài khoản đã có phiên đăng nhập trước đó:
+         * Xử lý giải phóng phiên cũ an toàn để nhường quyền cho phiên đăng nhập mới hợp lệ (chuẩn Discord/Telegram).
          */
+        ClientHandler oldClient = server.getClientManager().get(found.getId());
+        if (oldClient != null && oldClient != this) {
+            try {
+                oldClient.sendError(
+                        ProtocolErrorCode.ALREADY_ONLINE,
+                        "Tài khoản của bạn đã được đăng nhập từ một phiên làm việc khác."
+                );
+                oldClient.cleanup();
+            } catch (Exception ignored) {}
+            server.getClientManager().remove(found, oldClient);
+        }
+
         if (!server.getClientManager().tryAdd(found, this)) {
             sendError(
                     ProtocolErrorCode.ALREADY_ONLINE,

@@ -780,6 +780,16 @@ public class UiBridgeServer {
                 }
             }
 
+            // Hủy mọi phiên cũ của cùng username đang mở trên Bridge Server để tránh kẹt socket
+            for (Map.Entry<String, UserSession> entry : new ArrayList<>(sessions.entrySet())) {
+                if (username.equalsIgnoreCase(entry.getValue().username)) {
+                    sessions.remove(entry.getKey());
+                    try {
+                        entry.getValue().close();
+                    } catch (Exception ignored) {}
+                }
+            }
+
             SocketClient client = new SocketClient();
             try {
                 client.connect(chatServerHost, chatServerPort);
