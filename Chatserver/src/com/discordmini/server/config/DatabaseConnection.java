@@ -84,7 +84,8 @@ public class DatabaseConnection {
         }
 
         url = firstNonBlank(
-             getEnvOrDotenv("NEON_JDBC_URL"),
+            getEnvOrDotenv("NEON_JDBC_URL"),
+            getEnvOrDotenv("DATABASE_URL"),
             getEnvOrDotenv("DB_URL"),
             props.getProperty("db.url"),
             "jdbc:postgresql://localhost:5432/discord_mini"
@@ -93,7 +94,7 @@ public class DatabaseConnection {
             getEnvOrDotenv("NEON_DB_USER"),
             getEnvOrDotenv("DB_USER"),
             props.getProperty("db.user"),
-            "postgres"
+            ""
         );
         password = firstNonNull(
             getEnvOrDotenv("NEON_DB_PASSWORD"),
@@ -101,6 +102,10 @@ public class DatabaseConnection {
             props.getProperty("db.password"),
             ""
         );
+        normalizeConnectionConfig();
+        if (user == null || user.isEmpty()) {
+            user = "postgres";
+        }
         driver = firstNonBlank(
             getEnvOrDotenv("DB_DRIVER"),
             props.getProperty("db.driver"),
@@ -114,6 +119,50 @@ public class DatabaseConnection {
         } catch (ClassNotFoundException e) {
             System.err.println("[DB CRITICAL] Không tìm thấy PostgreSQL JDBC Driver! Thư viện org.postgresql.Driver chưa được thêm vào classpath.");
         }
+    }
+
+    /**
+     * Tự động chuẩn hóa chuỗi kết nối Neon/PostgreSQL (ví dụ: postgresql://user:pass@host/db?sslmode=require)
+     * sang chuẩn JDBC (jdbc:postgresql://host/db?sslmode=require) và tách user/password nếu nằm trong URI.
+     */
+    private static void normalizeConnectionConfig() {
+        if (url == null) return;
+        String raw = url.trim();
+        if (raw.startsWith("psql ")) {
+            raw = raw.substring(5).trim();
+        }
+        if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith("\"") && raw.endsWith("\""))) {
+            raw = raw.substring(1, raw.length() - 1).trim();
+        }
+        if (raw.startsWith("postgres://")) {
+            raw = "jdbc:postgresql://" + raw.substring("postgres://".length());
+        } else if (raw.startsWith("postgresql://")) {
+            raw = "jdbc:postgresql://" + raw.substring("postgresql://".length());
+        }
+        if (raw.startsWith("jdbc:postgresql://")) {
+            String rest = raw.substring("jdbc:postgresql://".length());
+            int slashIdx = rest.indexOf('/');
+            int atIdx = (slashIdx >= 0) ? rest.lastIndexOf('@', slashIdx) : rest.lastIndexOf('@');
+            if (atIdx > 0) {
+                String userInfo = rest.substring(0, atIdx);
+                String hostAndPath = rest.substring(atIdx + 1);
+                int colonIdx = userInfo.indexOf(':');
+                if (colonIdx >= 0) {
+                    String extractedUser = userInfo.substring(0, colonIdx);
+                    String extractedPass = userInfo.substring(colonIdx + 1);
+                    if (user == null || user.isEmpty() || "postgres".equals(user)) {
+                        user = extractedUser;
+                    }
+                    if (password == null || password.isEmpty()) {
+                        password = extractedPass;
+                    }
+                } else if (user == null || user.isEmpty() || "postgres".equals(user)) {
+                    user = userInfo;
+                }
+                raw = "jdbc:postgresql://" + hostAndPath;
+            }
+        }
+        url = raw;
     }
 
     private static void loadDotEnvFiles() {
@@ -248,6 +297,128 @@ public class DatabaseConnection {
     }
 
     /**
+     * Khởi tạo các bảng nền tảng (V001/V002) một cách idempotent nếu CSDL Neon mới tinh chưa chạy schema.sql.
+     */
+    private static void ensureBaseSchema(Statement stmt) throws SQLException {
+        stmt.execute("""
+            CREATE TABLE IF NOT EXISTS public.users (
+                id SERIAL PRIMARY KEY,
+                username character varying(50) NOT NULL UNIQUE,
+                password character varying(255) NOT NULL,
+                display_name character varying(100) NOT NULL,
+                status character varying(50) DEFAULT 'OFFLINE',
+                created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS public.rooms (
+                id SERIAL PRIMARY KEY,
+                name character varying(100) NOT NULL,
+                created_by integer REFERENCES public.users(id) ON DELETE SET NULL,
+                created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+                is_private boolean DEFAULT false
+            );
+            CREATE TABLE IF NOT EXISTS public.room_members (
+                id SERIAL PRIMARY KEY,
+                room_id integer REFERENCES public.rooms(id) ON DELETE CASCADE,
+                user_id integer REFERENCES public.users(id) ON DELETE CASCADE,
+                role character varying(20) DEFAULT 'MEMBER',
+                UNIQUE (room_id, user_id)
+            );
+            CREATE TABLE IF NOT EXISTS public.room_roles (
+                id SERIAL PRIMARY KEY,
+                room_id integer NOT NULL REFERENCES public.rooms(id) ON DELETE CASCADE,
+                name character varying(50) NOT NULL,
+                can_manage_room boolean DEFAULT false NOT NULL,
+                can_manage_messages boolean DEFAULT false NOT NULL,
+                can_invite_members boolean DEFAULT false NOT NULL,
+                created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                UNIQUE (room_id, name)
+            );
+            CREATE TABLE IF NOT EXISTS public.room_member_roles (
+                room_id integer NOT NULL,
+                user_id integer NOT NULL,
+                role_id integer NOT NULL REFERENCES public.room_roles(id) ON DELETE CASCADE,
+                granted_by integer,
+                granted_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                PRIMARY KEY (room_id, user_id, role_id)
+            );
+            CREATE TABLE IF NOT EXISTS public.messages (
+                id SERIAL PRIMARY KEY,
+                room_id integer REFERENCES public.rooms(id) ON DELETE CASCADE,
+                user_id integer REFERENCES public.users(id) ON DELETE CASCADE,
+                content text NOT NULL,
+                created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+                sender_id integer REFERENCES public.users(id) ON DELETE CASCADE,
+                sent_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS public.message_reactions (
+                message_id integer NOT NULL,
+                user_id integer NOT NULL,
+                reaction character varying(32) NOT NULL,
+                created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                PRIMARY KEY (message_id, user_id, reaction)
+            );
+            CREATE TABLE IF NOT EXISTS public.friendships (
+                id SERIAL PRIMARY KEY,
+                requester_id integer NOT NULL,
+                addressee_id integer NOT NULL,
+                status character varying(20) DEFAULT 'PENDING' NOT NULL,
+                created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+                updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT no_self_friend CHECK (requester_id <> addressee_id),
+                CONSTRAINT unique_friendship UNIQUE (requester_id, addressee_id)
+            );
+            CREATE TABLE IF NOT EXISTS public.direct_conversations (
+                id BIGSERIAL PRIMARY KEY,
+                user_low_id integer NOT NULL,
+                user_high_id integer NOT NULL,
+                created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                CONSTRAINT direct_conversations_check CHECK (user_low_id < user_high_id),
+                UNIQUE (user_low_id, user_high_id)
+            );
+            CREATE TABLE IF NOT EXISTS public.direct_messages (
+                id BIGSERIAL PRIMARY KEY,
+                conversation_id bigint NOT NULL REFERENCES public.direct_conversations(id) ON DELETE CASCADE,
+                sender_id integer NOT NULL,
+                content text NOT NULL,
+                sent_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                edited_at timestamp without time zone,
+                deleted_at timestamp without time zone,
+                reply_to_message_id bigint REFERENCES public.direct_messages(id) ON DELETE SET NULL
+            );
+            CREATE TABLE IF NOT EXISTS public.attachments (
+                id BIGSERIAL PRIMARY KEY,
+                uploader_id integer NOT NULL,
+                room_id integer,
+                direct_conversation_id bigint REFERENCES public.direct_conversations(id) ON DELETE CASCADE,
+                message_id integer,
+                original_name character varying(255) NOT NULL,
+                stored_name character varying(255) NOT NULL UNIQUE,
+                content_type character varying(150) DEFAULT 'application/octet-stream' NOT NULL,
+                size_bytes bigint NOT NULL,
+                sha256 character(64) NOT NULL,
+                created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS public.user_room_reads (
+                user_id integer NOT NULL,
+                room_id integer NOT NULL,
+                last_read_message_id integer,
+                last_read_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                PRIMARY KEY (user_id, room_id)
+            );
+            CREATE TABLE IF NOT EXISTS public.room_audit_log (
+                id BIGSERIAL PRIMARY KEY,
+                room_id integer,
+                actor_user_id integer,
+                action character varying(80) NOT NULL,
+                target_type character varying(40),
+                target_id character varying(100),
+                details jsonb DEFAULT '{}'::jsonb NOT NULL,
+                created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+            );
+            """);
+    }
+
+    /**
      * Tự động chạy file migration V003__guilds_channels.sql một cách idempotent nếu DB kết nối được.
      */
     public static synchronized void runMigrationsIfAvailable() {
@@ -279,14 +450,27 @@ public class DatabaseConnection {
 
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
+            ensureBaseSchema(stmt);
             String sqlContent = Files.readString(sqlFile.toPath(), StandardCharsets.UTF_8);
             stmt.execute(sqlContent);
-            System.out.println("[DB MIGRATION] Đã thực thi idempotent migration thành công: " + sqlFile.getPath());
+            System.out.println("[DB MIGRATION] Đã thực thi idempotent migration (Base Schema + V003) thành công: " + sqlFile.getPath());
         } catch (Exception e) {
             System.err.println("[DB MIGRATION WARNING] Không thể chạy tự động V003__guilds_channels.sql: " + e.getMessage());
+            throw new RuntimeException("Migration failed: " + e.getMessage(), e);
         }
     }
 
     public static String getUrl() { return url; }
     public static String getUser() { return user; }
+
+    public static void main(String[] args) {
+        System.out.println("[MIGRATE] Testing DB connectivity: " + getUrl());
+        if (!isConnected()) {
+            System.err.println("[MIGRATE ERROR] Cannot connect to PostgreSQL database. Check .env / db.properties.");
+            System.exit(1);
+        }
+        migrationsAttempted = false;
+        runMigrationsIfAvailable();
+        System.out.println("[MIGRATE] Done.");
+    }
 }
