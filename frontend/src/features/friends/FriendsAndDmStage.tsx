@@ -288,7 +288,7 @@ export const FriendsAndDmStage: React.FC = () => {
           {/* Peer Intro Banner (shown only when empty) */}
           {currentDmMessages.length === 0 && (
             <div
-              className={`mb-6 rounded-3xl border p-5 ${
+              className={`mb-6 rounded-2xl border p-5 ${
                 isDark
                   ? 'border-[#283830] bg-[#141C18]/60'
                   : 'border-[#E5EFE9] bg-[#F7FAF8]'
@@ -353,7 +353,7 @@ export const FriendsAndDmStage: React.FC = () => {
                         timestamp={formatTime(msg.createdAt)}
                       />
                     ) : (
-                      <div className="max-w-[85%] sm:max-w-[70%] rounded-[22px] bg-white border border-[#E2EAE5] text-[#0F172A] px-5 py-3 shadow-2xs text-[14px] leading-relaxed dark:bg-[#1E2923] dark:border-[#283830] dark:text-[#F8FAFC]">
+                      <div className="max-w-[85%] sm:max-w-[70%] rounded-2xl bg-white border border-[#E2EAE5] text-[#0F172A] px-5 py-3 shadow-2xs text-[14px] leading-relaxed dark:bg-[#1E2923] dark:border-[#283830] dark:text-[#F8FAFC]">
                         <SafeMarkdownContent
                           content={msg.content}
                           currentUsername={currentUser?.username}
@@ -412,7 +412,7 @@ export const FriendsAndDmStage: React.FC = () => {
                         timestamp={formatTime(msg.createdAt)}
                       />
                     ) : (
-                      <div className="rounded-[22px] bg-[#111111] text-white px-5 py-3 shadow-2xs text-[14px] leading-relaxed dark:bg-[#141C18]">
+                      <div className="rounded-2xl bg-[#111111] text-white px-5 py-3 shadow-2xs text-[14px] leading-relaxed dark:bg-[#141C18]">
                         <SafeMarkdownContent
                           content={msg.content}
                           currentUsername={currentUser?.username}

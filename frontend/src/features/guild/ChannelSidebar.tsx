@@ -238,7 +238,7 @@ export const ChannelSidebar: React.FC = () => {
                           key={channel.id}
                           type="button"
                           onClick={() => selectChannel(channel.id)}
-                          className={`group relative flex h-10 w-full items-center justify-between rounded-2xl px-3 text-left transition-colors ${
+                          className={`group relative flex h-10 w-full items-center justify-between rounded-xl px-3 text-left transition-colors ${
                             isSelected
                               ? 'bg-[#111820] font-extrabold text-white shadow-2xs dark:bg-[#1E2B25] dark:text-[#10B981]'
                               : unread > 0
@@ -335,7 +335,7 @@ export const ChannelSidebar: React.FC = () => {
                               selectChannel(channel.id);
                               joinVoiceChannel(channel.id);
                             }}
-                            className={`group flex h-10 w-full items-center justify-between rounded-2xl px-3 text-left transition-colors ${
+                            className={`group flex h-10 w-full items-center justify-between rounded-xl px-3 text-left transition-colors ${
                               isJoined
                                 ? 'bg-[#E8F5EE] font-bold text-[#065F46] dark:bg-[#162E22] dark:text-[#10B981]'
                                 : isDark
@@ -470,7 +470,7 @@ export const ChannelSidebar: React.FC = () => {
                         setViewMode('dm');
                         selectDm(conv.id);
                       }}
-                      className={`group flex w-full items-center justify-between rounded-[22px] p-2.5 px-3 text-left transition-all ${
+                      className={`group flex w-full items-center justify-between rounded-xl p-2.5 px-3 text-left transition-all ${
                         isActiveDm
                           ? 'bg-[#EBF3EE] dark:bg-[#1A2620] shadow-2xs font-semibold'
                           : isDark
@@ -688,7 +688,7 @@ export const ChannelSidebar: React.FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className={`w-full max-w-md rounded-3xl border p-6 shadow-2xl ${
+            className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${
               isDark
                 ? 'border-[#283830] bg-[#111815] text-[#F8FAFC]'
                 : 'border-[#E5EFE9] bg-white text-[#0F172A]'

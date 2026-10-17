@@ -426,9 +426,9 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         </div>
       )}
 
-      {/* COMPOSER CONTAINER (Floating Pill Style from reference image) */}
+      {/* COMPOSER CONTAINER (Clean Rounded Style) */}
       <div
-        className={`relative rounded-[28px] border transition-all shadow-xs ${
+        className={`relative rounded-2xl border transition-all shadow-xs ${
           isDark
             ? 'border-[#1E2B25] bg-[#16201C] focus-within:border-emerald-500'
             : 'border-[#E8EFEA] bg-white focus-within:border-slate-400'
@@ -437,7 +437,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         {/* REPLYING TO / EDITING MESSAGE BANNER */}
         {(replyingTo || editingMessage) && (
           <div
-            className={`flex items-center justify-between border-b px-4 py-2 text-xs rounded-t-[28px] ${
+            className={`flex items-center justify-between border-b px-4 py-2 text-xs rounded-t-2xl ${
               isDark
                 ? 'border-[#1E2B25] bg-[#1B2922] text-[#CBD5E1]'
                 : 'border-[#E8EFEA] bg-[#EFF6FF] text-[#1E40AF]'

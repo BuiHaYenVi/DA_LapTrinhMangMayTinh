@@ -742,7 +742,7 @@ export const ChatStage: React.FC = () => {
                         ) : (
                           /* Standard High Contrast Message Bubble */
                           <div
-                            className={`relative max-w-[85%] sm:max-w-[70%] rounded-[22px] px-4.5 py-3 transition-shadow ${
+                            className={`relative max-w-[85%] sm:max-w-[70%] rounded-2xl px-4.5 py-3 transition-shadow ${
                               isMe
                                 ? 'bg-white dark:bg-[#1C2822] text-[#0F172A] dark:text-[#F8FAFC] border border-[#E5EFE9] dark:border-[#283830] shadow-xs'
                                 : 'bg-[#111820] dark:bg-[#141C18] text-white shadow-xs'
