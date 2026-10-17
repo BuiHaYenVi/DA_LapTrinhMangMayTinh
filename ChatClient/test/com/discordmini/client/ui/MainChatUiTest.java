@@ -43,6 +43,7 @@ public final class MainChatUiTest {
         testPreventDuplicateMessageOnSelfBroadcast();
         testClearMessagesWhenLeavingOrSwitchingRoom();
         testTwoClientsSameRoomAndDifferentRoomSimulation();
+        testLogoutCleansSessionAndRestoresLoginFrame();
         System.out.println("=== TẤT CẢ TEST AN-08: MAIN CHAT UI ĐÃ PASS! ===");
     }
 
@@ -300,6 +301,47 @@ public final class MainChatUiTest {
         check("Yen Vi".equals(received.getSender()), "Người gửi phải là Yen Vi");
 
         System.out.println("  [PASS] testTwoClientsSameRoomAndDifferentRoomSimulation");
+    }
+
+    /**
+     * Tiêu chí kiểm tra tích hợp: Đăng xuất giải phóng tài nguyên phiên, hủy reconnect và mở lại LoginFrame.
+     */
+    private static void testLogoutCleansSessionAndRestoresLoginFrame() throws Exception {
+        SocketClient dummyClient = new SocketClient();
+        MainFrame mainFrame = new MainFrame(dummyClient, "Bảo An", "bao_an", "secret123");
+
+        check("bao_an".equals(mainFrame.getReconnectManager().getCachedUsername()),
+                "ReconnectManager phải lưu thông tin đăng nhập tạm thời");
+
+        // Gọi performLogout() trên EDT
+        SwingUtilities.invokeAndWait(mainFrame::performLogout);
+
+        // Chờ LoginFrame được mở lại
+        LoginFrame openedLoginFrame = null;
+        long start = System.currentTimeMillis();
+        while (System.currentTimeMillis() - start < 3000) {
+            Thread.sleep(100);
+            for (java.awt.Window w : java.awt.Window.getWindows()) {
+                if (w instanceof LoginFrame lf && lf.isDisplayable()) {
+                    openedLoginFrame = lf;
+                    break;
+                }
+            }
+            if (openedLoginFrame != null) break;
+        }
+
+        check(!mainFrame.isDisplayable(), "MainFrame phải được đóng sau khi đăng xuất");
+        check(mainFrame.getReconnectManager().getCachedUsername() == null,
+                "ReconnectManager phải xóa thông tin đăng nhập sau khi đăng xuất");
+        check(openedLoginFrame != null, "LoginFrame phải được mở lại sau khi đăng xuất");
+        check("bao_an".equals(openedLoginFrame.getUsernameField().getText()),
+                "LoginFrame phải được điền sẵn tên đăng nhập vừa đăng xuất");
+
+        final LoginFrame lfToClose = openedLoginFrame;
+        SwingUtilities.invokeAndWait(lfToClose::dispose);
+        dummyClient.close();
+
+        System.out.println("  [PASS] testLogoutCleansSessionAndRestoresLoginFrame");
     }
 
     private static void check(boolean condition, String message) {

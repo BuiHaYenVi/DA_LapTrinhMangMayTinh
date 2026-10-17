@@ -100,6 +100,14 @@ public class ReconnectManager {
         this.cachedPassword = null;
     }
 
+    public synchronized boolean hasCredentials() {
+        return cachedUsername != null && cachedPassword != null;
+    }
+
+    public synchronized String getCachedUsername() {
+        return cachedUsername;
+    }
+
     private void registerConnectionStateListener() {
         connectionManager.addStateChangeListener((oldState, newState, reason) -> {
             if (newState == ConnectionState.DISCONNECTED) {
