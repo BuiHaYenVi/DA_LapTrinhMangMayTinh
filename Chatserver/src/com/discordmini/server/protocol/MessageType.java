@@ -22,5 +22,14 @@ public enum MessageType {
     FRIEND_PENDING_LIST,
     FRIEND_ACCEPT,
     FRIEND_REJECT,
-    FRIEND_LIST
+    FRIEND_LIST,
+    // Giai đoạn 2: Bổ sung Quản lý phòng & Tin nhắn
+    EDIT_MESSAGE,
+    DELETE_MESSAGE,
+    RENAME_ROOM,
+    DELETE_ROOM,
+    SET_ROOM_DESC,
+    TRANSFER_OWNER,
+    SET_MEMBER_ROLE,
+    HISTORY_PAGE
 }

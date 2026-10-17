@@ -132,7 +132,15 @@ public class UiBridgeServer {
         server.createContext("/api/rooms/leave", new LeaveRoomHandler());
         server.createContext("/api/rooms/invite", new InviteRoomHandler());
         server.createContext("/api/rooms/kick", new KickRoomHandler());
+        server.createContext("/api/rooms/rename", new RenameRoomHandler());
+        server.createContext("/api/rooms/delete", new DeleteRoomHandler());
+        server.createContext("/api/rooms/desc", new SetRoomDescHandler());
+        server.createContext("/api/rooms/transfer", new TransferOwnerHandler());
+        server.createContext("/api/rooms/role", new SetMemberRoleHandler());
         server.createContext("/api/messages/send", new SendMessageHandler());
+        server.createContext("/api/messages/edit", new EditMessageHandler());
+        server.createContext("/api/messages/delete", new DeleteMessageHandler());
+        server.createContext("/api/messages/history", new HistoryPageHandler());
         server.createContext("/api/messages/private", new SendPrivateMessageHandler());
         server.createContext("/api/friends/request", new FriendRequestHandler());
         server.createContext("/api/friends/accept", new FriendAcceptHandler());
@@ -180,6 +188,7 @@ public class UiBridgeServer {
         public volatile String currentRoomName = "";
         public final List<Map<String, Object>> roomCache = new CopyOnWriteArrayList<>();
         public final List<Map<String, Object>> messageCache = new CopyOnWriteArrayList<>();
+        public final List<Map<String, Object>> historyPageBuffer = new CopyOnWriteArrayList<>();
         public final List<Map<String, Object>> memberCache = new CopyOnWriteArrayList<>();
         public final List<Map<String, Object>> friendCache = new CopyOnWriteArrayList<>();
         public final List<Map<String, Object>> pendingCache = new CopyOnWriteArrayList<>();
@@ -232,11 +241,13 @@ public class UiBridgeServer {
                 case "ROOMS" -> {
                     roomCache.clear();
                     for (int i = 1; i < p.length; i++) {
-                        String[] x = p[i].split(",", 2);
-                        if (x.length == 2) {
+                        String[] x = p[i].split(",", 4);
+                        if (x.length >= 2) {
                             Map<String, Object> r = new HashMap<>();
                             r.put("id", Integer.parseInt(x[0]));
                             r.put("name", ProtocolHandler.decode(x[1]));
+                            r.put("description", x.length >= 3 ? ProtocolHandler.decode(x[2]) : "");
+                            r.put("role", x.length >= 4 ? x[3] : "MEMBER");
                             roomCache.add(r);
                         }
                     }
@@ -261,28 +272,59 @@ public class UiBridgeServer {
                     String sender = ProtocolHandler.decode(p[2]);
                     String content = ProtocolHandler.decode(p[3]);
                     String time = ProtocolHandler.decode(p[4]);
+                    boolean isEdited = p.length >= 6 && "EDITED".equalsIgnoreCase(p[5]);
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", msgId);
                     m.put("senderId", sender.equalsIgnoreCase(displayName) ? userId : 0);
                     m.put("senderName", sender);
                     m.put("content", content);
                     m.put("timestamp", time);
+                    m.put("isEdited", isEdited);
                     messageCache.add(m);
                 }
                 case "HISTORY_END" -> broadcastSse("HISTORY", Map.of("messages", messageCache));
-                case "NEW_MESSAGE" -> {
+                case "HISTORY_PAGE_BEGIN" -> historyPageBuffer.clear();
+                case "HISTORY_PAGE_ITEM" -> {
                     int msgId = Integer.parseInt(p[1]);
-                    String sender = ProtocolHandler.decode(p[3]);
-                    String content = ProtocolHandler.decode(p[4]);
-                    String time = ProtocolHandler.decode(p[5]);
+                    String sender = ProtocolHandler.decode(p[2]);
+                    String content = ProtocolHandler.decode(p[3]);
+                    String time = ProtocolHandler.decode(p[4]);
+                    boolean isEdited = p.length >= 6 && "EDITED".equalsIgnoreCase(p[5]);
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", msgId);
                     m.put("senderId", sender.equalsIgnoreCase(displayName) ? userId : 0);
                     m.put("senderName", sender);
                     m.put("content", content);
                     m.put("timestamp", time);
-                    messageCache.add(m);
-                    broadcastSse("NEW_MESSAGE", Map.of("message", m));
+                    m.put("isEdited", isEdited);
+                    historyPageBuffer.add(m);
+                }
+                case "HISTORY_PAGE_END" -> {
+                    int rId = p.length > 1 ? Integer.parseInt(p[1]) : (currentRoomId != null ? currentRoomId : 0);
+                    List<Map<String, Object>> olderMessages = new ArrayList<>(historyPageBuffer);
+                    historyPageBuffer.clear();
+                    messageCache.addAll(0, olderMessages);
+                    broadcastSse("HISTORY_PAGE", Map.of("roomId", rId, "messages", olderMessages));
+                }
+                case "NEW_MESSAGE" -> {
+                    int msgId = Integer.parseInt(p[1]);
+                    int rId = Integer.parseInt(p[2]);
+                    String sender = ProtocolHandler.decode(p[3]);
+                    String content = ProtocolHandler.decode(p[4]);
+                    String time = ProtocolHandler.decode(p[5]);
+                    boolean isEdited = p.length >= 7 && "EDITED".equalsIgnoreCase(p[6]);
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", msgId);
+                    m.put("roomId", rId);
+                    m.put("senderId", sender.equalsIgnoreCase(displayName) ? userId : 0);
+                    m.put("senderName", sender);
+                    m.put("content", content);
+                    m.put("timestamp", time);
+                    m.put("isEdited", isEdited);
+                    if (currentRoomId != null && currentRoomId == rId) {
+                        messageCache.add(m);
+                    }
+                    broadcastSse("NEW_MESSAGE", Map.of("message", m, "roomId", rId));
                 }
                 case "NEW_PRIVATE_MESSAGE" -> {
                     int sId = Integer.parseInt(p[1]);
@@ -295,8 +337,64 @@ public class UiBridgeServer {
                     m.put("senderName", sName + " (Riêng)");
                     m.put("content", content);
                     m.put("timestamp", time);
+                    m.put("isEdited", false);
                     messageCache.add(m);
                     broadcastSse("NEW_MESSAGE", Map.of("message", m));
+                }
+                case "MESSAGE_EDITED" -> {
+                    int rId = Integer.parseInt(p[1]);
+                    int msgId = Integer.parseInt(p[2]);
+                    String newContent = ProtocolHandler.decode(p[3]);
+                    for (Map<String, Object> m : messageCache) {
+                        if (Objects.equals(m.get("id"), msgId)) {
+                            m.put("content", newContent);
+                            m.put("isEdited", true);
+                            break;
+                        }
+                    }
+                    broadcastSse("MESSAGE_EDITED", Map.of("roomId", rId, "messageId", msgId, "content", newContent));
+                }
+                case "MESSAGE_DELETED" -> {
+                    int rId = Integer.parseInt(p[1]);
+                    int msgId = Integer.parseInt(p[2]);
+                    messageCache.removeIf(m -> Objects.equals(m.get("id"), msgId));
+                    broadcastSse("MESSAGE_DELETED", Map.of("roomId", rId, "messageId", msgId));
+                }
+                case "ROOM_RENAMED" -> {
+                    int rId = Integer.parseInt(p[1]);
+                    String newName = ProtocolHandler.decode(p[2]);
+                    if (currentRoomId != null && currentRoomId == rId) {
+                        currentRoomName = newName;
+                    }
+                    for (Map<String, Object> r : roomCache) {
+                        if (Objects.equals(r.get("id"), rId)) {
+                            r.put("name", newName);
+                            break;
+                        }
+                    }
+                    broadcastSse("ROOM_RENAMED", Map.of("roomId", rId, "name", newName));
+                }
+                case "ROOM_DELETED" -> {
+                    int rId = Integer.parseInt(p[1]);
+                    roomCache.removeIf(r -> Objects.equals(r.get("id"), rId));
+                    if (currentRoomId != null && currentRoomId == rId) {
+                        currentRoomId = null;
+                        currentRoomName = "";
+                        messageCache.clear();
+                        memberCache.clear();
+                    }
+                    broadcastSse("ROOM_DELETED", Map.of("roomId", rId));
+                }
+                case "ROOM_DESC_UPDATED" -> {
+                    int rId = Integer.parseInt(p[1]);
+                    String newDesc = ProtocolHandler.decode(p[2]);
+                    for (Map<String, Object> r : roomCache) {
+                        if (Objects.equals(r.get("id"), rId)) {
+                            r.put("description", newDesc);
+                            break;
+                        }
+                    }
+                    broadcastSse("ROOM_DESC_UPDATED", Map.of("roomId", rId, "description", newDesc));
                 }
                 case "ROOM_MEMBERS" -> {
                     memberCache.clear();
@@ -371,6 +469,8 @@ public class UiBridgeServer {
                     m.put("senderName", "Hệ thống");
                     m.put("content", "🔔 " + text);
                     m.put("timestamp", "");
+                    m.put("isEdited", false);
+                    messageCache.add(m);
                     broadcastSse("NEW_MESSAGE", Map.of("message", m));
                 }
                 case "ERROR" -> broadcastSse("ERROR", Map.of("message", ProtocolHandler.decode(p[1])));
@@ -1040,6 +1140,180 @@ public class UiBridgeServer {
                 int rId = ((Number) body.get("roomId")).intValue();
                 int uId = ((Number) body.get("targetUserId")).intValue();
                 session.roomService.kickMember(rId, uId);
+                sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class RenameRoomHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int roomId = ((Number) body.get("roomId")).intValue();
+                String name = (String) body.get("name");
+                if (name != null && !name.isBlank()) {
+                    session.socketClient.sendCommand("RENAME_ROOM", String.valueOf(roomId), ProtocolHandler.encode(name.trim()));
+                }
+                sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class DeleteRoomHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int roomId = ((Number) body.get("roomId")).intValue();
+                session.socketClient.sendCommand("DELETE_ROOM", String.valueOf(roomId));
+                sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class SetRoomDescHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int roomId = ((Number) body.get("roomId")).intValue();
+                String desc = (String) body.get("description");
+                session.socketClient.sendCommand("SET_ROOM_DESC", String.valueOf(roomId), ProtocolHandler.encode(desc != null ? desc.trim() : ""));
+                sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class TransferOwnerHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int roomId = ((Number) body.get("roomId")).intValue();
+                int targetUserId = ((Number) body.get("targetUserId")).intValue();
+                session.socketClient.sendCommand("TRANSFER_OWNER", String.valueOf(roomId), String.valueOf(targetUserId));
+                sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class SetMemberRoleHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int roomId = ((Number) body.get("roomId")).intValue();
+                int targetUserId = ((Number) body.get("targetUserId")).intValue();
+                String role = (String) body.get("role");
+                if (role != null) {
+                    session.socketClient.sendCommand("SET_MEMBER_ROLE", String.valueOf(roomId), String.valueOf(targetUserId), ProtocolHandler.encode(role.trim()));
+                }
+                sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class EditMessageHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int messageId = ((Number) body.get("messageId")).intValue();
+                String content = (String) body.get("content");
+                if (content != null && !content.isBlank()) {
+                    session.socketClient.sendCommand("EDIT_MESSAGE", String.valueOf(messageId), ProtocolHandler.encode(content.trim()));
+                }
+                sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class DeleteMessageHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int messageId = ((Number) body.get("messageId")).intValue();
+                session.socketClient.sendCommand("DELETE_MESSAGE", String.valueOf(messageId));
+                sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class HistoryPageHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int roomId = ((Number) body.get("roomId")).intValue();
+                int beforeId = ((Number) body.get("beforeId")).intValue();
+                int limit = body.containsKey("limit") ? ((Number) body.get("limit")).intValue() : 25;
+                session.socketClient.sendCommand("HISTORY_PAGE", String.valueOf(roomId), String.valueOf(beforeId), String.valueOf(limit));
                 sendJson(exchange, 200, Map.of("success", true));
             }
         }

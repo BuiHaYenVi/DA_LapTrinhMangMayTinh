@@ -94,6 +94,14 @@ public class ClientHandler implements Runnable {
                 case FRIEND_ACCEPT -> handleFriendAccept(parts);
                 case FRIEND_REJECT -> handleFriendReject(parts);
                 case FRIEND_LIST -> handleFriendList();
+                case EDIT_MESSAGE -> handleEditMessage(parts);
+                case DELETE_MESSAGE -> handleDeleteMessage(parts);
+                case RENAME_ROOM -> handleRenameRoom(parts);
+                case DELETE_ROOM -> handleDeleteRoom(parts);
+                case SET_ROOM_DESC -> handleSetRoomDesc(parts);
+                case TRANSFER_OWNER -> handleTransferOwner(parts);
+                case SET_MEMBER_ROLE -> handleSetMemberRole(parts);
+                case HISTORY_PAGE -> handleHistoryPage(parts);
             }
         } catch (Exception e) {
             sendError(
@@ -472,6 +480,8 @@ public class ClientHandler implements Runnable {
                             + ProtocolHandler.encode(m.getContent())
                             + "|"
                             + ProtocolHandler.encode(m.getTimestamp())
+                            + "|"
+                            + (m.isEdited() ? "EDITED" : "NORMAL")
             );
         }
 
@@ -485,10 +495,16 @@ public class ClientHandler implements Runnable {
                 : server.getRoomService().listRooms();
 
         for (Room r : rooms) {
+            String role = (user != null) ? server.getRoomService().getMemberRole(r.getId(), user.getId()) : "MEMBER";
+            if (role == null) role = "MEMBER";
             sb.append('|')
                     .append(r.getId())
                     .append(',')
-                    .append(ProtocolHandler.encode(r.getName()));
+                    .append(ProtocolHandler.encode(r.getName()))
+                    .append(',')
+                    .append(ProtocolHandler.encode(r.getDescription()))
+                    .append(',')
+                    .append(role);
         }
 
         connection.send(sb.toString());
@@ -920,5 +936,268 @@ public class ClientHandler implements Runnable {
                     .append(isOnline ? "ONLINE" : "OFFLINE");
         }
         connection.send(sb.toString());
+    }
+
+    /* =========================================================================
+     * GIAI ĐOẠN 2: QUẢN LÝ PHÒNG & TIN NHẮN (MESSAGE & ROOM MANAGEMENT)
+     * ========================================================================= */
+
+    private void handleEditMessage(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+
+        int messageId = parseId(parts[1], "ID tin nhắn");
+        String newContent = ProtocolHandler.decode(parts[2]).trim();
+
+        if (newContent.isBlank()) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Nội dung tin nhắn không được để trống.");
+            return;
+        }
+
+        if (newContent.length() > MAX_MESSAGE_LENGTH) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tin nhắn không được vượt quá 5000 ký tự.");
+            return;
+        }
+
+        Message msg = server.getChatService().getMessageById(messageId);
+        if (msg == null) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Không tìm thấy tin nhắn.");
+            return;
+        }
+
+        if (msg.getSenderId() != user.getId()) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Bạn chỉ có thể sửa tin nhắn của chính mình.");
+            return;
+        }
+
+        boolean ok = server.getChatService().editMessage(messageId, user.getId(), newContent);
+        if (ok) {
+            connection.send("OK|EDIT_MESSAGE|" + messageId);
+            String packet = "MESSAGE_EDITED|" + msg.getRoomId() + "|" + messageId + "|" + ProtocolHandler.encode(newContent);
+            broadcastToRoom(msg.getRoomId(), packet);
+        } else {
+            sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể cập nhật tin nhắn.");
+        }
+    }
+
+    private void handleDeleteMessage(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 2);
+
+        int messageId = parseId(parts[1], "ID tin nhắn");
+        Message msg = server.getChatService().getMessageById(messageId);
+        if (msg == null) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Không tìm thấy tin nhắn.");
+            return;
+        }
+
+        String userRole = server.getRoomService().getMemberRole(msg.getRoomId(), user.getId());
+        boolean isAdminOrOwner = "OWNER".equalsIgnoreCase(userRole) || "ADMIN".equalsIgnoreCase(userRole);
+        boolean isSender = (msg.getSenderId() == user.getId());
+
+        if (!isSender && !isAdminOrOwner) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Bạn không có quyền xóa tin nhắn này.");
+            return;
+        }
+
+        boolean ok = server.getChatService().deleteMessage(messageId, user.getId(), isAdminOrOwner);
+        if (ok) {
+            connection.send("OK|DELETE_MESSAGE|" + messageId);
+            String packet = "MESSAGE_DELETED|" + msg.getRoomId() + "|" + messageId;
+            broadcastToRoom(msg.getRoomId(), packet);
+        } else {
+            sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể xóa tin nhắn.");
+        }
+    }
+
+    private void handleRenameRoom(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        String newName = ProtocolHandler.decode(parts[2]).trim();
+
+        if (newName.isBlank() || newName.length() > MAX_ROOM_NAME_LENGTH) {
+            sendError(ProtocolErrorCode.INVALID_ROOM_NAME, "Tên phòng không hợp lệ.");
+            return;
+        }
+
+        String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
+        if (!"OWNER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Quản trị viên mới được đổi tên phòng.");
+            return;
+        }
+
+        boolean ok = server.getRoomService().renameRoom(roomId, newName);
+        if (ok) {
+            Room r = server.getRoomService().findRoom(roomId);
+            if (r != null) r.setName(newName);
+
+            connection.send("OK|RENAME_ROOM|" + roomId + "|" + ProtocolHandler.encode(newName));
+            String packet = "ROOM_RENAMED|" + roomId + "|" + ProtocolHandler.encode(newName);
+            broadcastGlobal(packet);
+            broadcastToRoom(roomId, "SYSTEM|" + ProtocolHandler.encode("Tên phòng đã được đổi thành: " + newName));
+            sendRooms();
+        } else {
+            sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể đổi tên phòng.");
+        }
+    }
+
+    private void handleDeleteRoom(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 2);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
+        if (!"OWNER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Quản trị viên mới được xóa phòng.");
+            return;
+        }
+
+        boolean ok = server.getRoomService().deleteRoom(roomId);
+        if (ok) {
+            connection.send("OK|DELETE_ROOM|" + roomId);
+            String packet = "ROOM_DELETED|" + roomId;
+            for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
+                c.connection.send("SYSTEM|" + ProtocolHandler.encode("Phòng chat đã bị giải tán bởi Quản trị viên."));
+                c.connection.send(packet);
+                c.currentRoomId = null;
+            }
+            broadcastGlobal(packet);
+            sendRooms();
+        } else {
+            sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể xóa phòng.");
+        }
+    }
+
+    private void handleSetRoomDesc(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        String description = ProtocolHandler.decode(parts[2]).trim();
+
+        String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
+        if (!"OWNER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Quản trị viên mới được cập nhật mô tả phòng.");
+            return;
+        }
+
+        boolean ok = server.getRoomService().updateDescription(roomId, description);
+        if (ok) {
+            Room r = server.getRoomService().findRoom(roomId);
+            if (r != null) r.setDescription(description);
+
+            connection.send("OK|SET_ROOM_DESC|" + roomId);
+            String packet = "ROOM_DESC_UPDATED|" + roomId + "|" + ProtocolHandler.encode(description);
+            broadcastToRoom(roomId, packet);
+            broadcastToRoom(roomId, "SYSTEM|" + ProtocolHandler.encode("Mô tả phòng đã được cập nhật."));
+        } else {
+            sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể cập nhật mô tả phòng.");
+        }
+    }
+
+    private void handleTransferOwner(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        int targetUserId = parseId(parts[2], "ID người nhận quyền");
+
+        if (!server.getRoomService().isRoomOwner(roomId, user.getId())) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng (OWNER) hiện tại mới có quyền chuyển giao quyền Chủ phòng.");
+            return;
+        }
+
+        if (targetUserId == user.getId()) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Bạn đang là Chủ phòng.");
+            return;
+        }
+
+        boolean ok = server.getRoomService().transferOwnership(roomId, user.getId(), targetUserId);
+        if (ok) {
+            User targetUser = server.getUserDAO().findById(targetUserId);
+            String targetName = (targetUser != null) ? targetUser.getDisplayName() : ("User#" + targetUserId);
+
+            connection.send("OK|TRANSFER_OWNER|" + roomId + "|" + targetUserId);
+            broadcastToRoom(roomId, "SYSTEM|" + ProtocolHandler.encode(user.getDisplayName() + " đã chuyển quyền Chủ phòng cho " + targetName + "."));
+
+            for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
+                c.sendRoomMembers();
+                c.sendRooms();
+            }
+        } else {
+            sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể chuyển quyền Chủ phòng.");
+        }
+    }
+
+    private void handleSetMemberRole(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 4);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        int targetUserId = parseId(parts[2], "ID thành viên");
+        String role = ProtocolHandler.decode(parts[3]).trim().toUpperCase();
+
+        if (!server.getRoomService().isRoomOwner(roomId, user.getId())) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng (OWNER) mới có quyền thiết lập vai trò thành viên.");
+            return;
+        }
+
+        if (!"ADMIN".equals(role) && !"MEMBER".equals(role)) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Vai trò chỉ có thể là ADMIN hoặc MEMBER.");
+            return;
+        }
+
+        boolean ok = server.getRoomService().setMemberRole(roomId, targetUserId, role);
+        if (ok) {
+            User targetUser = server.getUserDAO().findById(targetUserId);
+            String targetName = (targetUser != null) ? targetUser.getDisplayName() : ("User#" + targetUserId);
+            String roleText = "ADMIN".equals(role) ? "Quản trị viên" : "Thành viên";
+
+            connection.send("OK|SET_MEMBER_ROLE|" + roomId + "|" + targetUserId + "|" + role);
+            broadcastToRoom(roomId, "SYSTEM|" + ProtocolHandler.encode(targetName + " đã được bổ nhiệm làm " + roleText + "."));
+
+            for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
+                c.sendRoomMembers();
+                c.sendRooms();
+            }
+        } else {
+            sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể cập nhật vai trò.");
+        }
+    }
+
+    private void handleHistoryPage(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 4);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        int beforeId = parseId(parts[2], "ID tin nhắn trước đó");
+        int limit = parseId(parts[3], "Số lượng tin nhắn");
+
+        List<Message> history = server.getChatService().historyBefore(roomId, beforeId, limit);
+
+        connection.send("HISTORY_PAGE_BEGIN|" + roomId);
+        for (Message m : history) {
+            connection.send(
+                    "HISTORY_PAGE_ITEM|"
+                            + m.getId()
+                            + "|"
+                            + ProtocolHandler.encode(m.getSender())
+                            + "|"
+                            + ProtocolHandler.encode(m.getContent())
+                            + "|"
+                            + ProtocolHandler.encode(m.getTimestamp())
+                            + "|"
+                            + (m.isEdited() ? "EDITED" : "NORMAL")
+            );
+        }
+        connection.send("HISTORY_PAGE_END|" + roomId);
+    }
+
+    private void broadcastToRoom(int roomId, String packet) {
+        for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
+            c.connection.send(packet);
+        }
     }
 }

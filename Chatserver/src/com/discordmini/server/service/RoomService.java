@@ -92,4 +92,49 @@ public class RoomService {
             return new ArrayList<>();
         }
     }
+
+    public boolean renameRoom(int roomId, String newName) {
+        try {
+            return roomDAO.renameRoom(roomId, newName);
+        } catch (Exception e) {
+            System.err.println("Lỗi renameRoom: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean deleteRoom(int roomId) {
+        try {
+            return roomDAO.deleteRoom(roomId);
+        } catch (Exception e) {
+            System.err.println("Lỗi deleteRoom: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean updateDescription(int roomId, String description) {
+        try {
+            return roomDAO.updateDescription(roomId, description);
+        } catch (Exception e) {
+            System.err.println("Lỗi updateDescription: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean transferOwnership(int roomId, int oldOwnerId, int newOwnerId) {
+        try {
+            return roomDAO.transferOwnership(roomId, oldOwnerId, newOwnerId);
+        } catch (Exception e) {
+            System.err.println("Lỗi transferOwnership: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean setMemberRole(int roomId, int userId, String role) {
+        try {
+            return roomDAO.setMemberRole(roomId, userId, role);
+        } catch (Exception e) {
+            System.err.println("Lỗi setMemberRole: " + e.getMessage());
+            return false;
+        }
+    }
 }

@@ -21,9 +21,10 @@ export const App: React.FC = () => {
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [members, setMembers] = useState<User[]>([]);
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<PendingFriendRequest[]>([]);
+  const [_friends, setFriends] = useState<Friend[]>([]);
+  const [_pendingRequests, setPendingRequests] = useState<PendingFriendRequest[]>([]);
   const [_isConnected, setIsConnected] = useState<boolean>(true);
+  const [unreadMap, setUnreadMap] = useState<Record<number, number>>({});
 
   // 1. Kiểm tra phiên đăng nhập từ cookie khi nạp ứng dụng
   useEffect(() => {
@@ -85,6 +86,12 @@ export const App: React.FC = () => {
           setMessages([]);
           break;
         case 'NEW_MESSAGE':
+          if (payload.roomId && currentRoom && payload.roomId !== currentRoom.id) {
+            setUnreadMap((prev) => ({
+              ...prev,
+              [payload.roomId]: (prev[payload.roomId] || 0) + 1
+            }));
+          }
           setMessages((prev) => {
             if (payload.message && payload.message.id) {
               if (prev.some((m) => m.id === payload.message.id)) {
@@ -94,8 +101,53 @@ export const App: React.FC = () => {
             return [...prev, payload.message];
           });
           break;
+        case 'MESSAGE_EDITED':
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === payload.messageId
+                ? { ...m, content: payload.content, isEdited: true }
+                : m
+            )
+          );
+          break;
+        case 'MESSAGE_DELETED':
+          setMessages((prev) => prev.filter((m) => m.id !== payload.messageId));
+          break;
         case 'HISTORY':
           setMessages(payload.messages || []);
+          break;
+        case 'HISTORY_PAGE':
+          if (payload.messages && payload.messages.length > 0) {
+            setMessages((prev) => {
+              const existingIds = new Set(prev.map((m) => m.id));
+              const older = payload.messages.filter((m: any) => !existingIds.has(m.id));
+              return [...older, ...prev];
+            });
+          }
+          break;
+        case 'ROOM_RENAMED':
+          setRooms((prev) =>
+            prev.map((r) => (r.id === payload.roomId ? { ...r, name: payload.name } : r))
+          );
+          setCurrentRoom((prev) =>
+            prev && prev.id === payload.roomId ? { ...prev, name: payload.name } : prev
+          );
+          break;
+        case 'ROOM_DELETED':
+          setRooms((prev) => prev.filter((r) => r.id !== payload.roomId));
+          setCurrentRoom((prev) => (prev && prev.id === payload.roomId ? null : prev));
+          break;
+        case 'ROOM_DESC_UPDATED':
+          setRooms((prev) =>
+            prev.map((r) =>
+              r.id === payload.roomId ? { ...r, description: payload.description } : r
+            )
+          );
+          setCurrentRoom((prev) =>
+            prev && prev.id === payload.roomId
+              ? { ...prev, description: payload.description }
+              : prev
+          );
           break;
         case 'MEMBERS':
           setMembers(payload.members || []);
@@ -129,7 +181,7 @@ export const App: React.FC = () => {
       unsubscribe();
       chatBridge.stopEventStream();
     };
-  }, [authStatus]);
+  }, [authStatus, currentRoom]);
 
   const handleSessionExpired = useCallback(() => {
     chatBridge.stopEventStream();
@@ -172,6 +224,7 @@ export const App: React.FC = () => {
   };
 
   const handleSelectRoom = (room: Room) => {
+    setUnreadMap((prev) => ({ ...prev, [room.id]: 0 }));
     chatBridge.joinRoom(room.id);
   };
 
@@ -182,8 +235,46 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleRenameRoom = (roomId: number, name: string) => {
+    chatBridge.renameRoom(roomId, name);
+  };
+
+  const handleDeleteRoom = (roomId: number) => {
+    chatBridge.deleteRoom(roomId);
+  };
+
+  const handleSetRoomDesc = (roomId: number, description: string) => {
+    chatBridge.setRoomDesc(roomId, description);
+  };
+
   const handleSendMessage = (text: string) => {
     chatBridge.sendMessage(text);
+  };
+
+  const handleEditMessage = (messageId: number, content: string) => {
+    chatBridge.editMessage(messageId, content);
+  };
+
+  const handleDeleteMessage = (messageId: number) => {
+    chatBridge.deleteMessage(messageId);
+  };
+
+  const handleLoadMore = (beforeId: number) => {
+    if (currentRoom) {
+      chatBridge.loadMoreHistory(currentRoom.id, beforeId);
+    }
+  };
+
+  const handleSetMemberRole = (userId: number, role: string) => {
+    if (currentRoom) {
+      chatBridge.setMemberRole(currentRoom.id, userId, role);
+    }
+  };
+
+  const handleTransferOwner = (userId: number) => {
+    if (currentRoom) {
+      chatBridge.transferOwner(currentRoom.id, userId);
+    }
   };
 
   const handleInvite = () => {
@@ -196,14 +287,24 @@ export const App: React.FC = () => {
 
   const handleKick = () => {
     if (!currentRoom) return;
-    const input = prompt('Nhập ID người dùng muốn xóa (kick) khỏi phòng:');
+    const input = prompt('Nhập ID người dùng muốn kick khỏi phòng:');
     if (input && !isNaN(Number(input))) {
-      chatBridge.kickMember(currentRoom.id, Number(input));
+      const targetId = Number(input);
+      const targetMember = members.find(m => m.id === targetId);
+      const targetName = targetMember ? targetMember.displayName : `ID ${targetId}`;
+      if (window.confirm(`Bạn có chắc chắn muốn kick "${targetName}" khỏi phòng "${currentRoom.name}" không?`)) {
+        chatBridge.kickMember(currentRoom.id, targetId);
+      }
     }
   };
 
+  const handleKickMember = (userId: number) => {
+    if (!currentRoom) return;
+    chatBridge.kickMember(currentRoom.id, userId);
+  };
+
   const handleLeave = () => {
-    if (confirm('Bạn có chắc chắn muốn rời phòng?')) {
+    if (window.confirm(`Bạn có chắc chắn muốn rời khỏi phòng "${currentRoom?.name || ''}" không?`)) {
       chatBridge.leaveRoom();
       setCurrentRoom(null);
       setMessages([]);
@@ -216,31 +317,6 @@ export const App: React.FC = () => {
     if (text && text.trim()) {
       chatBridge.sendPrivateMessage(userId, text.trim());
     }
-  };
-
-  const handleAddFriend = () => {
-    const input = prompt('Nhập Tên tài khoản (username) hoặc ID người dùng muốn kết bạn:');
-    if (!input || !input.trim()) return;
-
-    const trimmed = input.trim();
-    if (!isNaN(Number(trimmed))) {
-      chatBridge.sendFriendRequest(Number(trimmed));
-    } else {
-      chatBridge.searchFriends(trimmed);
-      alert(`Đang tìm kiếm người dùng "${trimmed}". Nếu người dùng tồn tại, yêu cầu sẽ được gửi!`);
-    }
-  };
-
-  const handleAcceptFriend = (requestId: number) => {
-    chatBridge.acceptFriendRequest(requestId);
-  };
-
-  const handleRejectFriend = (requestId: number) => {
-    chatBridge.rejectFriendRequest(requestId);
-  };
-
-  const handleRefreshFriends = () => {
-    chatBridge.refreshFriends();
   };
 
   // Màn hình 1: Đang kiểm tra phiên (Loading Splash)
@@ -282,7 +358,9 @@ export const App: React.FC = () => {
     );
   }
 
-  const isOwner = currentRoom != null && members.some(m => m.id === currentUser?.id && m.role === 'OWNER');
+  const currentMember = members.find(m => m.id === currentUser?.id);
+  const currentUserRole = currentMember?.role || (currentRoom as any)?.role || 'MEMBER';
+  const isOwner = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN';
 
   // Màn hình 4: Giao diện Chat chính thức (Đã xác thực)
   return (
@@ -299,8 +377,12 @@ export const App: React.FC = () => {
         rooms={rooms}
         currentRoom={currentRoom}
         currentUser={currentUser}
+        unreadMap={unreadMap}
         onSelectRoom={handleSelectRoom}
         onCreateRoom={handleCreateRoom}
+        onRenameRoom={handleRenameRoom}
+        onDeleteRoom={handleDeleteRoom}
+        onSetRoomDesc={handleSetRoomDesc}
         onLogout={handleLogout}
       />
 
@@ -308,24 +390,28 @@ export const App: React.FC = () => {
       <ChatCenter
         currentRoom={currentRoom}
         messages={messages}
+        members={members}
         currentUserId={currentUser ? currentUser.id : 0}
+        currentUserRole={currentUserRole}
         onSendMessage={handleSendMessage}
+        onEditMessage={handleEditMessage}
+        onDeleteMessage={handleDeleteMessage}
+        onLoadMore={handleLoadMore}
         onInvite={handleInvite}
         onKick={handleKick}
         onLeave={handleLeave}
         isOwner={isOwner}
       />
 
-      {/* CỘT 4: Thành viên phòng & Danh sách Bạn bè */}
+      {/* CỘT 4: Thành viên phòng (Trực tuyến & Ngoại tuyến) */}
       <MemberSidebar
         members={members}
-        friends={friends}
-        pendingRequests={pendingRequests}
+        currentUserId={currentUser?.id}
+        currentUserRole={currentUserRole}
         onDirectMessage={handleDirectMessage}
-        onAddFriend={handleAddFriend}
-        onAcceptFriend={handleAcceptFriend}
-        onRejectFriend={handleRejectFriend}
-        onRefreshFriends={handleRefreshFriends}
+        onSetMemberRole={handleSetMemberRole}
+        onTransferOwner={handleTransferOwner}
+        onKickMember={handleKickMember}
       />
     </div>
   );

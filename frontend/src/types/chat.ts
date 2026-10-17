@@ -9,6 +9,9 @@ export interface User {
 export interface Room {
   id: number;
   name: string;
+  description?: string;
+  inviteCode?: string;
+  role?: string;
   unreadCount?: number;
   memberCount?: number;
 }

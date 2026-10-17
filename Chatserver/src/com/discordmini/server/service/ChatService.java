@@ -45,4 +45,25 @@ public class ChatService {
     public ChatPersistenceService getPersistenceService() {
         return persistenceService;
     }
+
+    public List<Message> historyBefore(int roomId, int beforeMessageId, int limit) {
+        try {
+            return messageDAO.getMessageHistoryBefore(roomId, beforeMessageId, limit);
+        } catch (Exception e) {
+            System.err.println("[ChatService ERROR] Lỗi lấy lịch sử chat trước mốc: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    public boolean editMessage(int messageId, int senderId, String newContent) {
+        return messageDAO.editMessage(messageId, senderId, newContent);
+    }
+
+    public boolean deleteMessage(int messageId, int userId, boolean isAdminOrOwner) {
+        return messageDAO.deleteMessage(messageId, userId, isAdminOrOwner);
+    }
+
+    public Message getMessageById(int messageId) {
+        return messageDAO.getMessageById(messageId);
+    }
 }

@@ -149,7 +149,7 @@ public class RoomDAO {
      */
     public List<Room> getJoinedRooms(int userId) {
         List<Room> list = new ArrayList<>();
-        String sql = "SELECT r.id, r.name, r.created_by, r.created_at " +
+        String sql = "SELECT r.id, r.name, r.created_by, r.created_at, r.description, r.invite_code " +
                      "FROM rooms r JOIN room_members rm ON r.id = rm.room_id " +
                      "WHERE rm.user_id = ? ORDER BY r.id ASC";
 
@@ -165,6 +165,10 @@ public class RoomDAO {
                         rs.getInt("created_by"),
                         rs.getTimestamp("created_at")
                     );
+                    try {
+                        r.setDescription(rs.getString("description"));
+                        r.setInviteCode(rs.getString("invite_code"));
+                    } catch (Exception ignored) {}
                     loadMemberIds(conn, r);
                     list.add(r);
                 }
@@ -211,7 +215,7 @@ public class RoomDAO {
      */
     public List<Room> listRoomsForUser(int userId) {
         List<Room> list = new ArrayList<>();
-        String sql = "SELECT DISTINCT r.id, r.name, r.created_by, r.created_at " +
+        String sql = "SELECT DISTINCT r.id, r.name, r.created_by, r.created_at, r.description, r.invite_code " +
                      "FROM rooms r " +
                      "LEFT JOIN room_members rm ON r.id = rm.room_id " +
                      "WHERE r.is_private = false OR rm.user_id = ? " +
@@ -227,6 +231,10 @@ public class RoomDAO {
                         rs.getInt("created_by"),
                         rs.getTimestamp("created_at")
                     );
+                    try {
+                        r.setDescription(rs.getString("description"));
+                        r.setInviteCode(rs.getString("invite_code"));
+                    } catch (Exception ignored) {}
                     loadMemberIds(conn, r);
                     list.add(r);
                 }
@@ -242,7 +250,7 @@ public class RoomDAO {
      */
     public List<Room> listRooms() {
         List<Room> list = new ArrayList<>();
-        String sql = "SELECT id, name, created_by, created_at FROM rooms ORDER BY id ASC";
+        String sql = "SELECT id, name, created_by, created_at, description, invite_code FROM rooms ORDER BY id ASC";
         try (Connection conn = DatabaseConnection.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -254,6 +262,10 @@ public class RoomDAO {
                     rs.getInt("created_by"),
                     rs.getTimestamp("created_at")
                 );
+                try {
+                    r.setDescription(rs.getString("description"));
+                    r.setInviteCode(rs.getString("invite_code"));
+                } catch (Exception ignored) {}
                 loadMemberIds(conn, r);
                 list.add(r);
             }
@@ -267,7 +279,7 @@ public class RoomDAO {
      * Tìm thông tin chi tiết phòng theo ID.
      */
     public Room findRoom(int id) {
-        String sql = "SELECT id, name, created_by, created_at FROM rooms WHERE id = ?";
+        String sql = "SELECT id, name, created_by, created_at, description, invite_code FROM rooms WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
@@ -280,6 +292,10 @@ public class RoomDAO {
                         rs.getInt("created_by"),
                         rs.getTimestamp("created_at")
                     );
+                    try {
+                        r.setDescription(rs.getString("description"));
+                        r.setInviteCode(rs.getString("invite_code"));
+                    } catch (Exception ignored) {}
                     loadMemberIds(conn, r);
                     return r;
                 }
@@ -304,6 +320,119 @@ public class RoomDAO {
             }
         } catch (SQLException e) {
             System.err.println("[RoomDAO ERROR] Lỗi loadMemberIds (roomID=" + room.getId() + "): " + e.getMessage());
+        }
+    }
+
+    /**
+     * [GIAI ĐOẠN 2] Đổi tên phòng chat.
+     */
+    public boolean renameRoom(int roomId, String newName) {
+        if (newName == null || newName.isBlank()) return false;
+        String sql = "UPDATE rooms SET name = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newName.trim());
+            ps.setInt(2, roomId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("[RoomDAO ERROR] Lỗi renameRoom: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * [GIAI ĐOẠN 2] Xóa toàn bộ phòng chat (Các tin nhắn và thành viên tự xóa do cascade).
+     */
+    public boolean deleteRoom(int roomId) {
+        String sql = "DELETE FROM rooms WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, roomId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("[RoomDAO ERROR] Lỗi deleteRoom: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * [GIAI ĐOẠN 2] Cập nhật mô tả phòng chat.
+     */
+    public boolean updateDescription(int roomId, String description) {
+        String sql = "UPDATE rooms SET description = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, description != null ? description.trim() : "");
+            ps.setInt(2, roomId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("[RoomDAO ERROR] Lỗi updateDescription: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * [GIAI ĐOẠN 2] Chuyển giao quyền Chủ phòng (Owner) cho thành viên khác.
+     */
+    public boolean transferOwnership(int roomId, int oldOwnerId, int newOwnerId) {
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            // 1. Hạ vai trò của chủ cũ xuống ADMIN
+            String demoteSql = "UPDATE room_members SET role = 'ADMIN' WHERE room_id = ? AND user_id = ?";
+            try (PreparedStatement ps1 = conn.prepareStatement(demoteSql)) {
+                ps1.setInt(1, roomId);
+                ps1.setInt(2, oldOwnerId);
+                ps1.executeUpdate();
+            }
+
+            // 2. Nâng vai trò của chủ mới lên OWNER
+            String promoteSql = "UPDATE room_members SET role = 'OWNER' WHERE room_id = ? AND user_id = ?";
+            try (PreparedStatement ps2 = conn.prepareStatement(promoteSql)) {
+                ps2.setInt(1, roomId);
+                ps2.setInt(2, newOwnerId);
+                ps2.executeUpdate();
+            }
+
+            // 3. Cập nhật created_by của bảng rooms
+            String updateRoomSql = "UPDATE rooms SET created_by = ? WHERE id = ?";
+            try (PreparedStatement ps3 = conn.prepareStatement(updateRoomSql)) {
+                ps3.setInt(1, newOwnerId);
+                ps3.setInt(2, roomId);
+                ps3.executeUpdate();
+            }
+
+            conn.commit();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("[RoomDAO ERROR] Lỗi transferOwnership: " + e.getMessage());
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ignored) {}
+            }
+            return false;
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ignored) {}
+            }
+        }
+    }
+
+    /**
+     * [GIAI ĐOẠN 2] Cập nhật vai trò thành viên ('OWNER', 'ADMIN', 'MEMBER').
+     */
+    public boolean setMemberRole(int roomId, int userId, String role) {
+        String sql = "UPDATE room_members SET role = ? WHERE room_id = ? AND user_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, role != null ? role.toUpperCase() : "MEMBER");
+            ps.setInt(2, roomId);
+            ps.setInt(3, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("[RoomDAO ERROR] Lỗi setMemberRole: " + e.getMessage());
+            return false;
         }
     }
 }

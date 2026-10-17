@@ -297,6 +297,62 @@ class ChatBridgeService {
       body: JSON.stringify({ query })
     });
   }
+
+  public async editMessage(messageId: number, content: string): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/edit`, {
+      method: 'POST',
+      body: JSON.stringify({ messageId, content })
+    });
+  }
+
+  public async deleteMessage(messageId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ messageId })
+    });
+  }
+
+  public async loadMoreHistory(roomId: number, beforeId: number, limit = 25): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/history`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, beforeId, limit })
+    });
+  }
+
+  public async renameRoom(roomId: number, name: string): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/rename`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, name })
+    });
+  }
+
+  public async deleteRoom(roomId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId })
+    });
+  }
+
+  public async setRoomDesc(roomId: number, description: string): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/desc`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, description })
+    });
+  }
+
+  public async transferOwner(roomId: number, targetUserId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/transfer`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, targetUserId })
+    });
+  }
+
+  public async setMemberRole(roomId: number, targetUserId: number, role: string): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/role`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, targetUserId, role })
+    });
+  }
 }
 
 export const chatBridge = new ChatBridgeService();

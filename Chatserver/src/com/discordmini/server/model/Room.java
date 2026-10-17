@@ -10,6 +10,8 @@ public class Room {
     private String name;
     private int createdBy;
     private Timestamp createdAt;
+    private String description = "";
+    private String inviteCode = "";
     private final Set<Integer> memberIds = Collections.synchronizedSet(new LinkedHashSet<>());
 
     public Room(int id, String name) {
@@ -34,6 +36,12 @@ public class Room {
 
     public Timestamp getCreatedAt() { return createdAt; }
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
+
+    public String getDescription() { return description != null ? description : ""; }
+    public void setDescription(String description) { this.description = description; }
+
+    public String getInviteCode() { return inviteCode != null ? inviteCode : ""; }
+    public void setInviteCode(String inviteCode) { this.inviteCode = inviteCode; }
 
     public Set<Integer> getMemberIds() { return memberIds; }
 

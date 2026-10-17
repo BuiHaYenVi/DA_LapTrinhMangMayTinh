@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { MessageSquare, Compass, Plus, Settings } from 'lucide-react';
+import { MessageSquare, Plus, Settings } from 'lucide-react';
 
 interface Props {
   onDirectMessage: () => void;
-  onOpenExplore: () => void;
+  onOpenExplore?: () => void;
   onAddServer: () => void;
 }
 
-export const WorkspaceSidebar: React.FC<Props> = ({ onDirectMessage, onOpenExplore, onAddServer }) => {
+export const WorkspaceSidebar: React.FC<Props> = ({ onDirectMessage, onAddServer }) => {
   const [activeItem, setActiveItem] = useState<string>('server-1');
 
   return (
@@ -58,14 +58,6 @@ export const WorkspaceSidebar: React.FC<Props> = ({ onDirectMessage, onOpenExplo
       </button>
 
       <div style={{ flex: 1 }} />
-
-      <button 
-        className="pill-item"
-        title="Khám phá máy chủ"
-        onClick={onOpenExplore}
-      >
-        <Compass size={22} />
-      </button>
 
       <button 
         className="pill-item"
