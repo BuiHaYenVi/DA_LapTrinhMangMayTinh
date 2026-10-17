@@ -64,14 +64,29 @@ const WorkspaceContent: React.FC = () => {
           />
         )}
 
-        {/* Card 1: Channel & DM Sidebar Card (340px) */}
-        <aside
-          className={`card-sidebar-shell ${
+        {/* Card 1 Column: Independent Floating Search Pill above + Card 1 below (Matching Image 1) */}
+        <div
+          className={`flex flex-col h-full shrink-0 w-[330px] xl:w-[350px] gap-3 transition-transform ${
             mobileDrawerOpen === 'channels' ? 'drawer-open' : ''
           }`}
         >
-          <ChannelSidebar />
-        </aside>
+          {/* 1. Independent Floating Search Pill */}
+          <div
+            onClick={() => setCommandPaletteOpen(true)}
+            className="floating-search-pill"
+            role="button"
+            tabIndex={0}
+            aria-label="Tìm kiếm nhanh Ctrl+K"
+          >
+            <Search className="h-4 w-4 text-gray-400 shrink-0 mr-2.5" />
+            <span className="text-[14px] font-medium text-gray-400 select-none">Search</span>
+          </div>
+
+          {/* 2. Card 1 Shell: Messages / Channels */}
+          <aside className="card-sidebar-shell flex-1">
+            <ChannelSidebar />
+          </aside>
+        </div>
 
         {/* Card 2: Main Chat / Friends / Voice Stage Card (1fr) */}
         <main className="card-chat-shell">

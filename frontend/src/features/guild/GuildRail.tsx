@@ -11,9 +11,58 @@ import {
   Settings,
   Layers,
   Server,
+  Mic,
+  MicOff,
+  Headphones,
+  HeadphoneOff,
 } from 'lucide-react';
 import { useAppStore } from '../../shared/state/appStore';
-import type { Guild, FriendRequest } from '../../shared/types/api';
+import type { Guild, FriendRequest, PresenceStatus } from '../../shared/types/api';
+
+const PRESENCE_OPTIONS: {
+  status: PresenceStatus;
+  label: string;
+  desc: string;
+  dotColor: string;
+}[] = [
+  {
+    status: 'ONLINE',
+    label: 'Trực tuyến (Online)',
+    desc: 'Sẵn sàng nhận tin nhắn & cuộc gọi',
+    dotColor: 'bg-[#10B981]',
+  },
+  {
+    status: 'IDLE',
+    label: 'Chờ (Idle)',
+    desc: 'Tạm thời rời bàn phím',
+    dotColor: 'bg-[#F59E0B]',
+  },
+  {
+    status: 'DND',
+    label: 'Không làm phiền (DND)',
+    desc: 'Tắt thông báo âm thanh',
+    dotColor: 'bg-[#F43F5E]',
+  },
+  {
+    status: 'OFFLINE',
+    label: 'Ẩn (Offline)',
+    desc: 'Hiển thị như đang ngoại tuyến',
+    dotColor: 'bg-[#94A3B8]',
+  },
+];
+
+const getPresenceDotClass = (status?: PresenceStatus) => {
+  switch (status) {
+    case 'ONLINE':
+      return 'bg-[#10B981]';
+    case 'IDLE':
+      return 'bg-[#F59E0B]';
+    case 'DND':
+      return 'bg-[#F43F5E]';
+    default:
+      return 'bg-[#94A3B8]';
+  }
+};
 
 export const GuildRail: React.FC = () => {
   const {
@@ -27,9 +76,14 @@ export const GuildRail: React.FC = () => {
     joinGuildByInvite,
     friendRequests,
     setSettingsOpen,
+    localVoiceState,
+    updateLocalVoiceState,
+    updatePresence,
   } = useAppStore();
 
   const [hoveredId, setHoveredId] = useState<string | number | null>(null);
+  const [isPresencePickerOpen, setIsPresencePickerOpen] = useState(false);
+  const [customStatusInput, setCustomStatusInput] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
 
@@ -311,6 +365,48 @@ export const GuildRail: React.FC = () => {
             )}
           </div>
 
+          {/* Quick Mic Mute / Unmute */}
+          <button
+            type="button"
+            onClick={() =>
+              updateLocalVoiceState({ muted: !localVoiceState?.muted })
+            }
+            aria-label={localVoiceState?.muted ? 'Bật micro' : 'Tắt micro'}
+            title={localVoiceState?.muted ? 'Bật micro' : 'Tắt micro'}
+            className={`flex h-9 w-9 items-center justify-center rounded-2xl transition-all active:scale-95 ${
+              localVoiceState?.muted
+                ? 'bg-[#FFE4E6] text-[#F43F5E] dark:bg-[#F43F5E]/20'
+                : 'text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            {localVoiceState?.muted ? (
+              <MicOff className="h-4.5 w-4.5" />
+            ) : (
+              <Mic className="h-4.5 w-4.5" />
+            )}
+          </button>
+
+          {/* Quick Headphone Deafen / Undeafen */}
+          <button
+            type="button"
+            onClick={() =>
+              updateLocalVoiceState({ deafened: !localVoiceState?.deafened })
+            }
+            aria-label={localVoiceState?.deafened ? 'Bật tai nghe' : 'Tắt tai nghe'}
+            title={localVoiceState?.deafened ? 'Bật tai nghe' : 'Tắt tai nghe'}
+            className={`flex h-9 w-9 items-center justify-center rounded-2xl transition-all active:scale-95 ${
+              localVoiceState?.deafened
+                ? 'bg-[#FFE4E6] text-[#F43F5E] dark:bg-[#F43F5E]/20'
+                : 'text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            {localVoiceState?.deafened ? (
+              <HeadphoneOff className="h-4.5 w-4.5" />
+            ) : (
+              <Headphones className="h-4.5 w-4.5" />
+            )}
+          </button>
+
           {/* Settings / Gear */}
           <div
             className="relative flex w-full items-center justify-center"
@@ -332,13 +428,90 @@ export const GuildRail: React.FC = () => {
             )}
           </div>
 
-          {/* Monogram "N" / Current User Avatar Circle (from reference mockup) */}
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111111] dark:bg-emerald-500 text-white dark:text-[#090E0C] font-extrabold text-sm shadow-xs cursor-pointer transition-transform hover:scale-105 active:scale-95 mt-1"
-            title={currentUser?.displayName || 'Tài khoản'}
-            onClick={() => setSettingsOpen(true)}
-          >
-            {currentUser?.displayName?.[0]?.toUpperCase() || 'N'}
+          {/* Monogram "N" / Current User Avatar Circle with Online Dot */}
+          <div className="relative mt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setCustomStatusInput(currentUser?.customStatus || '');
+                setIsPresencePickerOpen(!isPresencePickerOpen);
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111111] dark:bg-emerald-500 text-white dark:text-[#090E0C] font-extrabold text-sm shadow-xs cursor-pointer transition-transform hover:scale-105 active:scale-95"
+              title={`${currentUser?.displayName || 'Tài khoản'} (Đổi trạng thái)`}
+            >
+              {currentUser?.displayName?.[0]?.toUpperCase() || 'N'}
+            </button>
+            <span
+              className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-white dark:ring-[#111815] ${getPresenceDotClass(
+                currentUser?.status
+              )}`}
+            />
+
+            {/* Quick Presence Popover Menu */}
+            {isPresencePickerOpen && (
+              <div
+                className={`fixed left-[76px] bottom-5 z-50 w-[240px] rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
+                  isDark
+                    ? 'border-[#283830] bg-[#141C18]/95 text-[#F8FAFC]'
+                    : 'border-[#E5EFE9] bg-white/95 text-[#0F172A]'
+                }`}
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[11px] font-bold tracking-wider uppercase text-[#64748B]">
+                    {currentUser?.displayName || 'Tài khoản'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsPresencePickerOpen(false)}
+                    className="rounded p-0.5 text-[#64748B] hover:text-[#0F172A]"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  {PRESENCE_OPTIONS.map((opt) => {
+                    const isCurrent = currentUser?.status === opt.status;
+                    return (
+                      <button
+                        key={opt.status}
+                        type="button"
+                        onClick={() => {
+                          updatePresence(
+                            opt.status,
+                            customStatusInput.trim() || undefined
+                          );
+                          setIsPresencePickerOpen(false);
+                        }}
+                        className={`flex w-full items-start gap-2.5 rounded-xl p-2 text-left transition ${
+                          isCurrent
+                            ? isDark
+                              ? 'bg-[#10B981]/20 text-[#10B981]'
+                              : 'bg-[#E8F5EE] text-[#059669]'
+                            : isDark
+                            ? 'hover:bg-[#1E2B25]'
+                            : 'hover:bg-[#F2F7F4]'
+                        }`}
+                      >
+                        <span
+                          className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${opt.dotColor}`}
+                        />
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold">{opt.label}</div>
+                          <div
+                            className={`truncate text-[10px] ${
+                              isDark ? 'text-[#94A3B8]' : 'text-[#64748B]'
+                            }`}
+                          >
+                            {opt.desc}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </aside>

@@ -4,21 +4,15 @@ import {
   Volume2,
   Plus,
   UserPlus,
-  Search,
   Mic,
   MicOff,
-  Headphones,
-  HeadphoneOff,
   Video,
   VideoOff,
-  Settings,
   Copy,
   Check,
   CheckCheck,
   X,
   PhoneOff,
-  Crown,
-  Shield,
   ChevronDown,
   ChevronRight,
   Radio,
@@ -27,46 +21,12 @@ import { useAppStore } from '../../shared/state/appStore';
 import type {
   Channel,
   ChannelType,
-  PresenceStatus,
   VoiceParticipant,
   DirectConversation,
 } from '../../shared/types/api';
 
-const PRESENCE_OPTIONS: {
-  status: PresenceStatus;
-  label: string;
-  desc: string;
-  dotColor: string;
-}[] = [
-  {
-    status: 'ONLINE',
-    label: 'Trực tuyến (Online)',
-    desc: 'Sẵn sàng nhận tin nhắn TCP/WS & cuộc gọi UDP',
-    dotColor: 'bg-[#10B981]',
-  },
-  {
-    status: 'IDLE',
-    label: 'Chờ (Idle)',
-    desc: 'Tạm thời rời bàn phím',
-    dotColor: 'bg-[#F59E0B]',
-  },
-  {
-    status: 'DND',
-    label: 'Không làm phiền (DND)',
-    desc: 'Tắt thông báo âm thanh',
-    dotColor: 'bg-[#F43F5E]',
-  },
-  {
-    status: 'OFFLINE',
-    label: 'Ẩn (Invisible)',
-    desc: 'Hiển thị ngoại tuyến với mọi người',
-    dotColor: 'bg-[#94A3B8]',
-  },
-];
-
 export const ChannelSidebar: React.FC = () => {
   const {
-    currentUser,
     theme,
     viewMode,
     setViewMode,
@@ -76,7 +36,6 @@ export const ChannelSidebar: React.FC = () => {
     selectChannel,
     createChannel,
     createInvite,
-    members,
     typingUsers,
     dmConversations,
     activeDmId,
@@ -87,13 +46,11 @@ export const ChannelSidebar: React.FC = () => {
     joinVoiceChannel,
     leaveVoiceChannel,
     updateLocalVoiceState,
-    setSettingsOpen,
-    setCommandPaletteOpen,
-    updatePresence,
   } = useAppStore();
 
   const isDark = theme === 'dark';
 
+  const activeTab = viewMode === 'guild' ? 'channels' : 'messages';
   const [textCollapsed, setTextCollapsed] = useState(false);
   const [voiceCollapsed, setVoiceCollapsed] = useState(false);
 
@@ -110,32 +67,9 @@ export const ChannelSidebar: React.FC = () => {
   const [newChannelTopic, setNewChannelTopic] = useState('');
   const [isCreatingChannel, setIsCreatingChannel] = useState(false);
 
-  // Presence Picker Popover
-  const [isPresenceOpen, setIsPresenceOpen] = useState(false);
-  const [customStatusInput, setCustomStatusInput] = useState(
-    currentUser?.customStatus || ''
-  );
-
-  // Determine current user's role in the active guild
-  const myMemberRecord = Array.isArray(members)
-    ? members.find((m) => m.id === currentUser?.id)
-    : undefined;
-
-  const myRole =
-    myMemberRecord?.role ||
-    currentUser?.role ||
-    (activeGuild && currentUser && activeGuild.ownerId === currentUser.id
-      ? 'OWNER'
-      : 'MEMBER');
-
   const channels: Channel[] = activeGuild?.channels ?? [];
   const textChannels = channels.filter((c) => c.type === 'text');
   const voiceChannels = channels.filter((c) => c.type === 'voice');
-
-  // Latest RTT in ms for live badge
-
-
-
 
   const handleOpenInviteModal = async () => {
     setIsInviteModalOpen(true);
@@ -192,34 +126,7 @@ export const ChannelSidebar: React.FC = () => {
     }
   };
 
-  const getPresenceDotClass = (status?: PresenceStatus) => {
-    switch (status) {
-      case 'ONLINE':
-        return 'bg-[#10B981]';
-      case 'IDLE':
-        return 'bg-[#F59E0B]';
-      case 'DND':
-        return 'bg-[#F43F5E]';
-      default:
-        return 'bg-[#94A3B8]';
-    }
-  };
-
-  const isMuted = Boolean(localVoiceState?.muted);
-  const isDeafened = Boolean(localVoiceState?.deafened);
   const isCameraOn = Boolean(localVoiceState?.cameraOn);
-
-  const handleToggleMic = () => {
-    updateLocalVoiceState({ muted: !isMuted });
-  };
-
-  const handleToggleDeafen = () => {
-    const nextDeaf = !isDeafened;
-    updateLocalVoiceState({
-      deafened: nextDeaf,
-      muted: nextDeaf ? true : isMuted,
-    });
-  };
 
   const handleToggleCamera = () => {
     updateLocalVoiceState({ cameraOn: !isCameraOn });
@@ -235,86 +142,55 @@ export const ChannelSidebar: React.FC = () => {
         aria-label="Danh sách kênh và tin nhắn trực tiếp"
         className="relative flex h-full w-full flex-col select-none transition-colors duration-200"
       >
-        {/* TOP HEADER (Only for Guild mode) */}
-        {viewMode === 'guild' ? (
-          <div
-            className={`flex h-[64px] shrink-0 items-center justify-between border-b px-4 ${
-              isDark ? 'border-[#1E2B25]' : 'border-[#F0F4F1]'
-            }`}
-          >
-            <div className="min-w-0 flex-1 pr-2">
-              <div className="flex items-center gap-1.5">
-                <h1 className="truncate text-[16px] font-extrabold tracking-tight">
-                  {activeGuild?.name || 'Discord Mini'}
-                </h1>
-              </div>
-              <div className="mt-0.5 flex items-center gap-1.5">
-                {myRole === 'OWNER' && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-bold text-[#D97706]">
-                    <Crown className="h-2.5 w-2.5" />
-                    OWNER
-                  </span>
-                )}
-                {myRole === 'ADMIN' && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F5EE] px-2 py-0.5 text-[10px] font-bold text-[#10B981]">
-                    <Shield className="h-2.5 w-2.5" />
-                    ADMIN
-                  </span>
-                )}
-                {myRole === 'MEMBER' && (
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      isDark
-                        ? 'bg-[#18241F] text-[#94A3B8]'
-                        : 'bg-[#F0F5F2] text-[#475569]'
-                    }`}
-                  >
-                    MEMBER
-                  </span>
-                )}
-              </div>
-            </div>
+        {/* Card 1 Header: Large "Messages" Title + 2 Sub-Tabs (Tin nhắn / Kênh) */}
+        <div className="shrink-0 px-6 pt-6 pb-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[26px] font-extrabold tracking-tight text-gray-900 dark:text-white">
+              Messages
+            </h2>
+            {activeTab === 'channels' && (
+              <button
+                type="button"
+                onClick={handleOpenInviteModal}
+                title="Tạo mã mời vào máy chủ"
+                className="flex h-7 items-center gap-1 rounded-full bg-[#10B981] px-3 text-[11px] font-bold text-white shadow-2xs hover:bg-[#059669] transition"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                <span>Mời</span>
+              </button>
+            )}
+          </div>
 
+          {/* 2 Sub-Tabs: Tin nhắn (Active like Image 1) & Kênh (Channels) */}
+          <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
-              onClick={handleOpenInviteModal}
-              title="Tạo mã mời (Invite Code)"
-              aria-label="Tạo mã mời vào máy chủ"
-              className="flex h-8 items-center gap-1 rounded-xl bg-[#10B981] px-2.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#059669] active:translate-y-[1px]"
+              onClick={() => setViewMode('dm')}
+              className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
+                activeTab === 'messages'
+                  ? 'bg-[#111820] text-white shadow-xs dark:bg-[#1E2B25] dark:text-[#10B981]'
+                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-slate-800'
+              }`}
             >
-              <UserPlus className="h-3.5 w-3.5" />
-              <span>Mời</span>
+              Tin nhắn
             </button>
-          </div>
-        ) : null}
-
-        {/* QUICK SEARCH PILL (Exact Pill from Reference Mockup) */}
-        <div className="px-4 pt-4 pb-2">
-          <div
-            onClick={() => setCommandPaletteOpen(true)}
-            className={`flex h-10 w-full items-center gap-2.5 rounded-full border px-4 cursor-pointer transition ${
-              isDark
-                ? 'border-[#283830] bg-[#141C18] text-[#CBD5E1]'
-                : 'border-[#EDF2EF] bg-[#FBFDFB] text-[#475569]'
-            }`}
-          >
-            <Search className="h-4 w-4 text-gray-400 shrink-0" />
-            <span className="text-sm font-medium text-gray-400">Search</span>
+            <button
+              type="button"
+              onClick={() => setViewMode('guild')}
+              className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
+                activeTab === 'channels'
+                  ? 'bg-[#111820] text-white shadow-xs dark:bg-[#1E2B25] dark:text-[#10B981]'
+                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-slate-800'
+              }`}
+            >
+              Kênh (Channels)
+            </button>
           </div>
         </div>
 
-        {/* SECTION TITLE: "Messages" (Matching Mockup) */}
-        {viewMode !== 'guild' && (
-          <div className="px-5 pt-2 pb-1 flex items-center justify-between">
-            <h2 className="text-[22px] font-bold tracking-tight text-gray-900 dark:text-white">
-              Messages
-            </h2>
-          </div>
-        )}
-
         {/* SCROLLABLE MIDDLE CONTENT */}
         <div className="flex-1 space-y-4 overflow-y-auto px-2 py-2.5">
-          {viewMode === 'guild' ? (
+          {activeTab === 'channels' ? (
             <>
               {/* CATEGORY 1: TEXT CHANNELS */}
               <div>
@@ -723,223 +599,6 @@ export const ChannelSidebar: React.FC = () => {
           </div>
         )}
 
-        {/* BOTTOM USER CONTROL BAR (60px) */}
-        <div
-          className={`relative flex h-[60px] shrink-0 items-center justify-between border-t px-2.5 ${
-            isDark
-              ? 'border-[#1E2B25] bg-[#0E1512]'
-              : 'border-[#E8EFEA] bg-[#F7FAF8]'
-          }`}
-        >
-          {/* User Avatar & Presence Trigger */}
-          <button
-            type="button"
-            onClick={() => {
-              setCustomStatusInput(currentUser?.customStatus || '');
-              setIsPresenceOpen(!isPresenceOpen);
-            }}
-            className={`flex min-w-0 flex-1 items-center gap-2 rounded-xl p-1.5 text-left transition ${
-              isDark ? 'hover:bg-[#18241F]' : 'hover:bg-[#EAEFEA]'
-            }`}
-            title="Đổi trạng thái trực tuyến"
-          >
-            <div className="relative shrink-0">
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#111820] text-xs font-bold text-white dark:bg-emerald-600"
-                style={
-                  currentUser?.avatarColor
-                    ? { backgroundColor: currentUser.avatarColor }
-                    : undefined
-                }
-              >
-                {(
-                  currentUser?.displayName ||
-                  currentUser?.username ||
-                  'ME'
-                )
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </div>
-              <span
-                className={`absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full ring-2 ${
-                  isDark ? 'ring-[#0E1512]' : 'ring-[#F7FAF8]'
-                } ${getPresenceDotClass(currentUser?.status)}`}
-              />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-bold leading-tight">
-                {currentUser?.displayName ||
-                  currentUser?.username ||
-                  'Sinh viên'}
-              </div>
-              <div
-                className={`truncate font-mono text-[10px] leading-tight ${
-                  isDark ? 'text-[#94A3B8]' : 'text-[#64748B]'
-                }`}
-              >
-                @{currentUser?.username || 'user'}
-              </div>
-            </div>
-          </button>
-
-          {/* Quick Control Buttons: Mic, Deafen, Monitor (with RTT badge), Settings */}
-          <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onClick={handleToggleMic}
-              aria-label={isMuted ? 'Bật micro' : 'Tắt micro'}
-              title={isMuted ? 'Bật Micro' : 'Tắt Micro'}
-              className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
-                isMuted
-                  ? 'bg-[#FFE4E6] text-[#F43F5E] dark:bg-[#F43F5E]/20'
-                  : isDark
-                  ? 'text-[#94A3B8] hover:bg-[#18241F] hover:text-white'
-                  : 'text-[#475569] hover:bg-[#EAEFEA] hover:text-[#0F172A]'
-              }`}
-            >
-              {isMuted ? (
-                <MicOff className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleToggleDeafen}
-              aria-label={
-                isDeafened ? 'Bật âm thanh tai nghe' : 'Tắt tiếng tai nghe'
-              }
-              title={isDeafened ? 'Bật tai nghe' : 'Tắt tai nghe (Deafen)'}
-              className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
-                isDeafened
-                  ? 'bg-[#FFE4E6] text-[#F43F5E] dark:bg-[#F43F5E]/20'
-                  : isDark
-                  ? 'text-[#94A3B8] hover:bg-[#18241F] hover:text-white'
-                  : 'text-[#475569] hover:bg-[#EAEFEA] hover:text-[#0F172A]'
-              }`}
-            >
-              {isDeafened ? (
-                <HeadphoneOff className="h-4 w-4" />
-              ) : (
-                <Headphones className="h-4 w-4" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(true)}
-              aria-label="Cài đặt tài khoản và giao diện"
-              title="Cài đặt (Settings)"
-              className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
-                isDark
-                  ? 'text-[#94A3B8] hover:bg-[#18241F] hover:text-white'
-                  : 'text-[#475569] hover:bg-[#EAEFEA] hover:text-[#0F172A]'
-              }`}
-            >
-              <Settings className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* PRESENCE PICKER POPOVER */}
-          {isPresenceOpen && (
-            <div
-              className={`absolute bottom-[66px] left-2 z-50 w-[230px] rounded-2xl border p-3 shadow-xl ${
-                isDark
-                  ? 'border-[#283830] bg-[#141C18] text-[#F8FAFC]'
-                  : 'border-[#E5EFE9] bg-white text-[#0F172A]'
-              }`}
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-bold tracking-wider uppercase text-[#64748B]">
-                  Trạng thái trực tuyến
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsPresenceOpen(false)}
-                  className="rounded p-0.5 text-[#64748B] hover:text-[#0F172A]"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-
-              <div className="space-y-1">
-                {PRESENCE_OPTIONS.map((opt) => {
-                  const isCurrent = currentUser?.status === opt.status;
-                  return (
-                    <button
-                      key={opt.status}
-                      type="button"
-                      onClick={() => {
-                        updatePresence(
-                          opt.status,
-                          customStatusInput.trim() || undefined
-                        );
-                        setIsPresenceOpen(false);
-                      }}
-                      className={`flex w-full items-start gap-2.5 rounded-xl p-2 text-left transition ${
-                        isCurrent
-                          ? isDark
-                            ? 'bg-[#10B981]/20 text-[#10B981]'
-                            : 'bg-[#E8F5EE] text-[#059669]'
-                          : isDark
-                          ? 'hover:bg-[#1E2B25]'
-                          : 'hover:bg-[#F2F7F4]'
-                      }`}
-                    >
-                      <span
-                        className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${opt.dotColor}`}
-                      />
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold">{opt.label}</div>
-                        <div
-                          className={`truncate text-[10px] ${
-                            isDark ? 'text-[#94A3B8]' : 'text-[#64748B]'
-                          }`}
-                        >
-                          {opt.desc}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-2.5 border-t border-[#E5EFE9] pt-2.5 dark:border-[#283830]">
-                <label className="mb-1 block text-[10px] font-bold uppercase text-[#64748B]">
-                  Trạng thái tùy chỉnh
-                </label>
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    value={customStatusInput}
-                    onChange={(e) => setCustomStatusInput(e.target.value)}
-                    placeholder="Đang học Lập trình mạng..."
-                    className={`w-full rounded-lg border px-2 py-1 text-xs outline-none focus:border-[#10B981] ${
-                      isDark
-                        ? 'border-[#283830] bg-[#0E1512] text-white'
-                        : 'border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A]'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updatePresence(
-                        currentUser?.status || 'ONLINE',
-                        customStatusInput.trim() || undefined
-                      );
-                      setIsPresenceOpen(false);
-                    }}
-                    className="rounded-lg bg-[#10B981] px-2.5 py-1 text-xs font-bold text-white hover:bg-[#059669]"
-                  >
-                    Lưu
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
       </aside>
 
       {/* INVITE CODE MODAL */}
