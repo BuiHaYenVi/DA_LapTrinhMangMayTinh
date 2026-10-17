@@ -435,46 +435,38 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         </div>
       )}
 
-      {/* COMPOSER CONTAINER */}
+      {/* COMPOSER CONTAINER (Floating Pill Style from reference image) */}
       <div
-        className={`rounded-[12px] border transition-colors ${
+        className={`relative rounded-[28px] border transition-all shadow-xs ${
           isDark
-            ? 'border-[#334155] bg-[#0F172A] focus-within:border-[#3B82F6]'
-            : 'border-[#CBD5E1] bg-[#F8FAFC] focus-within:border-[#2563EB] focus-within:bg-white'
+            ? 'border-[#1E2B25] bg-[#16201C] focus-within:border-emerald-500'
+            : 'border-[#E8EFEA] bg-white focus-within:border-slate-400'
         }`}
       >
         {/* REPLYING TO / EDITING MESSAGE BANNER */}
         {(replyingTo || editingMessage) && (
           <div
-            className={`flex items-center justify-between border-b px-3.5 py-2 text-xs ${
+            className={`flex items-center justify-between border-b px-4 py-2 text-xs rounded-t-[28px] ${
               isDark
-                ? 'border-[#334155] bg-[#1E293B]/70 text-[#CBD5E1]'
-                : 'border-[#E2E8F0] bg-[#EFF6FF] text-[#1E40AF]'
+                ? 'border-[#1E2B25] bg-[#1B2922] text-[#CBD5E1]'
+                : 'border-[#E8EFEA] bg-[#EFF6FF] text-[#1E40AF]'
             }`}
           >
             <div className="flex min-w-0 items-center gap-2">
               {editingMessage ? (
                 <>
                   <Edit3 className="h-3.5 w-3.5 shrink-0 text-[#F59E0B]" />
-                  <span className="font-bold">Đang chỉnh sửa tin nhắn:</span>
-                  <span className="truncate opacity-85">
-                    {editingMessage.content}
-                  </span>
+                  <span className="font-bold">Đang chỉnh sửa:</span>
+                  <span className="truncate opacity-85">{editingMessage.content}</span>
                 </>
               ) : (
                 replyingTo && (
                   <>
-                    <Reply className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" />
+                    <Reply className="h-3.5 w-3.5 shrink-0 text-[#10B981]" />
                     <span>
-                      Đang trả lời{' '}
-                      <strong className="font-bold text-[#2563EB] dark:text-[#3B82F6]">
-                        @{replyingTo.senderName}
-                      </strong>
-                      :
+                      Đang trả lời <strong className="font-bold text-[#10B981]">@{replyingTo.senderName}</strong>:
                     </span>
-                    <span className="truncate opacity-80">
-                      {replyingTo.content}
-                    </span>
+                    <span className="truncate opacity-80">{replyingTo.content}</span>
                   </>
                 )
               )}
@@ -491,16 +483,16 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                 }
               }}
               aria-label="Hủy trả lời hoặc chỉnh sửa"
-              className="ml-2 rounded-md p-0.5 hover:bg-black/10 dark:hover:bg-white/10"
+              className="ml-2 rounded-full p-1 hover:bg-black/10 dark:hover:bg-white/10"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
         )}
 
         {/* FILE ERROR ALERT */}
         {fileError && (
-          <div className="flex items-center justify-between border-b border-[#FFE4E6] bg-[#FFE4E6]/80 px-3.5 py-1.5 text-xs font-semibold text-[#F43F5E]">
+          <div className="flex items-center justify-between border-b border-[#FFE4E6] bg-[#FFE4E6]/80 px-4 py-1.5 text-xs font-semibold text-[#F43F5E]">
             <span className="flex items-center gap-1.5">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               <span>{fileError}</span>
@@ -518,8 +510,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         {/* ATTACHMENT THUMBNAIL STRIP */}
         {attachments.length > 0 && (
           <div
-            className={`flex flex-wrap gap-2.5 border-b px-3.5 py-2.5 ${
-              isDark ? 'border-[#334155]' : 'border-[#E2E8F0]'
+            className={`flex flex-wrap gap-2.5 border-b px-4 py-2.5 ${
+              isDark ? 'border-[#1E2B25]' : 'border-[#E8EFEA]'
             }`}
           >
             {attachments.map((item) => (
@@ -527,19 +519,19 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                 key={item.localId}
                 className={`group relative flex items-center gap-2.5 rounded-xl border p-2 pr-7 text-xs ${
                   isDark
-                    ? 'border-[#334155] bg-[#1E293B]'
-                    : 'border-[#CBD5E1] bg-white shadow-2xs'
+                    ? 'border-[#1E2B25] bg-[#111815]'
+                    : 'border-[#E8EFEA] bg-white shadow-2xs'
                 }`}
               >
                 {item.previewUrl ? (
                   <img
                     src={item.previewUrl}
                     alt={item.file.name}
-                    className="h-12 w-12 rounded-lg object-cover"
+                    className="h-11 w-11 rounded-lg object-cover"
                   />
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#E0F2FE] text-[#0284C7]">
-                    <FileText className="h-6 w-6" />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#E0F2FE] text-[#0284C7]">
+                    <FileText className="h-5 w-5" />
                   </div>
                 )}
 
@@ -550,7 +542,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                   </div>
                   {item.uploading && (
                     <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-[#E2E8F0]">
-                      <div className="h-full w-2/3 animate-pulse bg-[#2563EB]" />
+                      <div className="h-full w-2/3 animate-pulse bg-[#10B981]" />
                     </div>
                   )}
                   {item.error && (
@@ -573,8 +565,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           </div>
         )}
 
-        {/* MAIN INPUT ROW */}
-        <div className="flex items-end gap-2 px-3 py-2">
+        {/* MAIN INPUT ROW (Pill Layout) */}
+        <div className="flex items-center gap-2 px-3 py-1.5">
           {/* Hidden File Input */}
           <input
             ref={fileInputRef}
@@ -590,19 +582,15 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             className="hidden"
           />
 
-          {/* Attachment Upload Button */}
+          {/* Attachment Paperclip Button (from reference image) */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             title="Đính kèm tệp hoặc hình ảnh (Tối đa 5 MB)"
             aria-label="Đính kèm tệp hoặc hình ảnh"
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition ${
-              isDark
-                ? 'text-[#94A3B8] hover:bg-[#1E293B] hover:text-[#3B82F6]'
-                : 'text-[#475569] hover:bg-[#E2E8F0] hover:text-[#2563EB]'
-            }`}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-[#0F172A] dark:hover:text-white transition-colors"
           >
-            <Paperclip className="h-4 w-4" />
+            <Paperclip className="h-4.5 w-4.5" />
           </button>
 
           {/* Auto-expanding Textarea */}
@@ -614,10 +602,10 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             placeholder={defaultPlaceholder}
-            className={`max-h-[160px] min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-[15px] leading-relaxed font-medium outline-none ${
+            className={`max-h-[140px] min-h-[36px] flex-1 resize-none bg-transparent py-2 text-[14.5px] leading-snug font-medium outline-none ${
               isDark
-                ? 'text-[#F8FAFC] placeholder-[#64748B]'
-                : 'text-[#0F172A] placeholder-[#64748B]'
+                ? 'text-[#F8FAFC] placeholder-slate-500'
+                : 'text-[#0F172A] placeholder-slate-400'
             }`}
           />
 
@@ -628,21 +616,17 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
               title="Chèn biểu tượng cảm xúc"
               aria-label="Chèn biểu tượng cảm xúc"
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition ${
-                isDark
-                  ? 'text-[#94A3B8] hover:bg-[#1E293B] hover:text-[#F59E0B]'
-                  : 'text-[#475569] hover:bg-[#E2E8F0] hover:text-[#F59E0B]'
-              }`}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-[#F59E0B] transition-colors"
             >
               <Smile className="h-4 w-4" />
             </button>
 
             {isEmojiPickerOpen && (
               <div
-                className={`absolute right-0 bottom-11 z-40 flex items-center gap-1 rounded-xl border p-1.5 shadow-xl ${
+                className={`absolute right-0 bottom-11 z-40 flex items-center gap-1 rounded-2xl border p-1.5 shadow-xl ${
                   isDark
-                    ? 'border-[#334155] bg-[#1E293B]'
-                    : 'border-[#E2E8F0] bg-white'
+                    ? 'border-[#1E2B25] bg-[#16201C]'
+                    : 'border-[#E8EFEA] bg-white'
                 }`}
               >
                 {QUICK_EMOJIS.map((emoji) => (
@@ -654,7 +638,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                       setIsEmojiPickerOpen(false);
                       textareaRef.current?.focus();
                     }}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-base transition hover:scale-110 hover:bg-[#EFF6FF] dark:hover:bg-[#334155]"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl text-base transition hover:scale-110 hover:bg-[#E8F2EC] dark:hover:bg-[#1B2922]"
                   >
                     {emoji}
                   </button>
@@ -663,7 +647,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             )}
           </div>
 
-          {/* Ocean Blue Send Button */}
+          {/* Circular Black Send Button (from reference image) */}
           <button
             type="button"
             onClick={handleSend}
@@ -672,12 +656,9 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               attachments.filter((a) => !a.uploading && a.uploaded).length === 0
             }
             aria-label="Gửi tin nhắn"
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-[#2563EB] px-3.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#1D4ED8] active:translate-y-[1px] disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#111820] dark:bg-emerald-500 text-white dark:text-[#090E0C] shadow-sm transition-transform hover:scale-105 active:scale-90 disabled:opacity-30 disabled:scale-100"
           >
-            <Send className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">
-              {editingMessage ? 'Lưu' : 'Gửi'}
-            </span>
+            <Send className="h-4 w-4 ml-0.5" />
           </button>
         </div>
       </div>

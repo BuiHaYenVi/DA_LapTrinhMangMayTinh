@@ -143,21 +143,19 @@ export const MemberSidebar: React.FC = () => {
             selectedMemberId === member.userId ? null : member.userId
           )
         }
-        className={`group flex h-[44px] w-full items-center justify-between rounded-[8px] px-2 text-left transition ${
+        className={`group flex h-[46px] w-full items-center justify-between rounded-2xl px-2.5 text-left transition ${
           isSelected
-            ? isDark
-              ? 'bg-[#3B82F6]/20 text-white'
-              : 'bg-[#DBEAFE] text-[#2563EB]'
+            ? 'bg-[#111820] text-white shadow-2xs dark:bg-[#1E2B25] dark:text-[#10B981]'
             : isDark
-            ? 'hover:bg-[#1E293B]'
-            : 'hover:bg-[#E2E8F0]/70'
+            ? 'hover:bg-[#16221C]'
+            : 'hover:bg-[#F2F7F4]'
         } ${isOffline ? 'opacity-65 hover:opacity-100' : ''}`}
       >
         <div className="flex min-w-0 items-center gap-2.5">
           {/* Avatar + 10px presence dot */}
           <div className="relative shrink-0">
             <div
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-xs font-bold text-white"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#111820] text-xs font-bold text-white dark:bg-emerald-600"
               style={
                 member.avatarColor
                   ? { backgroundColor: member.avatarColor }
@@ -169,7 +167,7 @@ export const MemberSidebar: React.FC = () => {
             <span
               title={dot.label}
               className={`absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full ring-2 ${
-                isDark ? 'ring-[#0F172A]' : 'ring-[#F8FAFC]'
+                isDark ? 'ring-[#111815]' : 'ring-white'
               } ${dot.color}`}
             />
           </div>
@@ -178,7 +176,11 @@ export const MemberSidebar: React.FC = () => {
             <div className="flex items-center gap-1">
               <span
                 className={`truncate text-[13px] font-bold ${
-                  isDark ? 'text-[#F8FAFC]' : 'text-[#0F172A]'
+                  isSelected
+                    ? 'text-white dark:text-[#10B981]'
+                    : isDark
+                    ? 'text-[#F8FAFC]'
+                    : 'text-[#0F172A]'
                 }`}
               >
                 {member.displayName}
@@ -191,7 +193,7 @@ export const MemberSidebar: React.FC = () => {
               )}
               {member.role === 'ADMIN' && (
                 <Shield
-                  className="h-3.5 w-3.5 shrink-0 text-[#2563EB]"
+                  className="h-3.5 w-3.5 shrink-0 text-[#10B981]"
                   aria-label="Quản trị viên (Admin)"
                 />
               )}
@@ -199,7 +201,11 @@ export const MemberSidebar: React.FC = () => {
 
             <div
               className={`truncate text-[11px] ${
-                isDark ? 'text-[#94A3B8]' : 'text-[#64748B]'
+                isSelected
+                  ? 'text-slate-300 dark:text-emerald-200'
+                  : isDark
+                  ? 'text-[#94A3B8]'
+                  : 'text-[#64748B]'
               }`}
             >
               {member.customStatus || `@${member.username}`}
@@ -214,8 +220,8 @@ export const MemberSidebar: React.FC = () => {
               member.transport === 'TCP'
                 ? 'bg-[#FEF3C7] text-[#D97706]'
                 : isDark
-                ? 'bg-[#1E293B] text-[#3B82F6]'
-                : 'bg-[#EFF6FF] text-[#2563EB]'
+                ? 'bg-[#18241F] text-[#10B981]'
+                : 'bg-[#E8F5EE] text-[#059669]'
             }`}
             title={
               member.transport === 'TCP'
@@ -235,14 +241,14 @@ export const MemberSidebar: React.FC = () => {
       aria-label="Danh sách thành viên kênh"
       className={`relative flex h-full w-[260px] shrink-0 flex-col border-l select-none transition-colors duration-200 ${
         isDark
-          ? 'border-[#334155] bg-[#0F172A] text-[#F8FAFC]'
-          : 'border-[#E2E8F0] bg-[#F8FAFC] text-[#0F172A]'
+          ? 'border-[#1E2B25] bg-[#111815] text-[#F8FAFC]'
+          : 'border-[#E8EFEA] bg-white text-[#0F172A]'
       }`}
     >
-      {/* Top Summary Header */}
+      {/* Top Summary Header (64px) */}
       <div
-        className={`flex h-[56px] shrink-0 items-center justify-between border-b px-4 ${
-          isDark ? 'border-[#334155]' : 'border-[#E2E8F0]'
+        className={`flex h-[64px] shrink-0 items-center justify-between border-b px-4 ${
+          isDark ? 'border-[#1E2B25]' : 'border-[#E8EFEA]'
         }`}
       >
         <div className="flex items-center gap-2">
@@ -250,7 +256,7 @@ export const MemberSidebar: React.FC = () => {
             Thành viên ({normalizedMembers.length})
           </span>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-[#D1FAE5] px-2 py-0.5 font-mono text-[10px] font-bold text-[#059669]">
+        <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F5EE] px-2 py-0.5 font-mono text-[10px] font-bold text-[#059669]">
           <span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" />
           {normalizedMembers.length - offlineMembers.length} Online
         </span>
@@ -314,14 +320,14 @@ export const MemberSidebar: React.FC = () => {
       {/* FLOATING USER PROFILE POPOVER CARD */}
       {selectedMember && (
         <div
-          className={`absolute top-16 right-[268px] z-50 w-[280px] overflow-hidden rounded-2xl border shadow-2xl transition-all ${
+          className={`absolute top-16 right-[268px] z-50 w-[280px] overflow-hidden rounded-3xl border shadow-2xl transition-all ${
             isDark
-              ? 'border-[#334155] bg-[#1E293B] text-[#F8FAFC]'
-              : 'border-[#E2E8F0] bg-white text-[#0F172A]'
+              ? 'border-[#283830] bg-[#111815] text-[#F8FAFC]'
+              : 'border-[#E5EFE9] bg-white text-[#0F172A]'
           }`}
         >
-          {/* Top Ocean Blue Banner */}
-          <div className="relative h-16 bg-gradient-to-r from-[#2563EB] to-[#0284C7]">
+          {/* Top Emerald Banner */}
+          <div className="relative h-16 bg-gradient-to-r from-[#10B981] to-[#059669]">
             <button
               type="button"
               onClick={() => setSelectedMemberId(null)}
@@ -337,8 +343,8 @@ export const MemberSidebar: React.FC = () => {
             <div className="-mt-8 mb-3 flex items-end justify-between">
               <div className="relative">
                 <div
-                  className={`flex h-16 w-16 items-center justify-center rounded-2xl bg-[#2563EB] text-lg font-bold text-white ring-4 ${
-                    isDark ? 'ring-[#1E293B]' : 'ring-white'
+                  className={`flex h-16 w-16 items-center justify-center rounded-2xl bg-[#111820] text-lg font-bold text-white ring-4 ${
+                    isDark ? 'ring-[#111815]' : 'ring-white'
                   }`}
                   style={
                     selectedMember.avatarColor
@@ -350,7 +356,7 @@ export const MemberSidebar: React.FC = () => {
                 </div>
                 <span
                   className={`absolute right-0 bottom-0 h-4 w-4 rounded-full ring-2 ${
-                    isDark ? 'ring-[#1E293B]' : 'ring-white'
+                    isDark ? 'ring-[#111815]' : 'ring-white'
                   } ${getPresenceDot(selectedMember.status).color}`}
                 />
               </div>
@@ -364,7 +370,7 @@ export const MemberSidebar: React.FC = () => {
                   </span>
                 )}
                 {selectedMember.role === 'ADMIN' && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#DBEAFE] px-2.5 py-1 text-xs font-bold text-[#2563EB]">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F5EE] px-2.5 py-1 text-xs font-bold text-[#10B981]">
                     <Shield className="h-3.5 w-3.5" />
                     Quản trị
                   </span>
@@ -373,8 +379,8 @@ export const MemberSidebar: React.FC = () => {
                   <span
                     className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                       isDark
-                        ? 'bg-[#334155] text-[#CBD5E1]'
-                        : 'bg-[#F1F5F9] text-[#475569]'
+                        ? 'bg-[#18241F] text-[#94A3B8]'
+                        : 'bg-[#F0F5F2] text-[#475569]'
                     }`}
                   >
                     Thành viên
@@ -391,7 +397,7 @@ export const MemberSidebar: React.FC = () => {
               <div className="flex items-center gap-2 font-mono text-xs text-[#64748B]">
                 <span>@{selectedMember.username}</span>
                 <span>•</span>
-                <span className="inline-flex items-center gap-1 text-[#0284C7]">
+                <span className="inline-flex items-center gap-1 text-[#10B981]">
                   <Radio className="h-3 w-3" />
                   {selectedMember.transport === 'TCP'
                     ? 'Swing TCP :5000'
@@ -403,13 +409,13 @@ export const MemberSidebar: React.FC = () => {
             {/* Custom Status Box */}
             {selectedMember.customStatus && (
               <div
-                className={`mt-3 flex items-center gap-2 rounded-xl border p-2.5 text-xs ${
+                className={`mt-3 flex items-center gap-2 rounded-2xl border p-2.5 text-xs ${
                   isDark
-                    ? 'border-[#334155] bg-[#0F172A] text-[#CBD5E1]'
-                    : 'border-[#E2E8F0] bg-[#F8FAFC] text-[#475569]'
+                    ? 'border-[#283830] bg-[#141C18] text-[#CBD5E1]'
+                    : 'border-[#E5EFE9] bg-[#F7FAF8] text-[#475569]'
                 }`}
               >
-                <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" />
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#10B981]" />
                 <span className="truncate">{selectedMember.customStatus}</span>
               </div>
             )}
@@ -420,7 +426,7 @@ export const MemberSidebar: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleOpenDm(selectedMember)}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] px-3 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#1D4ED8]"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[#10B981] px-3 py-2.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#059669]"
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
                   <span>Nhắn tin riêng</span>
@@ -434,12 +440,12 @@ export const MemberSidebar: React.FC = () => {
                     type="button"
                     disabled={sentRequestIds.includes(selectedMember.userId)}
                     onClick={() => handleAddFriend(selectedMember)}
-                    className={`flex items-center justify-center gap-1 rounded-xl border px-3 py-2 text-xs font-bold transition ${
+                    className={`flex items-center justify-center gap-1 rounded-2xl border px-3 py-2.5 text-xs font-bold transition ${
                       sentRequestIds.includes(selectedMember.userId)
-                        ? 'border-[#10B981] bg-[#D1FAE5] text-[#059669]'
+                        ? 'border-[#10B981] bg-[#E8F5EE] text-[#059669]'
                         : isDark
-                        ? 'border-[#334155] bg-[#0F172A] text-[#F8FAFC] hover:border-[#3B82F6]'
-                        : 'border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A] hover:border-[#2563EB]'
+                        ? 'border-[#283830] bg-[#141C18] text-[#F8FAFC] hover:border-[#10B981]'
+                        : 'border-[#E5EFE9] bg-[#F7FAF8] text-[#0F172A] hover:border-[#10B981]'
                     }`}
                   >
                     {sentRequestIds.includes(selectedMember.userId) ? (

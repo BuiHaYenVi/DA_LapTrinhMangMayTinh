@@ -16,6 +16,7 @@ import {
   Users,
   Copy,
   Check,
+  CheckCheck,
   X,
   PhoneOff,
   Crown,
@@ -78,6 +79,7 @@ export const ChannelSidebar: React.FC = () => {
     createChannel,
     createInvite,
     members,
+    typingUsers,
     dmConversations,
     activeDmId,
     selectDm,
@@ -245,22 +247,22 @@ export const ChannelSidebar: React.FC = () => {
     <>
       <aside
         aria-label="Danh sách kênh và tin nhắn trực tiếp"
-        className={`relative flex h-full w-[240px] shrink-0 flex-col border-r select-none transition-colors duration-200 ${
+        className={`relative flex h-full w-[280px] shrink-0 flex-col border-r select-none transition-colors duration-200 ${
           isDark
-            ? 'border-[#334155] bg-[#0F172A] text-[#F8FAFC]'
-            : 'border-[#E2E8F0] bg-[#F8FAFC] text-[#0F172A]'
+            ? 'border-[#1E2B25] bg-[#111815] text-[#F8FAFC]'
+            : 'border-[#E8EFEA] bg-white text-[#0F172A]'
         }`}
       >
-        {/* TOP HEADER (56px) */}
+        {/* TOP HEADER (64px) */}
         {viewMode === 'guild' ? (
           <div
-            className={`flex h-[56px] shrink-0 items-center justify-between border-b px-3.5 ${
-              isDark ? 'border-[#334155]' : 'border-[#E2E8F0]'
+            className={`flex h-[64px] shrink-0 items-center justify-between border-b px-4 ${
+              isDark ? 'border-[#1E2B25]' : 'border-[#E8EFEA]'
             }`}
           >
             <div className="min-w-0 flex-1 pr-2">
               <div className="flex items-center gap-1.5">
-                <h1 className="truncate text-[16px] font-bold tracking-tight">
+                <h1 className="truncate text-[16px] font-extrabold tracking-tight">
                   {activeGuild?.name || 'Discord Mini'}
                 </h1>
               </div>
@@ -272,7 +274,7 @@ export const ChannelSidebar: React.FC = () => {
                   </span>
                 )}
                 {myRole === 'ADMIN' && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#DBEAFE] px-2 py-0.5 text-[10px] font-bold text-[#2563EB]">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F5EE] px-2 py-0.5 text-[10px] font-bold text-[#10B981]">
                     <Shield className="h-2.5 w-2.5" />
                     ADMIN
                   </span>
@@ -281,8 +283,8 @@ export const ChannelSidebar: React.FC = () => {
                   <span
                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       isDark
-                        ? 'bg-[#1E293B] text-[#94A3B8]'
-                        : 'bg-[#E2E8F0] text-[#475569]'
+                        ? 'bg-[#18241F] text-[#94A3B8]'
+                        : 'bg-[#F0F5F2] text-[#475569]'
                     }`}
                   >
                     MEMBER
@@ -296,7 +298,7 @@ export const ChannelSidebar: React.FC = () => {
               onClick={handleOpenInviteModal}
               title="Tạo mã mời (Invite Code)"
               aria-label="Tạo mã mời vào máy chủ"
-              className="flex h-8 items-center gap-1 rounded-lg bg-[#2563EB] px-2.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#1D4ED8] active:translate-y-[1px]"
+              className="flex h-8 items-center gap-1 rounded-xl bg-[#10B981] px-2.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#059669] active:translate-y-[1px]"
             >
               <UserPlus className="h-3.5 w-3.5" />
               <span>Mời</span>
@@ -304,64 +306,62 @@ export const ChannelSidebar: React.FC = () => {
           </div>
         ) : (
           <div
-            className={`flex h-[56px] shrink-0 items-center justify-between border-b px-3 ${
-              isDark ? 'border-[#334155]' : 'border-[#E2E8F0]'
+            className={`flex h-[64px] shrink-0 items-center justify-between border-b px-4 ${
+              isDark ? 'border-[#1E2B25]' : 'border-[#E8EFEA]'
             }`}
           >
+            <h2 className="text-lg font-extrabold tracking-tight text-[#0F172A] dark:text-[#F8FAFC]">
+              Tin nhắn
+            </h2>
             <button
               type="button"
-              onClick={() => setCommandPaletteOpen(true)}
-              className={`flex h-9 w-full items-center justify-between rounded-lg border px-2.5 text-xs font-medium transition ${
-                isDark
-                  ? 'border-[#334155] bg-[#1E293B] text-[#94A3B8] hover:border-[#3B82F6]'
-                  : 'border-[#CBD5E1] bg-white text-[#64748B] hover:border-[#2563EB]'
+              onClick={() => setViewMode('friends')}
+              title="Quản lý bạn bè"
+              className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-bold transition ${
+                viewMode === 'friends'
+                  ? 'border-[#10B981] bg-[#10B981] text-white shadow-xs'
+                  : isDark
+                  ? 'border-[#283830] bg-[#141C18] text-[#CBD5E1] hover:text-white'
+                  : 'border-[#E5EFE9] bg-[#F7FAF8] text-[#475569] hover:text-[#0F172A]'
               }`}
             >
-              <span className="flex items-center gap-2 truncate">
-                <Search className="h-3.5 w-3.5 shrink-0" />
-                <span>Tìm bạn hoặc hội thoại...</span>
-              </span>
-              <kbd
-                className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${
-                  isDark
-                    ? 'bg-[#0F172A] text-[#94A3B8]'
-                    : 'bg-[#F1F5F9] text-[#475569]'
-                }`}
-              >
-                Ctrl+K
-              </kbd>
+              <Users className="h-3.5 w-3.5" />
+              <span>Bạn bè</span>
+              {pendingIncomingCount > 0 && (
+                <span className="rounded-full bg-[#F43F5E] px-1.5 py-0.2 text-[10px] font-bold text-white">
+                  {pendingIncomingCount}
+                </span>
+              )}
             </button>
           </div>
         )}
 
-        {/* QUICK SEARCH TRIGGER IN GUILD MODE */}
-        {viewMode === 'guild' && (
-          <div className="px-2.5 pt-2.5 pb-1">
-            <button
-              type="button"
-              onClick={() => setCommandPaletteOpen(true)}
-              className={`flex h-8 w-full items-center justify-between rounded-lg border px-2.5 text-xs font-medium transition ${
+        {/* QUICK SEARCH PILL */}
+        <div className="px-3 pt-3 pb-1">
+          <button
+            type="button"
+            onClick={() => setCommandPaletteOpen(true)}
+            className={`flex h-9 w-full items-center justify-between rounded-2xl border px-3 text-xs font-medium transition ${
+              isDark
+                ? 'border-[#283830] bg-[#141C18] text-[#94A3B8] hover:border-[#10B981] hover:text-white'
+                : 'border-[#E5EFE9] bg-[#F7FAF8] text-[#64748B] hover:border-[#10B981] hover:text-[#0F172A]'
+            }`}
+          >
+            <span className="flex items-center gap-2 truncate">
+              <Search className="h-3.5 w-3.5 text-[#10B981]" />
+              <span>{viewMode === 'guild' ? 'Tìm nhanh kênh / lệnh...' : 'Tìm kiếm hội thoại...'}</span>
+            </span>
+            <kbd
+              className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ${
                 isDark
-                  ? 'border-[#334155] bg-[#1E293B]/80 text-[#94A3B8] hover:border-[#3B82F6] hover:text-white'
-                  : 'border-[#E2E8F0] bg-white text-[#64748B] shadow-2xs hover:border-[#2563EB] hover:text-[#0F172A]'
+                  ? 'bg-[#090E0C] text-[#94A3B8]'
+                  : 'bg-white text-[#475569] shadow-2xs'
               }`}
             >
-              <span className="flex items-center gap-1.5 truncate">
-                <Search className="h-3.5 w-3.5 text-[#2563EB]" />
-                <span>Tìm nhanh kênh / lệnh</span>
-              </span>
-              <kbd
-                className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold ${
-                  isDark
-                    ? 'bg-[#0F172A] text-[#94A3B8]'
-                    : 'bg-[#F1F5F9] text-[#475569]'
-                }`}
-              >
-                Ctrl+K
-              </kbd>
-            </button>
-          </div>
-        )}
+              Ctrl+K
+            </kbd>
+          </button>
+        </div>
 
         {/* SCROLLABLE MIDDLE CONTENT */}
         <div className="flex-1 space-y-4 overflow-y-auto px-2 py-2.5">
@@ -392,10 +392,10 @@ export const ChannelSidebar: React.FC = () => {
                     onClick={() => handleOpenCreateChannel('text')}
                     title="Tạo kênh văn bản mới"
                     aria-label="Tạo kênh văn bản mới"
-                    className={`rounded p-0.5 transition ${
+                    className={`rounded-lg p-1 transition ${
                       isDark
-                        ? 'text-[#94A3B8] hover:bg-[#1E293B] hover:text-white'
-                        : 'text-[#475569] hover:bg-[#E2E8F0] hover:text-[#2563EB]'
+                        ? 'text-[#94A3B8] hover:bg-[#18241F] hover:text-white'
+                        : 'text-[#475569] hover:bg-[#EAEFEA] hover:text-[#10B981]'
                     }`}
                   >
                     <Plus className="h-4 w-4" />
@@ -403,7 +403,7 @@ export const ChannelSidebar: React.FC = () => {
                 </div>
 
                 {!textCollapsed && (
-                  <div className="space-y-0.5">
+                  <div className="space-y-1">
                     {textChannels.map((channel) => {
                       const isSelected = activeChannelId === channel.id;
                       const unread = channel.unreadCount ?? 0;
@@ -413,33 +413,29 @@ export const ChannelSidebar: React.FC = () => {
                           key={channel.id}
                           type="button"
                           onClick={() => selectChannel(channel.id)}
-                          className={`group relative flex h-9 w-full items-center justify-between rounded-[8px] px-2.5 text-left transition-colors ${
+                          className={`group relative flex h-10 w-full items-center justify-between rounded-2xl px-3 text-left transition-colors ${
                             isSelected
-                              ? isDark
-                                ? 'bg-[#3B82F6]/20 font-bold text-[#3B82F6]'
-                                : 'bg-[#DBEAFE] font-bold text-[#2563EB]'
+                              ? 'bg-[#111820] font-extrabold text-white shadow-2xs dark:bg-[#1E2B25] dark:text-[#10B981]'
                               : unread > 0
                               ? isDark
-                                ? 'font-bold text-white hover:bg-[#1E293B]'
-                                : 'font-bold text-[#0F172A] hover:bg-[#E2E8F0]/70'
+                                ? 'font-bold text-white hover:bg-[#16221C]'
+                                : 'font-bold text-[#0F172A] hover:bg-[#F2F7F4]'
                               : isDark
-                              ? 'font-medium text-[#CBD5E1] hover:bg-[#1E293B] hover:text-white'
-                              : 'font-medium text-[#475569] hover:bg-[#E2E8F0]/70 hover:text-[#0F172A]'
+                              ? 'font-medium text-[#CBD5E1] hover:bg-[#16221C] hover:text-white'
+                              : 'font-medium text-[#475569] hover:bg-[#F2F7F4] hover:text-[#0F172A]'
                           }`}
                         >
-                          {/* Unread left blue dot */}
+                          {/* Unread left dot */}
                           {unread > 0 && !isSelected && (
-                            <span className="absolute left-0.5 h-2 w-1.5 rounded-full bg-[#2563EB]" />
+                            <span className="absolute left-1 h-2 w-2 rounded-full bg-[#10B981]" />
                           )}
 
-                          <div className="flex min-w-0 items-center gap-2">
+                          <div className="flex min-w-0 items-center gap-2.5">
                             <Hash
                               className={`h-4 w-4 shrink-0 ${
                                 isSelected
-                                  ? isDark
-                                    ? 'text-[#3B82F6]'
-                                    : 'text-[#2563EB]'
-                                  : 'opacity-75'
+                                  ? 'text-[#10B981]'
+                                  : 'opacity-70'
                               }`}
                             />
                             <span className="truncate text-[14px]">
@@ -448,7 +444,7 @@ export const ChannelSidebar: React.FC = () => {
                           </div>
 
                           {unread > 0 && (
-                            <span className="ml-2 flex min-w-[18px] items-center justify-center rounded-full bg-[#F43F5E] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                            <span className="ml-2 flex min-w-[18px] items-center justify-center rounded-full bg-[#10B981] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
                               {unread > 99 ? '99+' : unread}
                             </span>
                           )}
@@ -461,14 +457,14 @@ export const ChannelSidebar: React.FC = () => {
 
               {/* CATEGORY 2: VOICE / VIDEO CHANNELS */}
               <div>
-                <div className="mb-1 flex items-center justify-between px-1.5">
+                <div className="mb-1.5 flex items-center justify-between px-2">
                   <button
                     type="button"
                     onClick={() => setVoiceCollapsed(!voiceCollapsed)}
-                    className={`flex items-center gap-1 text-[11px] font-bold tracking-[0.06em] uppercase transition ${
+                    className={`flex items-center gap-1.5 text-[11px] font-bold tracking-[0.06em] uppercase transition ${
                       isDark
                         ? 'text-[#94A3B8] hover:text-[#F8FAFC]'
-                        : 'text-[#475569] hover:text-[#0F172A]'
+                        : 'text-[#64748B] hover:text-[#0F172A]'
                     }`}
                   >
                     {voiceCollapsed ? (
@@ -484,10 +480,10 @@ export const ChannelSidebar: React.FC = () => {
                     onClick={() => handleOpenCreateChannel('voice')}
                     title="Tạo kênh thoại/video mới"
                     aria-label="Tạo kênh thoại/video mới"
-                    className={`rounded p-0.5 transition ${
+                    className={`rounded-lg p-1 transition ${
                       isDark
-                        ? 'text-[#94A3B8] hover:bg-[#1E293B] hover:text-white'
-                        : 'text-[#475569] hover:bg-[#E2E8F0] hover:text-[#2563EB]'
+                        ? 'text-[#94A3B8] hover:bg-[#18241F] hover:text-white'
+                        : 'text-[#475569] hover:bg-[#EAEFEA] hover:text-[#10B981]'
                     }`}
                   >
                     <Plus className="h-4 w-4" />
@@ -514,17 +510,15 @@ export const ChannelSidebar: React.FC = () => {
                               selectChannel(channel.id);
                               joinVoiceChannel(channel.id);
                             }}
-                            className={`group flex h-9 w-full items-center justify-between rounded-[8px] px-2.5 text-left transition-colors ${
+                            className={`group flex h-10 w-full items-center justify-between rounded-2xl px-3 text-left transition-colors ${
                               isJoined
-                                ? isDark
-                                  ? 'bg-[#10B981]/15 font-bold text-[#10B981]'
-                                  : 'bg-[#D1FAE5] font-bold text-[#059669]'
+                                ? 'bg-[#E8F5EE] font-bold text-[#065F46] dark:bg-[#162E22] dark:text-[#10B981]'
                                 : isDark
-                                ? 'font-medium text-[#CBD5E1] hover:bg-[#1E293B] hover:text-white'
-                                : 'font-medium text-[#475569] hover:bg-[#E2E8F0]/70 hover:text-[#0F172A]'
+                                ? 'font-medium text-[#CBD5E1] hover:bg-[#16221C] hover:text-white'
+                                : 'font-medium text-[#475569] hover:bg-[#F2F7F4] hover:text-[#0F172A]'
                             }`}
                           >
-                            <div className="flex min-w-0 items-center gap-2">
+                            <div className="flex min-w-0 items-center gap-2.5">
                               <Volume2
                                 className={`h-4 w-4 shrink-0 ${
                                   isJoined ? 'text-[#10B981]' : 'opacity-75'
@@ -536,12 +530,12 @@ export const ChannelSidebar: React.FC = () => {
                             </div>
 
                             <span
-                              className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                              className={`rounded-full px-2 py-0.5 font-mono text-[9.5px] font-bold ${
                                 isJoined
                                   ? 'bg-[#10B981] text-white'
                                   : isDark
-                                  ? 'bg-[#1E293B] text-[#94A3B8]'
-                                  : 'bg-[#E2E8F0] text-[#475569]'
+                                  ? 'bg-[#18241F] text-[#94A3B8]'
+                                  : 'bg-[#E5EFE9] text-[#475569]'
                               }`}
                             >
                               {isJoined ? 'UDP LIVE' : 'WebRTC'}
@@ -572,7 +566,7 @@ export const ChannelSidebar: React.FC = () => {
                                               }
                                             : undefined
                                         }
-                                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-[10px] font-bold text-white transition-all ${
+                                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#111820] text-[10px] font-bold text-white transition-all dark:bg-emerald-600 ${
                                           isSpeaking
                                             ? 'ring-2 ring-[#10B981] ring-offset-1 ring-offset-transparent'
                                             : 'opacity-85'
@@ -625,14 +619,12 @@ export const ChannelSidebar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setViewMode('friends')}
-                className={`flex h-10 w-full items-center justify-between rounded-lg px-3 text-sm font-bold transition ${
+                className={`flex h-10 w-full items-center justify-between rounded-2xl px-3 text-sm font-bold transition ${
                   viewMode === 'friends'
-                    ? isDark
-                      ? 'bg-[#3B82F6]/20 text-[#3B82F6]'
-                      : 'bg-[#DBEAFE] text-[#2563EB]'
+                    ? 'bg-[#111820] text-white shadow-xs dark:bg-[#1E2B25] dark:text-[#10B981]'
                     : isDark
-                    ? 'text-[#CBD5E1] hover:bg-[#1E293B]'
-                    : 'text-[#475569] hover:bg-[#E2E8F0]/70'
+                    ? 'text-[#CBD5E1] hover:bg-[#16221C]'
+                    : 'text-[#475569] hover:bg-[#F2F7F4]'
                 }`}
               >
                 <span className="flex items-center gap-2.5">
@@ -640,7 +632,7 @@ export const ChannelSidebar: React.FC = () => {
                   <span>Bạn bè (Friends)</span>
                 </span>
                 {pendingIncomingCount > 0 && (
-                  <span className="rounded-full bg-[#F43F5E] px-2 py-0.5 text-[11px] font-bold text-white">
+                  <span className="rounded-full bg-[#10B981] px-2 py-0.5 text-[11px] font-bold text-white">
                     {pendingIncomingCount}
                   </span>
                 )}
@@ -648,7 +640,7 @@ export const ChannelSidebar: React.FC = () => {
 
               {/* Direct Messages List */}
               <div>
-                <div className="mb-1.5 flex items-center justify-between px-2">
+                <div className="mb-2 flex items-center justify-between px-2">
                   <span
                     className={`text-[11px] font-bold tracking-[0.06em] uppercase ${
                       isDark ? 'text-[#94A3B8]' : 'text-[#64748B]'
@@ -658,7 +650,7 @@ export const ChannelSidebar: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {Array.isArray(dmConversations) &&
                   dmConversations.length > 0 ? (
                     dmConversations.map((conv: DirectConversation) => {
@@ -666,6 +658,9 @@ export const ChannelSidebar: React.FC = () => {
                         viewMode === 'dm' && activeDmId === conv.id;
                       const peer = conv.peerUser;
                       const unread = conv.unreadCount ?? 0;
+                      const isTyping =
+                        Array.isArray(typingUsers) &&
+                        typingUsers.some((u) => u.userId === peer?.id);
 
                       return (
                         <button
@@ -675,20 +670,22 @@ export const ChannelSidebar: React.FC = () => {
                             setViewMode('dm');
                             selectDm(conv.id);
                           }}
-                          className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition ${
+                          className={`group flex w-full items-center justify-between rounded-2xl p-2.5 text-left transition-all ${
                             isActiveDm
-                              ? isDark
-                                ? 'bg-[#3B82F6]/20 text-[#3B82F6]'
-                                : 'bg-[#DBEAFE] text-[#2563EB]'
+                              ? 'bg-[#111820] text-white shadow-xs dark:bg-[#1E2B25] dark:text-[#10B981]'
                               : isDark
-                              ? 'text-[#CBD5E1] hover:bg-[#1E293B]'
-                              : 'text-[#475569] hover:bg-[#E2E8F0]/70'
+                              ? 'text-[#CBD5E1] hover:bg-[#16221C] hover:text-white'
+                              : 'text-[#475569] hover:bg-[#F2F7F4] hover:text-[#0F172A]'
                           }`}
                         >
-                          <div className="flex min-w-0 items-center gap-2.5">
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
                             <div className="relative shrink-0">
                               <div
-                                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-xs font-bold text-white"
+                                className={`flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white shadow-2xs ${
+                                  isActiveDm
+                                    ? 'bg-[#10B981] text-white'
+                                    : 'bg-[#111820] dark:bg-emerald-600'
+                                }`}
                                 style={
                                   peer?.avatarColor
                                     ? { backgroundColor: peer.avatarColor }
@@ -704,45 +701,90 @@ export const ChannelSidebar: React.FC = () => {
                                   .toUpperCase()}
                               </div>
                               <span
-                                className={`absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full ring-2 ${
-                                  isDark ? 'ring-[#0F172A]' : 'ring-[#F8FAFC]'
+                                className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ${
+                                  isActiveDm
+                                    ? isDark
+                                      ? 'ring-[#1E2B25]'
+                                      : 'ring-[#111820]'
+                                    : isDark
+                                    ? 'ring-[#111815]'
+                                    : 'ring-white'
                                 } ${getPresenceDotClass(peer?.status)}`}
                               />
                             </div>
 
-                            <div className="min-w-0">
-                              <div className="truncate text-xs font-bold">
-                                {peer?.displayName || peer?.username}
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-0.5 flex items-center justify-between gap-1">
+                                <span
+                                  className={`truncate text-sm font-extrabold ${
+                                    isActiveDm
+                                      ? 'text-white dark:text-[#10B981]'
+                                      : 'text-[#0F172A] dark:text-[#F8FAFC]'
+                                  }`}
+                                >
+                                  {peer?.displayName || peer?.username}
+                                </span>
+                                <span
+                                  className={`shrink-0 text-[10.5px] font-medium ${
+                                    isActiveDm
+                                      ? 'text-slate-300 dark:text-emerald-300'
+                                      : 'text-slate-400'
+                                  }`}
+                                >
+                                  12:45
+                                </span>
                               </div>
-                              <div
-                                className={`truncate text-[11px] ${
-                                  isDark ? 'text-[#94A3B8]' : 'text-[#64748B]'
-                                }`}
-                              >
-                                {conv.lastMessagePreview ||
-                                  peer?.customStatus ||
-                                  `@${peer?.username}`}
+
+                              <div className="flex items-center justify-between gap-1">
+                                {isTyping ? (
+                                  <div className="flex items-center gap-1.5 text-xs font-medium text-[#10B981]">
+                                    <span className="h-1.5 w-1.5 animate-ping rounded-full bg-[#10B981]" />
+                                    <span>Đang nhập...</span>
+                                  </div>
+                                ) : (
+                                  <span
+                                    className={`truncate text-xs ${
+                                      isActiveDm
+                                        ? 'text-slate-300 dark:text-slate-200'
+                                        : isDark
+                                        ? 'text-[#94A3B8]'
+                                        : 'text-[#64748B]'
+                                    }`}
+                                  >
+                                    {conv.lastMessagePreview ||
+                                      peer?.customStatus ||
+                                      `@${peer?.username}`}
+                                  </span>
+                                )}
+
+                                {unread > 0 ? (
+                                  <span className="ml-1 shrink-0 rounded-full bg-[#10B981] px-1.5 py-0.2 text-[10px] font-bold text-white">
+                                    {unread}
+                                  </span>
+                                ) : (
+                                  <CheckCheck
+                                    className={`h-3.5 w-3.5 shrink-0 ${
+                                      isActiveDm
+                                        ? 'text-[#10B981]'
+                                        : 'text-slate-400'
+                                    }`}
+                                  />
+                                )}
                               </div>
                             </div>
                           </div>
-
-                          {unread > 0 && (
-                            <span className="ml-1 rounded-full bg-[#F43F5E] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                              {unread}
-                            </span>
-                          )}
                         </button>
                       );
                     })
                   ) : (
                     <div
-                      className={`rounded-xl border border-dashed p-3 text-center text-xs ${
+                      className={`rounded-2xl border border-dashed p-4 text-center text-xs ${
                         isDark
-                          ? 'border-[#334155] text-[#94A3B8]'
-                          : 'border-[#CBD5E1] text-[#64748B]'
+                          ? 'border-[#283830] text-[#94A3B8]'
+                          : 'border-[#E5EFE9] text-[#64748B]'
                       }`}
                     >
-                      Chưa có cuộc trò chuyện riêng nào. Hãy chọn một người bạn để nhắn tin!
+                      Chưa có cuộc trò chuyện riêng nào.
                     </div>
                   )}
                 </div>
@@ -756,8 +798,8 @@ export const ChannelSidebar: React.FC = () => {
           <div
             className={`border-t px-3 py-2 ${
               isDark
-                ? 'border-[#334155] bg-[#0B1120]/90'
-                : 'border-[#E2E8F0] bg-[#ECFDF5]'
+                ? 'border-[#1E2B25] bg-[#141C18]/90'
+                : 'border-[#E8EFEA] bg-[#ECFDF5]'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -783,9 +825,9 @@ export const ChannelSidebar: React.FC = () => {
                   title={isCameraOn ? 'Tắt Camera' : 'Bật Camera'}
                   className={`rounded-lg p-1.5 transition ${
                     isCameraOn
-                      ? 'bg-[#0284C7] text-white'
+                      ? 'bg-[#10B981] text-white'
                       : isDark
-                      ? 'bg-[#1E293B] text-[#94A3B8] hover:text-white'
+                      ? 'bg-[#18241F] text-[#94A3B8] hover:text-white'
                       : 'bg-white text-[#475569] hover:text-[#0F172A]'
                   }`}
                 >
@@ -809,12 +851,12 @@ export const ChannelSidebar: React.FC = () => {
           </div>
         )}
 
-        {/* BOTTOM USER CONTROL BAR (56px) */}
+        {/* BOTTOM USER CONTROL BAR (60px) */}
         <div
-          className={`relative flex h-[56px] shrink-0 items-center justify-between border-t px-2 ${
+          className={`relative flex h-[60px] shrink-0 items-center justify-between border-t px-2.5 ${
             isDark
-              ? 'border-[#334155] bg-[#0B1120]'
-              : 'border-[#E2E8F0] bg-[#F1F5F9]'
+              ? 'border-[#1E2B25] bg-[#0E1512]'
+              : 'border-[#E8EFEA] bg-[#F7FAF8]'
           }`}
         >
           {/* User Avatar & Presence Trigger */}
@@ -824,14 +866,14 @@ export const ChannelSidebar: React.FC = () => {
               setCustomStatusInput(currentUser?.customStatus || '');
               setIsPresenceOpen(!isPresenceOpen);
             }}
-            className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg p-1 text-left transition ${
-              isDark ? 'hover:bg-[#1E293B]' : 'hover:bg-[#E2E8F0]'
+            className={`flex min-w-0 flex-1 items-center gap-2 rounded-xl p-1.5 text-left transition ${
+              isDark ? 'hover:bg-[#18241F]' : 'hover:bg-[#EAEFEA]'
             }`}
             title="Đổi trạng thái trực tuyến"
           >
             <div className="relative shrink-0">
               <div
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-xs font-bold text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#111820] text-xs font-bold text-white dark:bg-emerald-600"
                 style={
                   currentUser?.avatarColor
                     ? { backgroundColor: currentUser.avatarColor }
@@ -848,7 +890,7 @@ export const ChannelSidebar: React.FC = () => {
               </div>
               <span
                 className={`absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full ring-2 ${
-                  isDark ? 'ring-[#0B1120]' : 'ring-[#F1F5F9]'
+                  isDark ? 'ring-[#0E1512]' : 'ring-[#F7FAF8]'
                 } ${getPresenceDotClass(currentUser?.status)}`}
               />
             </div>
@@ -870,18 +912,18 @@ export const ChannelSidebar: React.FC = () => {
           </button>
 
           {/* Quick Control Buttons: Mic, Deafen, Monitor (with RTT badge), Settings */}
-          <div className="flex shrink-0 items-center gap-0.5">
+          <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
               onClick={handleToggleMic}
               aria-label={isMuted ? 'Bật micro' : 'Tắt micro'}
               title={isMuted ? 'Bật Micro' : 'Tắt Micro'}
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+              className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
                 isMuted
                   ? 'bg-[#FFE4E6] text-[#F43F5E] dark:bg-[#F43F5E]/20'
                   : isDark
-                  ? 'text-[#94A3B8] hover:bg-[#1E293B] hover:text-white'
-                  : 'text-[#475569] hover:bg-[#E2E8F0] hover:text-[#0F172A]'
+                  ? 'text-[#94A3B8] hover:bg-[#18241F] hover:text-white'
+                  : 'text-[#475569] hover:bg-[#EAEFEA] hover:text-[#0F172A]'
               }`}
             >
               {isMuted ? (
@@ -898,12 +940,12 @@ export const ChannelSidebar: React.FC = () => {
                 isDeafened ? 'Bật âm thanh tai nghe' : 'Tắt tiếng tai nghe'
               }
               title={isDeafened ? 'Bật tai nghe' : 'Tắt tai nghe (Deafen)'}
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+              className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
                 isDeafened
                   ? 'bg-[#FFE4E6] text-[#F43F5E] dark:bg-[#F43F5E]/20'
                   : isDark
-                  ? 'text-[#94A3B8] hover:bg-[#1E293B] hover:text-white'
-                  : 'text-[#475569] hover:bg-[#E2E8F0] hover:text-[#0F172A]'
+                  ? 'text-[#94A3B8] hover:bg-[#18241F] hover:text-white'
+                  : 'text-[#475569] hover:bg-[#EAEFEA] hover:text-[#0F172A]'
               }`}
             >
               {isDeafened ? (
@@ -918,12 +960,12 @@ export const ChannelSidebar: React.FC = () => {
               onClick={() => setMonitorOpen(!isMonitorOpen)}
               aria-label="Mở Network Monitor"
               title={`Network Monitor — RTT: ${liveRttMs} ms`}
-              className={`relative flex h-8 items-center gap-0.5 rounded-lg px-1.5 transition ${
+              className={`relative flex h-8 items-center gap-1 rounded-xl px-2 transition ${
                 isMonitorOpen
-                  ? 'bg-[#2563EB] text-white'
+                  ? 'bg-[#10B981] text-white shadow-xs'
                   : isDark
-                  ? 'text-[#10B981] hover:bg-[#1E293B]'
-                  : 'text-[#059669] hover:bg-[#E2E8F0]'
+                  ? 'text-[#10B981] hover:bg-[#18241F]'
+                  : 'text-[#059669] hover:bg-[#EAEFEA]'
               }`}
             >
               <Activity className="h-3.5 w-3.5" />
@@ -937,10 +979,10 @@ export const ChannelSidebar: React.FC = () => {
               onClick={() => setSettingsOpen(true)}
               aria-label="Cài đặt tài khoản và giao diện"
               title="Cài đặt (Settings)"
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+              className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
                 isDark
-                  ? 'text-[#94A3B8] hover:bg-[#1E293B] hover:text-white'
-                  : 'text-[#475569] hover:bg-[#E2E8F0] hover:text-[#0F172A]'
+                  ? 'text-[#94A3B8] hover:bg-[#18241F] hover:text-white'
+                  : 'text-[#475569] hover:bg-[#EAEFEA] hover:text-[#0F172A]'
               }`}
             >
               <Settings className="h-4 w-4" />
@@ -950,10 +992,10 @@ export const ChannelSidebar: React.FC = () => {
           {/* PRESENCE PICKER POPOVER */}
           {isPresenceOpen && (
             <div
-              className={`absolute bottom-[62px] left-2 z-50 w-[224px] rounded-2xl border p-3 shadow-xl ${
+              className={`absolute bottom-[66px] left-2 z-50 w-[230px] rounded-2xl border p-3 shadow-xl ${
                 isDark
-                  ? 'border-[#334155] bg-[#1E293B] text-[#F8FAFC]'
-                  : 'border-[#E2E8F0] bg-white text-[#0F172A]'
+                  ? 'border-[#283830] bg-[#141C18] text-[#F8FAFC]'
+                  : 'border-[#E5EFE9] bg-white text-[#0F172A]'
               }`}
             >
               <div className="mb-2 flex items-center justify-between">
@@ -986,11 +1028,11 @@ export const ChannelSidebar: React.FC = () => {
                       className={`flex w-full items-start gap-2.5 rounded-xl p-2 text-left transition ${
                         isCurrent
                           ? isDark
-                            ? 'bg-[#3B82F6]/20 text-white'
-                            : 'bg-[#EFF6FF] text-[#2563EB]'
+                            ? 'bg-[#10B981]/20 text-[#10B981]'
+                            : 'bg-[#E8F5EE] text-[#059669]'
                           : isDark
-                          ? 'hover:bg-[#334155]'
-                          : 'hover:bg-[#F1F5F9]'
+                          ? 'hover:bg-[#1E2B25]'
+                          : 'hover:bg-[#F2F7F4]'
                       }`}
                     >
                       <span
@@ -1011,7 +1053,7 @@ export const ChannelSidebar: React.FC = () => {
                 })}
               </div>
 
-              <div className="mt-2.5 border-t border-[#E2E8F0] pt-2.5 dark:border-[#334155]">
+              <div className="mt-2.5 border-t border-[#E5EFE9] pt-2.5 dark:border-[#283830]">
                 <label className="mb-1 block text-[10px] font-bold uppercase text-[#64748B]">
                   Trạng thái tùy chỉnh
                 </label>
@@ -1021,9 +1063,9 @@ export const ChannelSidebar: React.FC = () => {
                     value={customStatusInput}
                     onChange={(e) => setCustomStatusInput(e.target.value)}
                     placeholder="Đang học Lập trình mạng..."
-                    className={`w-full rounded-lg border px-2 py-1 text-xs outline-none focus:border-[#2563EB] ${
+                    className={`w-full rounded-lg border px-2 py-1 text-xs outline-none focus:border-[#10B981] ${
                       isDark
-                        ? 'border-[#334155] bg-[#0F172A] text-white'
+                        ? 'border-[#283830] bg-[#0E1512] text-white'
                         : 'border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A]'
                     }`}
                   />
@@ -1036,7 +1078,7 @@ export const ChannelSidebar: React.FC = () => {
                       );
                       setIsPresenceOpen(false);
                     }}
-                    className="rounded-lg bg-[#2563EB] px-2.5 py-1 text-xs font-bold text-white hover:bg-[#1D4ED8]"
+                    className="rounded-lg bg-[#10B981] px-2.5 py-1 text-xs font-bold text-white hover:bg-[#059669]"
                   >
                     Lưu
                   </button>
@@ -1084,13 +1126,13 @@ export const ChannelSidebar: React.FC = () => {
             </div>
 
             <div
-              className={`flex items-center justify-between rounded-xl border p-3 ${
+              className={`flex items-center justify-between rounded-2xl border p-3.5 ${
                 isDark
-                  ? 'border-[#334155] bg-[#0F172A]'
-                  : 'border-[#CBD5E1] bg-[#F8FAFC]'
+                  ? 'border-[#283830] bg-[#141C18]'
+                  : 'border-[#E5EFE9] bg-[#F7FAF8]'
               }`}
             >
-              <span className="font-mono text-lg font-bold tracking-widest text-[#2563EB] dark:text-[#3B82F6]">
+              <span className="font-mono text-lg font-bold tracking-widest text-[#10B981]">
                 {isGeneratingInvite
                   ? 'ĐANG TẠO...'
                   : generatedInviteCode || 'LTM2026'}
@@ -1099,10 +1141,10 @@ export const ChannelSidebar: React.FC = () => {
               <button
                 type="button"
                 onClick={handleCopyInvite}
-                className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white transition ${
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition ${
                   copiedInvite
-                    ? 'bg-[#10B981]'
-                    : 'bg-[#2563EB] hover:bg-[#1D4ED8]'
+                    ? 'bg-[#059669]'
+                    : 'bg-[#10B981] hover:bg-[#059669]'
                 }`}
               >
                 {copiedInvite ? (
@@ -1134,10 +1176,10 @@ export const ChannelSidebar: React.FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${
+            className={`w-full max-w-md rounded-3xl border p-6 shadow-2xl ${
               isDark
-                ? 'border-[#334155] bg-[#1E293B] text-[#F8FAFC]'
-                : 'border-[#E2E8F0] bg-white text-[#0F172A]'
+                ? 'border-[#283830] bg-[#111815] text-[#F8FAFC]'
+                : 'border-[#E5EFE9] bg-white text-[#0F172A]'
             }`}
           >
             <div className="mb-4 flex items-center justify-between">
@@ -1157,12 +1199,12 @@ export const ChannelSidebar: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setNewChannelType('text')}
-                  className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition ${
+                  className={`flex items-center gap-2.5 rounded-2xl border p-3 text-left transition ${
                     newChannelType === 'text'
-                      ? 'border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:bg-[#3B82F6]/20 dark:text-[#3B82F6]'
+                      ? 'border-[#10B981] bg-[#E8F5EE] text-[#059669] dark:bg-[#10B981]/20 dark:text-[#10B981]'
                       : isDark
-                      ? 'border-[#334155] bg-[#0F172A] text-[#CBD5E1]'
-                      : 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]'
+                      ? 'border-[#283830] bg-[#141C18] text-[#CBD5E1]'
+                      : 'border-[#E5EFE9] bg-[#F7FAF8] text-[#475569]'
                   }`}
                 >
                   <Hash className="h-5 w-5 shrink-0" />
@@ -1175,12 +1217,12 @@ export const ChannelSidebar: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setNewChannelType('voice')}
-                  className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition ${
+                  className={`flex items-center gap-2.5 rounded-2xl border p-3 text-left transition ${
                     newChannelType === 'voice'
-                      ? 'border-[#10B981] bg-[#ECFDF5] text-[#059669] dark:bg-[#10B981]/20 dark:text-[#10B981]'
+                      ? 'border-[#10B981] bg-[#E8F5EE] text-[#059669] dark:bg-[#10B981]/20 dark:text-[#10B981]'
                       : isDark
-                      ? 'border-[#334155] bg-[#0F172A] text-[#CBD5E1]'
-                      : 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]'
+                      ? 'border-[#283830] bg-[#141C18] text-[#CBD5E1]'
+                      : 'border-[#E5EFE9] bg-[#F7FAF8] text-[#475569]'
                   }`}
                 >
                   <Volume2 className="h-5 w-5 shrink-0" />
@@ -1205,10 +1247,10 @@ export const ChannelSidebar: React.FC = () => {
                       : 'vd: Phòng Họp Nhóm 4'
                   }
                   autoFocus
-                  className={`w-full rounded-xl border px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[#2563EB] ${
+                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[#10B981] ${
                     isDark
-                      ? 'border-[#334155] bg-[#0F172A] text-white'
-                      : 'border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A]'
+                      ? 'border-[#283830] bg-[#141C18] text-white'
+                      : 'border-[#E5EFE9] bg-[#F7FAF8] text-[#0F172A]'
                   }`}
                 />
               </div>
@@ -1222,10 +1264,10 @@ export const ChannelSidebar: React.FC = () => {
                   value={newChannelTopic}
                   onChange={(e) => setNewChannelTopic(e.target.value)}
                   placeholder="Mô tả nội dung thảo luận của kênh..."
-                  className={`w-full rounded-xl border px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[#2563EB] ${
+                  className={`w-full rounded-2xl border px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[#10B981] ${
                     isDark
-                      ? 'border-[#334155] bg-[#0F172A] text-white'
-                      : 'border-[#CBD5E1] bg-[#F8FAFC] text-[#0F172A]'
+                      ? 'border-[#283830] bg-[#141C18] text-white'
+                      : 'border-[#E5EFE9] bg-[#F7FAF8] text-[#0F172A]'
                   }`}
                 />
               </div>
@@ -1236,8 +1278,8 @@ export const ChannelSidebar: React.FC = () => {
                   onClick={() => setIsCreateChannelOpen(false)}
                   className={`rounded-xl px-4 py-2 text-sm font-semibold ${
                     isDark
-                      ? 'bg-[#334155] text-[#CBD5E1]'
-                      : 'bg-[#F1F5F9] text-[#475569]'
+                      ? 'bg-[#18241F] text-[#CBD5E1]'
+                      : 'bg-[#F2F7F4] text-[#475569]'
                   }`}
                 >
                   Hủy
@@ -1245,7 +1287,7 @@ export const ChannelSidebar: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isCreatingChannel}
-                  className="rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-bold text-white hover:bg-[#1D4ED8] disabled:opacity-50"
+                  className="rounded-xl bg-[#10B981] px-5 py-2 text-sm font-bold text-white hover:bg-[#059669] disabled:opacity-50"
                 >
                   {isCreatingChannel ? 'Đang tạo...' : 'Tạo Kênh'}
                 </button>

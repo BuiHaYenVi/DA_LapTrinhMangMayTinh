@@ -30,6 +30,11 @@ if not "%~1"=="" (
     if /I "!ARG!"=="migrate" goto :OPT_MIGRATE
     if /I "!ARG!"=="8" goto :OPT_CHECK
     if /I "!ARG!"=="check" goto :OPT_CHECK
+    if /I "!ARG!"=="9" goto :OPT_DEPS
+    if /I "!ARG!"=="deps" goto :OPT_DEPS
+    if /I "!ARG!"=="install" goto :OPT_DEPS
+    if /I "!ARG!"=="install-deps" goto :OPT_DEPS
+    if /I "!ARG!"=="dependencies" goto :OPT_DEPS
     if /I "!ARG!"=="help" goto :SHOW_HELP
     if /I "!ARG!"=="--help" goto :SHOW_HELP
     if /I "!ARG!"=="-h" goto :SHOW_HELP
@@ -52,11 +57,12 @@ echo   [5] Launch Java Swing Desktop Client (ChatClient -> TCP :5000)
 echo   [6] Run Automated Test Suite (84 Assertions: Protocol v2, JWT, UDP, RFC 6455)
 echo   [7] Run PostgreSQL / Neon Database Migration (scripts\migrate.ps1)
 echo   [8] Download JARs ^& Verify Full System Build (Pre-flight Check)
+echo   [9] Install All Dependencies (Frontend npm install + Backend Java JARs)
 echo   [0] Exit
 echo.
 echo ============================================================================
 set "CHOICE="
-set /p "CHOICE=Select option (0-8, default [1]): "
+set /p "CHOICE=Select option (0-9, default [1]): "
 if "%CHOICE%"=="" set "CHOICE=1"
 
 if "%CHOICE%"=="1" goto :OPT_ALL
@@ -67,10 +73,11 @@ if "%CHOICE%"=="5" goto :OPT_SWING
 if "%CHOICE%"=="6" goto :OPT_TEST
 if "%CHOICE%"=="7" goto :OPT_MIGRATE
 if "%CHOICE%"=="8" goto :OPT_CHECK
+if "%CHOICE%"=="9" goto :OPT_DEPS
 if "%CHOICE%"=="0" exit /b 0
 
 echo.
-echo [WARN] Invalid choice "%CHOICE%". Please select 0-8.
+echo [WARN] Invalid choice "%CHOICE%". Please select 0-9.
 timeout /t 2 >nul
 goto :MENU
 
@@ -122,10 +129,16 @@ echo [8] Verifying JAR libraries, Java Backend compilation, and Frontend depende
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%\scripts\dev-all.ps1" -CheckOnly
 goto :AFTER_RUN
 
+:OPT_DEPS
+echo.
+echo [9] Installing all project dependencies (Frontend npm + Java Backend JARs)...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$root = '%ROOT_DIR%'; Write-Host '============================================================' -ForegroundColor Cyan; Write-Host ' [1/2] Downloading Backend Java JAR Libraries...' -ForegroundColor Cyan; Write-Host '============================================================' -ForegroundColor Cyan; $dl = Join-Path $root 'Chatserver\lib\download_driver.ps1'; if (Test-Path $dl) { & powershell -NoProfile -ExecutionPolicy Bypass -File $dl } else { Write-Host '[ERROR] Not found: ' $dl -ForegroundColor Red }; Write-Host ''; Write-Host '============================================================' -ForegroundColor Cyan; Write-Host ' [2/2] Installing Frontend npm Dependencies (npm install)...' -ForegroundColor Cyan; Write-Host '============================================================' -ForegroundColor Cyan; $fe = Join-Path $root 'frontend'; if (Test-Path $fe) { & npm --prefix $fe install } else { Write-Host '[ERROR] Not found frontend directory' -ForegroundColor Red }; if ($LASTEXITCODE -eq 0) { Write-Host ''; Write-Host '[OK] All dependencies installed successfully!' -ForegroundColor Green } else { Write-Host ''; Write-Host '[ERROR] Dependency installation encountered errors.' -ForegroundColor Red; exit $LASTEXITCODE }"
+goto :AFTER_RUN
+
 :SHOW_HELP
 echo.
 echo Usage:
-echo   start.bat                  Open interactive menu (options 0-8)
+echo   start.bat                  Open interactive menu (options 0-9)
 echo   start.bat all              Start Full Stack (Java Backend + React Web UI :5173)
 echo   start.bat all-migrate      Run SQL Migration + Start Full Stack
 echo   start.bat backend          Start Java Chatserver only (:5000, :5001, :8080, :8081)
@@ -134,6 +147,8 @@ echo   start.bat swing            Compile and launch Java Swing Desktop Client (
 echo   start.bat test             Run 84-assertion automated test suite
 echo   start.bat migrate          Run PostgreSQL / Neon SQL migrations (schema.sql + V003)
 echo   start.bat check            Download JARs and verify full system compilation
+echo   start.bat deps             Install all dependencies (Frontend npm + Java JARs)
+echo   start.bat install          Alias for deps
 echo.
 exit /b 0
 

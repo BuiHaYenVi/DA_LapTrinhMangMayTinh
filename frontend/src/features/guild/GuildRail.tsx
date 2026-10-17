@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  MessageSquare,
+  Home,
   Plus,
   Compass,
   Sun,
@@ -16,6 +16,7 @@ import type { Guild, FriendRequest } from '../../shared/types/api';
 
 export const GuildRail: React.FC = () => {
   const {
+    currentUser,
     theme,
     toggleTheme,
     viewMode,
@@ -28,6 +29,7 @@ export const GuildRail: React.FC = () => {
     friendRequests,
     isMonitorOpen,
     setMonitorOpen,
+    setSettingsOpen,
   } = useAppStore();
 
   const [hoveredId, setHoveredId] = useState<string | number | null>(null);
@@ -129,86 +131,73 @@ export const GuildRail: React.FC = () => {
     <>
       <aside
         aria-label="Thanh máy chủ và điều hướng chính"
-        className={`relative z-20 flex h-full w-[72px] shrink-0 flex-col items-center justify-between border-r py-3 select-none transition-colors duration-200 ${
+        className={`relative z-20 flex h-full w-[76px] shrink-0 flex-col items-center justify-between border-r py-4 select-none transition-colors duration-200 ${
           isDark
-            ? 'border-[#334155] bg-[#0B1120] text-[#F8FAFC]'
-            : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#0F172A]'
+            ? 'border-[#1E2B25] bg-[#111815] text-[#F8FAFC]'
+            : 'border-[#E8EFEA] bg-white text-[#0F172A]'
         }`}
       >
-        {/* Top Section: Home/Friends + Guilds + Add/Join */}
-        <div className="flex w-full flex-col items-center gap-2 overflow-y-auto no-scrollbar">
-          {/* Direct Messages & Friends Crest Button */}
+        {/* Top: Cloverleaf Brand Logo + Nav items */}
+        <div className="flex w-full flex-col items-center gap-2.5 overflow-y-auto no-scrollbar">
+          {/* Cloverleaf Abstract Logo */}
+          <div
+            className="flex h-11 w-11 items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95 mb-1"
+            title="Discord Mini Modern"
+            onClick={() => setViewMode('friends')}
+          >
+            <div className="grid grid-cols-2 gap-1.5 w-6 h-6">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#111820] dark:bg-emerald-400" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#111820] dark:bg-emerald-400" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#111820] dark:bg-emerald-400" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#111820] dark:bg-emerald-400" />
+            </div>
+          </div>
+
+          <div className="h-[1px] w-8 bg-[#E8EFEA] dark:bg-[#1E2B25] mb-1" />
+
+          {/* Direct Messages & Friends Button */}
           <div
             className="relative flex w-full items-center justify-center"
             onMouseEnter={() => setHoveredId('home-dm')}
             onMouseLeave={() => setHoveredId(null)}
           >
-            {/* Left Pill Indicator */}
-            <span
-              className={`absolute left-0 w-1 rounded-r-full bg-[#2563EB] transition-all duration-200 ${
-                isHomeActive
-                  ? 'h-9 opacity-100'
-                  : hoveredId === 'home-dm'
-                  ? 'h-5 opacity-100'
-                  : pendingIncomingCount > 0
-                  ? 'h-2.5 opacity-90'
-                  : 'h-0 opacity-0'
-              }`}
-            />
-
             <button
               type="button"
               onClick={() => setViewMode('friends')}
               aria-label="Tin nhắn trực tiếp & Bạn bè"
-              className={`relative flex h-12 w-12 items-center justify-center font-bold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB] active:translate-y-[1px] ${
-                isHomeActive || hoveredId === 'home-dm'
-                  ? 'rounded-[16px] bg-[#2563EB] text-white shadow-sm'
+              className={`relative flex h-11 w-11 items-center justify-center transition-all duration-200 active:scale-95 ${
+                isHomeActive
+                  ? 'rounded-[16px] bg-[#111820] text-white shadow-md dark:bg-emerald-500 dark:text-[#090E0C]'
                   : isDark
-                  ? 'rounded-[24px] bg-[#1E293B] text-[#CBD5E1] hover:bg-[#2563EB] hover:text-white'
-                  : 'rounded-[24px] bg-white text-[#0F172A] shadow-xs hover:bg-[#2563EB] hover:text-white'
+                  ? 'rounded-[18px] bg-transparent text-[#94A3B8] hover:bg-[#1B2922] hover:text-[#F8FAFC]'
+                  : 'rounded-[18px] bg-transparent text-[#64748B] hover:bg-[#E8F2EC] hover:text-[#0F172A]'
               }`}
             >
-              <MessageSquare className="h-5 w-5" strokeWidth={2.2} />
+              <Home className="h-5 w-5" strokeWidth={2.2} />
 
               {/* Pending Friend Requests Badge */}
               {pendingIncomingCount > 0 && (
                 <span
-                  title={`${pendingIncomingCount} lời mời kết bạn đang chờ`}
-                  className={`absolute -right-1 -bottom-1 flex min-w-[20px] items-center justify-center rounded-full bg-[#F43F5E] px-1.5 py-0.5 text-[11px] font-bold leading-none text-white ring-[3px] ${
-                    isDark ? 'ring-[#0B1120]' : 'ring-[#F1F5F9]'
-                  }`}
+                  title={`${pendingIncomingCount} lời mời kết bạn`}
+                  className="absolute -right-1 -top-1 flex min-w-[18px] items-center justify-center rounded-full bg-[#F43F5E] px-1 py-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#111815]"
                 >
                   {pendingIncomingCount > 9 ? '9+' : pendingIncomingCount}
                 </span>
               )}
             </button>
 
-            {/* Hover Tooltip */}
             {hoveredId === 'home-dm' && (
               <div
                 role="tooltip"
-                className={`pointer-events-none fixed left-[78px] z-50 flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-bold whitespace-nowrap shadow-lg ${
-                  isDark
-                    ? 'border-[#334155] bg-[#0F172A] text-[#F8FAFC]'
-                    : 'border-[#E2E8F0] bg-[#0F172A] text-white'
-                }`}
+                className="pointer-events-none fixed left-[82px] z-50 flex items-center gap-2 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
               >
                 <span>Tin nhắn riêng & Bạn bè</span>
-                {pendingIncomingCount > 0 && (
-                  <span className="rounded-full bg-[#F43F5E] px-1.5 py-0.5 text-[10px] text-white">
-                    {pendingIncomingCount}
-                  </span>
-                )}
               </div>
             )}
           </div>
 
           {/* Horizontal Divider */}
-          <div
-            className={`my-1 h-[2px] w-8 rounded-full ${
-              isDark ? 'bg-[#334155]' : 'bg-[#CBD5E1]'
-            }`}
-          />
+          <div className="my-1 h-[1px] w-8 rounded-full bg-[#E8EFEA] dark:bg-[#1E2B25]" />
 
           {/* Guild List */}
           <div className="flex w-full flex-col items-center gap-2">
@@ -245,12 +234,12 @@ export const GuildRail: React.FC = () => {
                       selectGuild(guild.id);
                     }}
                     aria-label={`Máy chủ ${guild.name}`}
-                    className={`relative flex h-12 w-12 items-center justify-center text-sm font-bold tracking-tight transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB] active:translate-y-[1px] ${
-                      isActive || isHovered
-                        ? 'rounded-[16px] bg-[#2563EB] text-white shadow-sm'
+                    className={`relative flex h-11 w-11 items-center justify-center text-xs font-black transition-all duration-200 active:scale-95 ${
+                      isActive
+                        ? 'rounded-[16px] bg-[#111820] text-white shadow-md dark:bg-emerald-500 dark:text-[#090E0C]'
                         : isDark
-                        ? 'rounded-[24px] bg-[#1E293B] text-[#F8FAFC] hover:bg-[#2563EB] hover:text-white'
-                        : 'rounded-[24px] bg-white text-[#0F172A] shadow-xs hover:bg-[#2563EB] hover:text-white'
+                        ? 'rounded-[18px] bg-[#16201C] text-[#CBD5E1] hover:bg-[#1B2922] hover:text-white'
+                        : 'rounded-[18px] bg-[#F6F9F7] text-[#334155] hover:bg-[#E8F2EC] hover:text-[#0F172A]'
                     }`}
                   >
                     <span>
@@ -259,12 +248,8 @@ export const GuildRail: React.FC = () => {
 
                     {/* Unread Count Badge */}
                     {unread > 0 && (
-                      <span
-                        className={`absolute -top-1 -right-1 flex min-w-[20px] items-center justify-center rounded-full bg-[#F43F5E] px-1.5 py-0.5 text-[11px] font-bold leading-none text-white ring-[3px] ${
-                          isDark ? 'ring-[#0B1120]' : 'ring-[#F1F5F9]'
-                        }`}
-                      >
-                        {unread > 99 ? '99+' : unread}
+                      <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#F59E0B] px-1 text-[9px] font-black text-white ring-2 ring-white dark:ring-[#111815]">
+                        {unread > 9 ? '9+' : unread}
                       </span>
                     )}
                   </button>
@@ -273,11 +258,7 @@ export const GuildRail: React.FC = () => {
                   {isHovered && (
                     <div
                       role="tooltip"
-                      className={`pointer-events-none fixed left-[78px] z-50 flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-bold whitespace-nowrap shadow-lg ${
-                        isDark
-                          ? 'border-[#334155] bg-[#0F172A] text-[#F8FAFC]'
-                          : 'border-[#E2E8F0] bg-[#0F172A] text-white'
-                      }`}
+                      className="pointer-events-none fixed left-[82px] z-50 flex items-center gap-2 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
                     >
                       <span>{guild.name}</span>
                       {unread > 0 && (
@@ -302,12 +283,12 @@ export const GuildRail: React.FC = () => {
               type="button"
               onClick={handleOpenCreateModal}
               aria-label="Tạo máy chủ mới"
-              className={`flex h-12 w-12 items-center justify-center transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB] active:scale-95 ${
+              className={`flex h-11 w-11 items-center justify-center transition-all duration-200 active:scale-95 ${
                 hoveredId === 'create-guild'
                   ? 'rounded-[16px] bg-[#10B981] text-white shadow-sm'
                   : isDark
-                  ? 'rounded-[24px] bg-[#1E293B] text-[#10B981]'
-                  : 'rounded-[24px] bg-white text-[#10B981] shadow-xs'
+                  ? 'rounded-[18px] bg-transparent text-[#34D399] hover:bg-[#1B2922]'
+                  : 'rounded-[18px] bg-transparent text-[#059669] hover:bg-[#E8F2EC]'
               }`}
             >
               <Plus className="h-5 w-5" strokeWidth={2.4} />
@@ -316,7 +297,7 @@ export const GuildRail: React.FC = () => {
             {hoveredId === 'create-guild' && (
               <div
                 role="tooltip"
-                className="pointer-events-none fixed left-[78px] z-50 rounded-lg border border-[#334155] bg-[#0F172A] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-lg"
+                className="pointer-events-none fixed left-[82px] z-50 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
               >
                 Tạo máy chủ mới (Guild)
               </div>
@@ -333,12 +314,12 @@ export const GuildRail: React.FC = () => {
               type="button"
               onClick={handleOpenJoinModal}
               aria-label="Tham gia máy chủ bằng mã mời"
-              className={`flex h-12 w-12 items-center justify-center transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB] active:scale-95 ${
+              className={`flex h-11 w-11 items-center justify-center transition-all duration-200 active:scale-95 ${
                 hoveredId === 'join-guild'
                   ? 'rounded-[16px] bg-[#0284C7] text-white shadow-sm'
                   : isDark
-                  ? 'rounded-[24px] bg-[#1E293B] text-[#0EA5E9]'
-                  : 'rounded-[24px] bg-white text-[#0284C7] shadow-xs'
+                  ? 'rounded-[18px] bg-transparent text-[#38BDF8] hover:bg-[#1B2922]'
+                  : 'rounded-[18px] bg-transparent text-[#0284C7] hover:bg-[#E8F2EC]'
               }`}
             >
               <Compass className="h-5 w-5" strokeWidth={2.2} />
@@ -347,23 +328,17 @@ export const GuildRail: React.FC = () => {
             {hoveredId === 'join-guild' && (
               <div
                 role="tooltip"
-                className="pointer-events-none fixed left-[78px] z-50 rounded-lg border border-[#334155] bg-[#0F172A] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-lg"
+                className="pointer-events-none fixed left-[82px] z-50 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
               >
-                Tham gia bằng Mã Mời (Invite Code)
+                Tham gia bằng Mã Mời
               </div>
             )}
           </div>
         </div>
 
-        {/* Bottom Utility Actions: Network Monitor + Theme Toggle */}
+        {/* Bottom Utility Actions: Network Monitor + Theme Toggle + Monogram */}
         <div className="flex w-full flex-col items-center gap-2 pt-2">
-          <div
-            className={`h-[1px] w-8 ${
-              isDark ? 'bg-[#334155]' : 'bg-[#CBD5E1]'
-            }`}
-          />
-
-          {/* Network Monitor Shortcut */}
+          {/* Network Monitor */}
           <div
             className="relative flex w-full items-center justify-center"
             onMouseEnter={() => setHoveredId('rail-monitor')}
@@ -373,12 +348,12 @@ export const GuildRail: React.FC = () => {
               type="button"
               onClick={() => setMonitorOpen(!isMonitorOpen)}
               aria-label="Bật/Tắt bảng giám sát giao thức mạng TCP/UDP"
-              className={`relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 focus-visible:outline-2 focus-visible:outline-[#2563EB] active:scale-95 ${
+              className={`relative flex h-10 w-10 items-center justify-center rounded-[14px] transition-all duration-150 active:scale-95 ${
                 isMonitorOpen
-                  ? 'bg-[#2563EB] text-white shadow-xs'
+                  ? 'bg-[#111820] text-white dark:bg-emerald-500 dark:text-black shadow-xs'
                   : isDark
-                  ? 'bg-[#1E293B] text-[#94A3B8] hover:bg-[#334155] hover:text-white'
-                  : 'bg-white text-[#475569] shadow-2xs hover:bg-[#E2E8F0] hover:text-[#0F172A]'
+                  ? 'bg-transparent text-[#94A3B8] hover:bg-[#1B2922] hover:text-white'
+                  : 'bg-transparent text-[#64748B] hover:bg-[#E8F2EC] hover:text-[#0F172A]'
               }`}
             >
               <Activity className="h-4 w-4" />
@@ -388,7 +363,7 @@ export const GuildRail: React.FC = () => {
             {hoveredId === 'rail-monitor' && (
               <div
                 role="tooltip"
-                className="pointer-events-none fixed left-[78px] z-50 rounded-lg border border-[#334155] bg-[#0F172A] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-lg"
+                className="pointer-events-none fixed left-[82px] z-50 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
               >
                 Network Monitor (TCP :5000 / UDP :5001)
               </div>
@@ -404,34 +379,35 @@ export const GuildRail: React.FC = () => {
             <button
               type="button"
               onClick={toggleTheme}
-              aria-label={
+              aria-label={isDark ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang giao diện Tối'}
+              className={`flex h-10 w-10 items-center justify-center rounded-[14px] transition-all duration-150 active:scale-95 ${
                 isDark
-                  ? 'Chuyển sang giao diện Sáng'
-                  : 'Chuyển sang giao diện Tối'
-              }
-              className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 focus-visible:outline-2 focus-visible:outline-[#2563EB] active:scale-95 ${
-                isDark
-                  ? 'bg-[#1E293B] text-[#F59E0B] hover:bg-[#334155]'
-                  : 'bg-white text-[#2563EB] shadow-2xs hover:bg-[#DBEAFE]'
+                  ? 'text-[#F59E0B] hover:bg-[#1B2922]'
+                  : 'text-[#10B981] hover:bg-[#E8F2EC]'
               }`}
             >
-              {isDark ? (
-                <Sun className="h-4 w-4" />
-              ) : (
-                <Moon className="h-4 w-4" />
-              )}
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
 
             {hoveredId === 'rail-theme' && (
               <div
                 role="tooltip"
-                className="pointer-events-none fixed left-[78px] z-50 rounded-lg border border-[#334155] bg-[#0F172A] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-lg"
+                className="pointer-events-none fixed left-[82px] z-50 rounded-xl border border-[#E8EFEA] dark:border-[#1E2B25] bg-[#111820] dark:bg-[#16201C] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-xl"
               >
-                {isDark
-                  ? 'Chế độ Sáng (Oceanic Light)'
-                  : 'Chế độ Tối (Dark Navy)'}
+                {isDark ? 'Chế độ Sáng (Sage Light)' : 'Chế độ Tối (Emerald Dark)'}
               </div>
             )}
+          </div>
+
+          <div className="h-[1px] w-8 bg-[#E8EFEA] dark:bg-[#1E2B25] my-1" />
+
+          {/* Bottom Monogram Avatar (Matching reference image "N" avatar) */}
+          <div
+            className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[#111820] dark:bg-emerald-500 text-white dark:text-[#090E0C] font-black text-sm shadow-sm cursor-pointer transition-transform hover:scale-105 active:scale-95"
+            title={currentUser?.displayName || 'User'}
+            onClick={() => setSettingsOpen(true)}
+          >
+            {currentUser?.displayName?.[0]?.toUpperCase() || 'N'}
           </div>
         </div>
       </aside>

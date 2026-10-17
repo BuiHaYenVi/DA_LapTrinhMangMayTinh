@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Hash,
-  Volume2,
   Pin,
   Search,
   Users,
@@ -17,6 +16,7 @@ import {
   Radio,
   ZoomIn,
   Check,
+  CheckCheck,
 } from 'lucide-react';
 import { useAppStore } from '../../shared/state/appStore';
 import type {
@@ -25,6 +25,8 @@ import type {
   ReactionGroup,
 } from '../../shared/types/api';
 import { MessageComposer } from './MessageComposer';
+import { VoiceWaveformPlayer } from './VoiceWaveformPlayer';
+import { NetworkMetricCard } from './NetworkMetricCard';
 
 const QUICK_REACTION_EMOJIS = ['👍', '❤️', '😂', '🔥', '🎉', '👀'];
 
@@ -345,58 +347,52 @@ export const ChatStage: React.FC = () => {
         isDark ? 'bg-[#1E293B] text-[#F8FAFC]' : 'bg-white text-[#0F172A]'
       }`}
     >
-      {/* STICKY TOP HEADER (56px) */}
+      {/* STICKY TOP HEADER (64px, modern minimalist style from reference image) */}
       <header
-        className={`sticky top-0 z-20 flex h-[56px] shrink-0 items-center justify-between border-b px-4 backdrop-blur-md ${
+        className={`sticky top-0 z-20 flex h-[64px] shrink-0 items-center justify-between border-b px-5 backdrop-blur-md transition-colors ${
           isDark
-            ? 'border-[#334155] bg-[#1E293B]/90'
-            : 'border-[#E2E8F0] bg-white/90'
+            ? 'border-[#1E2B25] bg-[#111815]/90'
+            : 'border-[#E8EFEA] bg-white/90'
         }`}
       >
-        {/* Left: Channel Name + Topic + Live Transport Badge */}
+        {/* Left: Contact/Channel Avatar + Name + Online status indicator */}
         <div className="flex min-w-0 flex-1 items-center gap-3 pr-3">
-          <div className="flex items-center gap-1.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EFF6FF] text-[#2563EB] dark:bg-[#3B82F6]/20 dark:text-[#3B82F6]">
-              {activeChannel?.type === 'voice' ? (
-                <Volume2 className="h-4 w-4" />
-              ) : (
-                <Hash className="h-4 w-4" />
-              )}
+          <div className="relative shrink-0">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111820] dark:bg-emerald-500 text-white dark:text-[#090E0C] text-sm font-extrabold shadow-2xs">
+              {activeChannel?.name ? activeChannel.name[0].toUpperCase() : 'C'}
             </div>
-            <h2 className="truncate text-[16px] font-bold tracking-tight">
-              {activeChannel?.name || 'general'}
-            </h2>
+            <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full bg-[#10B981] ring-2 ring-white dark:ring-[#111815]" />
           </div>
 
-          {/* Live Transport Bridge Badge */}
-          <span
-            title="Đồng bộ đa giao thức: WebSocket (:8081) ↔ Java Swing TCP (:5000) ↔ UDP Typing (:5001)"
-            className={`hidden shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[10px] font-bold sm:inline-flex ${
-              isDark
-                ? 'border-[#334155] bg-[#0F172A] text-[#38BDF8]'
-                : 'border-[#DBEAFE] bg-[#EFF6FF] text-[#2563EB]'
-            }`}
-          >
-            <Radio className="h-3 w-3 text-[#10B981]" />
-            <span>WS + TCP :5000 + UDP :5001</span>
-          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="truncate text-[15.5px] font-extrabold tracking-tight text-[#0F172A] dark:text-[#F8FAFC]">
+                {activeChannel?.name ? `#${activeChannel.name}` : 'General Chat'}
+              </h2>
 
-          {activeChannel?.topic && (
-            <>
+              {/* Live Transport Bridge Badge */}
               <span
-                className={`hidden h-4 w-[1px] lg:inline-block ${
-                  isDark ? 'bg-[#334155]' : 'bg-[#CBD5E1]'
-                }`}
-              />
-              <p
-                className={`hidden truncate text-xs lg:block ${
-                  isDark ? 'text-[#94A3B8]' : 'text-[#64748B]'
-                }`}
+                title="Đồng bộ đa giao thức: WebSocket (:8081) ↔ TCP (:5000) ↔ UDP (:5001)"
+                className="hidden xl:inline-flex items-center gap-1 rounded-full bg-[#E8F2EC] dark:bg-[#1B2922] px-2 py-0.5 font-mono text-[9.5px] font-bold text-[#10B981]"
               >
-                {activeChannel.topic}
-              </p>
-            </>
-          )}
+                <Radio className="h-2.5 w-2.5 text-[#10B981]" />
+                <span>WS + TCP + UDP</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+              <span className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" />
+                <span>Online</span>
+              </span>
+              {activeChannel?.topic && (
+                <>
+                  <span>•</span>
+                  <span className="truncate max-w-[280px]">{activeChannel.topic}</span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Right: Search, Pinned Messages, Network Monitor, Member Sidebar Toggle */}
@@ -705,261 +701,256 @@ export const ChatStage: React.FC = () => {
                 {/* Message Row */}
                 <div
                   id={`msg-${msg.id}`}
-                  className={`group relative rounded-xl px-3 py-1.5 transition-colors ${
-                    isGrouped ? 'mt-0.5' : 'mt-3'
-                  } ${
-                    mentionsMe
-                      ? isDark
-                        ? 'border-l-[3px] border-[#3B82F6] bg-[#3B82F6]/10'
-                        : 'border-l-[3px] border-[#2563EB] bg-[#EFF6FF]'
-                      : isDark
-                      ? 'hover:bg-[#0F172A]/60'
-                      : 'hover:bg-[#F8FAFC]'
+                  className={`group relative transition-all ${
+                    isGrouped ? 'mt-1' : 'mt-3.5'
                   }`}
                 >
-                  {/* REPLY REFERENCE BANNER (↱ @sender: preview) */}
-                  {msg.replyTo && (
-                    <button
-                      type="button"
-                      onClick={() => scrollToMessage(msg.replyTo!.messageId)}
-                      className={`mb-1 ml-11 flex max-w-full items-center gap-1.5 truncate text-left text-xs transition hover:underline ${
-                        isDark ? 'text-[#94A3B8]' : 'text-[#475569]'
-                      }`}
-                    >
-                      <CornerUpRight className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" />
-                      <span className="font-bold text-[#2563EB] dark:text-[#3B82F6]">
-                        @{msg.replyTo.senderName}
-                      </span>
-                      <span className="truncate opacity-85">
-                        {msg.replyTo.content}
-                      </span>
-                    </button>
-                  )}
+                  {(() => {
+                    const isMe = Boolean(currentUser && msg.senderId === currentUser.id);
+                    const isVoice = msg.content?.includes('[Voice Message]') || msg.content?.startsWith('/voice');
+                    const isMetric = msg.content?.includes('[Network Metric]') || msg.content?.startsWith('/metric');
 
-                  <div className="flex items-start gap-3">
-                    {/* Left Avatar or Compact Hover Timestamp */}
-                    {isGrouped ? (
-                      <div className="flex w-10 shrink-0 justify-center pt-1">
-                        <span className="font-mono text-[10px] text-[#94A3B8] opacity-0 transition group-hover:opacity-100">
-                          {formatTime(msg.createdAt)}
-                        </span>
-                      </div>
-                    ) : (
-                      <div
-                        style={
-                          msg.senderAvatarColor
-                            ? { backgroundColor: msg.senderAvatarColor }
-                            : undefined
-                        }
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-xs font-bold text-white shadow-2xs"
-                      >
-                        {(msg.senderName || 'U').slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-
-                    {/* Message Content Body */}
-                    <div className="min-w-0 flex-1">
-                      {!isGrouped && (
-                        <div className="mb-0.5 flex flex-wrap items-center gap-2">
-                          <span className="text-[14px] font-bold">
-                            {msg.senderName}
-                          </span>
-
-                          {/* Origin Transport Protocol Pill */}
-                          <span
-                            className={`rounded-full px-1.5 py-0.2 font-mono text-[9px] font-bold ${
-                              msg.transport === 'TCP'
-                                ? 'bg-[#FEF3C7] text-[#D97706]'
-                                : msg.transport === 'UDP'
-                                ? 'bg-[#D1FAE5] text-[#059669]'
-                                : isDark
-                                ? 'bg-[#0F172A] text-[#38BDF8]'
-                                : 'bg-[#E0F2FE] text-[#0284C7]'
+                    return (
+                      <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} w-full`}>
+                        {/* REPLY REFERENCE BANNER (↱ @sender: preview) */}
+                        {msg.replyTo && (
+                          <button
+                            type="button"
+                            onClick={() => scrollToMessage(msg.replyTo!.messageId)}
+                            className={`mb-1 flex max-w-full items-center gap-1.5 truncate text-left text-xs transition hover:underline ${
+                              isDark ? 'text-slate-400' : 'text-slate-500'
                             }`}
-                            title={
-                              msg.transport === 'TCP'
-                                ? 'Tin nhắn gửi từ Java Swing TCP Client (:5000)'
-                                : 'Tin nhắn gửi qua WebSocket (:8081)'
-                            }
                           >
-                            {msg.transport || 'WS'}
-                          </span>
-
-                          <span className="font-mono text-[11px] text-[#94A3B8]">
-                            {formatTime(msg.createdAt)}
-                          </span>
-
-                          {msg.pinned && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-bold text-[#D97706]">
-                              <Pin className="h-2.5 w-2.5" />
-                              Đã ghim
+                            <CornerUpRight className="h-3.5 w-3.5 shrink-0 text-[#10B981]" />
+                            <span className="font-bold text-[#10B981]">
+                              @{msg.replyTo.senderName}
                             </span>
-                          )}
-                        </div>
-                      )}
+                            <span className="truncate opacity-85">
+                              {msg.replyTo.content}
+                            </span>
+                          </button>
+                        )}
 
-                      {/* Deleted / Editing / Normal Content */}
-                      {isDeleted ? (
-                        <p className="text-xs italic text-[#94A3B8]">
-                          (Tin nhắn này đã bị thu hồi)
-                        </p>
-                      ) : isEditingThis ? (
-                        <div className="mt-1 space-y-2">
-                          <textarea
-                            rows={2}
-                            value={inlineEditText}
-                            onChange={(e) => setInlineEditText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSaveInlineEdit(msg.id);
-                              } else if (e.key === 'Escape') {
-                                setEditingMessage(null);
-                              }
-                            }}
-                            className={`w-full rounded-xl border p-2.5 text-sm outline-none focus:border-[#2563EB] ${
-                              isDark
-                                ? 'border-[#334155] bg-[#0F172A] text-white'
-                                : 'border-[#CBD5E1] bg-white text-[#0F172A]'
-                            }`}
-                          />
-                          <div className="flex items-center gap-2 text-xs">
-                            <button
-                              type="button"
-                              onClick={() => handleSaveInlineEdit(msg.id)}
-                              className="inline-flex items-center gap-1 rounded-lg bg-[#2563EB] px-3 py-1 font-bold text-white hover:bg-[#1D4ED8]"
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                              <span>Lưu thay đổi</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingMessage(null)}
-                              className="rounded-lg px-2.5 py-1 font-semibold text-[#64748B] hover:underline"
-                            >
-                              Hủy (Esc)
-                            </button>
+                        {/* Sender info for incoming messages if not grouped */}
+                        {!isMe && !isGrouped && (
+                          <div className="flex items-center gap-2 mb-1 pl-1">
+                            <span className="text-xs font-extrabold text-[#0F172A] dark:text-[#F8FAFC]">
+                              {msg.senderName}
+                            </span>
+                            {msg.transport && (
+                              <span className="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-[#E8F2EC] dark:bg-[#1B2922] text-[#10B981]">
+                                {msg.transport}
+                              </span>
+                            )}
                           </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <SafeMarkdownContent
-                            content={msg.content}
-                            currentUsername={currentUser?.username}
-                            isDark={isDark}
+                        )}
+
+                        {/* Special Voice Waveform Player */}
+                        {isVoice ? (
+                          <VoiceWaveformPlayer isOutgoing={isMe} timestamp={formatTime(msg.createdAt)} />
+                        ) : isMetric ? (
+                          <NetworkMetricCard
+                            isOutgoing={isMe}
+                            attachments={msg.attachments}
+                            timestamp={formatTime(msg.createdAt)}
                           />
-                          {msg.editedAt && (
-                            <span className="ml-1.5 text-[10px] italic text-[#94A3B8]">
-                              (đã chỉnh sửa)
-                            </span>
+                        ) : (
+                          /* Standard High Contrast Message Bubble */
+                          <div
+                            className={`relative max-w-[85%] sm:max-w-[70%] rounded-[22px] px-4.5 py-3 transition-shadow ${
+                              isMe
+                                ? 'bg-white dark:bg-[#1C2822] text-[#0F172A] dark:text-[#F8FAFC] border border-[#E5EFE9] dark:border-[#283830] shadow-xs'
+                                : 'bg-[#111820] dark:bg-[#141C18] text-white shadow-xs'
+                            } ${
+                              mentionsMe
+                                ? isDark
+                                  ? 'ring-2 ring-emerald-500'
+                                  : 'ring-2 ring-[#10B981]'
+                                : ''
+                            }`}
+                          >
+                            {/* Deleted / Editing / Normal Content */}
+                            {isDeleted ? (
+                              <p className="text-xs italic opacity-70">
+                                (Tin nhắn này đã bị thu hồi)
+                              </p>
+                            ) : isEditingThis ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  rows={2}
+                                  value={inlineEditText}
+                                  onChange={(e) => setInlineEditText(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      handleSaveInlineEdit(msg.id);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingMessage(null);
+                                    }
+                                  }}
+                                  className={`w-full rounded-xl border p-2 text-sm outline-none ${
+                                    isMe
+                                      ? 'bg-slate-50 dark:bg-black/20 text-[#0F172A] dark:text-white border-slate-300'
+                                      : 'bg-white/10 text-white border-white/20'
+                                  }`}
+                                />
+                                <div className="flex items-center gap-2 text-xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveInlineEdit(msg.id)}
+                                    className="inline-flex items-center gap-1 rounded-lg bg-[#10B981] px-2.5 py-1 font-bold text-white shadow-2xs"
+                                  >
+                                    <Check className="h-3 w-3" />
+                                    <span>Lưu</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingMessage(null)}
+                                    className="px-2 py-1 font-semibold opacity-70 hover:opacity-100"
+                                  >
+                                    Hủy
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <SafeMarkdownContent
+                                  content={msg.content}
+                                  currentUsername={currentUser?.username}
+                                  isDark={isDark || !isMe}
+                                />
+                                {msg.editedAt && (
+                                  <span className="ml-1.5 text-[10px] italic opacity-60">
+                                    (đã sửa)
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Pin Indicator */}
+                            {msg.pinned && (
+                              <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-[#F59E0B]">
+                                <Pin className="h-2.5 w-2.5" />
+                                <span>Đã ghim</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* ATTACHMENTS (Images with Lightbox + File Cards) */}
+                        {!isDeleted &&
+                          Array.isArray(msg.attachments) &&
+                          msg.attachments.length > 0 &&
+                          !isMetric && (
+                            <div className="mt-2 flex flex-wrap gap-2.5">
+                              {msg.attachments.map((att) => {
+                                const isImg =
+                                  att.contentType?.startsWith('image/') ||
+                                  /\.(png|jpe?g|gif|webp)$/i.test(att.filename);
+                                const srcUrl = att.dataUrl || att.url;
+
+                                if (isImg) {
+                                  return (
+                                    <button
+                                      key={att.id}
+                                      type="button"
+                                      onClick={() => setLightboxAttachment(att)}
+                                      className="group/img relative overflow-hidden rounded-2xl border border-[#CBD5E1] dark:border-[#334155]"
+                                    >
+                                      <img
+                                        src={srcUrl}
+                                        alt={att.filename}
+                                        className="max-h-60 max-w-xs object-cover transition duration-200 group-hover/img:scale-[1.02]"
+                                      />
+                                      <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-lg bg-slate-950/70 px-2 py-1 text-[10px] font-bold text-white opacity-0 transition group-hover/img:opacity-100">
+                                        <ZoomIn className="h-3 w-3" />
+                                        Phóng to
+                                      </span>
+                                    </button>
+                                  );
+                                }
+
+                                return (
+                                  <a
+                                    key={att.id}
+                                    href={srcUrl}
+                                    download={att.filename}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`flex items-center gap-3 rounded-2xl border px-3.5 py-2.5 text-xs transition ${
+                                      isDark
+                                        ? 'border-[#283830] bg-[#141C18] hover:border-[#10B981]'
+                                        : 'border-[#E5EFE9] bg-[#F7FAF8] hover:border-[#10B981]'
+                                    }`}
+                                  >
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E8F5EE] text-[#059669]">
+                                      <FileText className="h-5 w-5" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="truncate font-bold">
+                                        {att.filename}
+                                      </div>
+                                      <div className="font-mono text-[10px] text-[#64748B]">
+                                        {(att.sizeBytes / 1024).toFixed(1)} KB •{' '}
+                                        {att.contentType}
+                                      </div>
+                                    </div>
+                                    <Download className="h-4 w-4 text-[#10B981]" />
+                                  </a>
+                                );
+                              })}
+                            </div>
                           )}
-                        </div>
-                      )}
 
-                      {/* ATTACHMENTS (Images with Lightbox + File Cards) */}
-                      {!isDeleted &&
-                        Array.isArray(msg.attachments) &&
-                        msg.attachments.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-2.5">
-                            {msg.attachments.map((att) => {
-                              const isImg =
-                                att.contentType?.startsWith('image/') ||
-                                /\.(png|jpe?g|gif|webp)$/i.test(att.filename);
-                              const srcUrl = att.dataUrl || att.url;
+                        {/* REACTIONS BAR */}
+                        {!isDeleted &&
+                          Array.isArray(msg.reactions) &&
+                          msg.reactions.length > 0 && (
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                              {msg.reactions.map((rg: ReactionGroup) => {
+                                const reactedByMe =
+                                  rg.me ||
+                                  Boolean(
+                                    currentUser &&
+                                      Array.isArray(rg.userIds) &&
+                                      rg.userIds.includes(currentUser.id)
+                                  );
 
-                              if (isImg) {
                                 return (
                                   <button
-                                    key={att.id}
+                                    key={rg.emoji}
                                     type="button"
-                                    onClick={() => setLightboxAttachment(att)}
-                                    className="group/img relative overflow-hidden rounded-xl border border-[#CBD5E1] dark:border-[#334155]"
+                                    onClick={() =>
+                                      toggleReaction(msg.id, rg.emoji)
+                                    }
+                                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold transition active:scale-95 ${
+                                      reactedByMe
+                                        ? 'border-[#10B981] bg-[#E8F5EE] text-[#059669] dark:bg-[#10B981]/20 dark:text-[#10B981]'
+                                        : isDark
+                                        ? 'border-[#283830] bg-[#141C18] text-[#CBD5E1] hover:border-[#64748B]'
+                                        : 'border-[#E5EFE9] bg-[#F7FAF8] text-[#475569] hover:border-[#CBD5E1]'
+                                    }`}
                                   >
-                                    <img
-                                      src={srcUrl}
-                                      alt={att.filename}
-                                      className="max-h-60 max-w-xs object-cover transition duration-200 group-hover/img:scale-[1.02]"
-                                    />
-                                    <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-lg bg-slate-950/70 px-2 py-1 text-[10px] font-bold text-white opacity-0 transition group-hover/img:opacity-100">
-                                      <ZoomIn className="h-3 w-3" />
-                                      Phóng to
+                                    <span>{rg.emoji}</span>
+                                    <span className="font-mono text-[11px]">
+                                      {rg.count}
                                     </span>
                                   </button>
                                 );
-                              }
+                              })}
+                            </div>
+                          )}
 
-                              return (
-                                <a
-                                  key={att.id}
-                                  href={srcUrl}
-                                  download={att.filename}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-xs transition ${
-                                    isDark
-                                      ? 'border-[#334155] bg-[#0F172A] hover:border-[#3B82F6]'
-                                      : 'border-[#CBD5E1] bg-[#F8FAFC] hover:border-[#2563EB]'
-                                  }`}
-                                >
-                                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E0F2FE] text-[#0284C7]">
-                                    <FileText className="h-5 w-5" />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="truncate font-bold">
-                                      {att.filename}
-                                    </div>
-                                    <div className="font-mono text-[10px] text-[#64748B]">
-                                      {(att.sizeBytes / 1024).toFixed(1)} KB •{' '}
-                                      {att.contentType}
-                                    </div>
-                                  </div>
-                                  <Download className="h-4 w-4 text-[#2563EB]" />
-                                </a>
-                              );
-                            })}
+                        {/* Timestamp & Delivery status tick (from reference image) */}
+                        {!isVoice && !isMetric && (
+                          <div className={`flex items-center gap-1.5 mt-1 px-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500`}>
+                            <span>{formatTime(msg.createdAt)}</span>
+                            {isMe && <CheckCheck className="h-3.5 w-3.5 text-[#10B981]" />}
                           </div>
                         )}
-
-                      {/* REACTIONS BAR */}
-                      {!isDeleted &&
-                        Array.isArray(msg.reactions) &&
-                        msg.reactions.length > 0 && (
-                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                            {msg.reactions.map((rg: ReactionGroup) => {
-                              const reactedByMe =
-                                rg.me ||
-                                Boolean(
-                                  currentUser &&
-                                    Array.isArray(rg.userIds) &&
-                                    rg.userIds.includes(currentUser.id)
-                                );
-
-                              return (
-                                <button
-                                  key={rg.emoji}
-                                  type="button"
-                                  onClick={() =>
-                                    toggleReaction(msg.id, rg.emoji)
-                                  }
-                                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold transition active:scale-95 ${
-                                    reactedByMe
-                                      ? 'border-[#2563EB] bg-[#DBEAFE] text-[#2563EB] dark:border-[#3B82F6] dark:bg-[#3B82F6]/20 dark:text-[#3B82F6]'
-                                      : isDark
-                                      ? 'border-[#334155] bg-[#0F172A] text-[#CBD5E1] hover:border-[#64748B]'
-                                      : 'border-[#E2E8F0] bg-[#F8FAFC] text-[#475569] hover:border-[#CBD5E1]'
-                                  }`}
-                                >
-                                  <span>{rg.emoji}</span>
-                                  <span className="font-mono text-[11px]">
-                                    {rg.count}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                    </div>
-                  </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* HOVER FLOATING ACTION TOOLBAR */}
                   {!isDeleted && (

@@ -5,17 +5,24 @@
 
 :root,
 [data-theme='light'] {
+  /* Sage Modern Floating Canvas */
+  --bg-canvas: #DFECE5;
+  --bg-canvas-gradient: radial-gradient(circle at 10% 15%, #F0F6F2 0%, #DFECE5 55%, #D4E4DC 100%);
+  --card-floating-bg: #FFFFFF;
+  --card-floating-radius: 36px;
+  --card-floating-shadow: 0 25px 60px -15px rgba(22, 45, 35, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.7);
+
   /* Surfaces */
   --surface: #FFFFFF;
-  --surface-subtle: #F8FAFC;
-  --surface-muted: #F1F5F9;
+  --surface-subtle: #F6F9F7;
+  --surface-muted: #EEF4F0;
   --surface-elevated: #FFFFFF;
-  --surface-hover: #E2E8F0;
-  --surface-rail: #F1F5F9;
-  --surface-sidebar: #F8FAFC;
+  --surface-hover: #E2ECE6;
+  --surface-rail: #FFFFFF;
+  --surface-sidebar: #FFFFFF;
   --surface-main: #FFFFFF;
-  --surface-glass: rgba(255, 255, 255, 0.88);
-  --surface-overlay: rgba(15, 23, 42, 0.45);
+  --surface-glass: rgba(255, 255, 255, 0.92);
+  --surface-overlay: rgba(15, 23, 42, 0.35);
 
   /* Typography Colors */
   --on-surface: #0F172A;
@@ -23,12 +30,26 @@
   --on-surface-muted: #64748B;
   --on-primary: #FFFFFF;
 
-  /* Ocean & Sky Accents */
-  --primary: #2563EB;
-  --primary-hover: #1D4ED8;
-  --primary-active: #1E40AF;
-  --primary-soft: #EFF6FF;
-  --primary-tint: #DBEAFE;
+  /* High Contrast Chat Bubbles (Image Reference) */
+  --bubble-incoming-bg: #12181F;
+  --bubble-incoming-text: #FFFFFF;
+  --bubble-incoming-time: rgba(255, 255, 255, 0.65);
+  --bubble-outgoing-bg: #FFFFFF;
+  --bubble-outgoing-text: #0F172A;
+  --bubble-outgoing-border: #E5EFE9;
+  --bubble-outgoing-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.06);
+
+  /* Active Pills & Highlights */
+  --active-pill-bg: #E8F2EC;
+  --active-pill-text: #0F172A;
+  --active-pill-badge: #10B981;
+
+  /* Sage / Emerald Accents & Brand */
+  --primary: #10B981;
+  --primary-hover: #059669;
+  --primary-active: #047857;
+  --primary-soft: #ECFDF5;
+  --primary-tint: #D1FAE5;
   --secondary: #0284C7;
   --secondary-hover: #0369A1;
   --secondary-soft: #E0F2FE;
@@ -36,8 +57,8 @@
   --tertiary-soft: #FEF3C7;
 
   /* Borders */
-  --border: #E2E8F0;
-  --border-strong: #CBD5E1;
+  --border: #E8EFEA;
+  --border-strong: #D5E2D9;
 
   /* Semantic & Presence */
   --success: #10B981;
@@ -58,9 +79,9 @@
   --telemetry-http: #F59E0B;
 
   /* Shadows */
-  --shadow-sm: 0 2px 6px -1px rgba(15, 23, 42, 0.06), 0 1px 3px -1px rgba(37, 99, 235, 0.04);
-  --shadow-popover: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(37, 99, 235, 0.04);
-  --shadow-modal: 0 20px 40px -12px rgba(15, 23, 42, 0.16), 0 0 1px 1px rgba(15, 23, 42, 0.06);
+  --shadow-sm: 0 2px 6px -1px rgba(15, 23, 42, 0.05);
+  --shadow-popover: 0 12px 30px -6px rgba(15, 23, 42, 0.08);
+  --shadow-modal: 0 25px 50px -12px rgba(15, 23, 42, 0.18);
 
   /* Compatibility aliases for sibling components */
   --bg-primary: var(--surface-main);
@@ -78,17 +99,24 @@
 }
 
 [data-theme='dark'] {
-  /* Deep Navy Surfaces */
-  --surface: #1E293B;
-  --surface-subtle: #0F172A;
-  --surface-muted: #0B1120;
-  --surface-elevated: #334155;
-  --surface-hover: #334155;
-  --surface-rail: #0B1120;
-  --surface-sidebar: #0F172A;
-  --surface-main: #1E293B;
-  --surface-glass: rgba(15, 23, 42, 0.88);
-  --surface-overlay: rgba(2, 6, 23, 0.72);
+  /* Dark Emerald Canvas */
+  --bg-canvas: #090E0C;
+  --bg-canvas-gradient: radial-gradient(circle at 10% 15%, #101915 0%, #090E0C 70%);
+  --card-floating-bg: #111815;
+  --card-floating-radius: 36px;
+  --card-floating-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+
+  /* Dark Charcoal Surfaces */
+  --surface: #111815;
+  --surface-subtle: #16201C;
+  --surface-muted: #1A2621;
+  --surface-elevated: #202E28;
+  --surface-hover: #263830;
+  --surface-rail: #111815;
+  --surface-sidebar: #111815;
+  --surface-main: #111815;
+  --surface-glass: rgba(17, 24, 21, 0.92);
+  --surface-overlay: rgba(2, 6, 4, 0.75);
 
   /* Dark Typography */
   --on-surface: #F8FAFC;
@@ -96,12 +124,26 @@
   --on-surface-muted: #94A3B8;
   --on-primary: #FFFFFF;
 
-  /* Luminous Blue Accents */
-  --primary: #3B82F6;
-  --primary-hover: #2563EB;
-  --primary-active: #1D4ED8;
-  --primary-soft: rgba(59, 130, 246, 0.14);
-  --primary-tint: rgba(59, 130, 246, 0.22);
+  /* High Contrast Chat Bubbles (Dark Mode) */
+  --bubble-incoming-bg: #1B2621;
+  --bubble-incoming-text: #F8FAFC;
+  --bubble-incoming-time: rgba(255, 255, 255, 0.6);
+  --bubble-outgoing-bg: #22322B;
+  --bubble-outgoing-text: #FFFFFF;
+  --bubble-outgoing-border: #2C3E36;
+  --bubble-outgoing-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.35);
+
+  /* Active Pills & Highlights */
+  --active-pill-bg: #1B2922;
+  --active-pill-text: #F8FAFC;
+  --active-pill-badge: #34D399;
+
+  /* Accents */
+  --primary: #34D399;
+  --primary-hover: #10B981;
+  --primary-active: #059669;
+  --primary-soft: rgba(52, 211, 153, 0.14);
+  --primary-tint: rgba(52, 211, 153, 0.22);
   --secondary: #0EA5E9;
   --secondary-hover: #0284C7;
   --secondary-soft: rgba(14, 165, 233, 0.16);
@@ -109,8 +151,8 @@
   --tertiary-soft: rgba(245, 158, 11, 0.16);
 
   /* Borders */
-  --border: #334155;
-  --border-strong: #475569;
+  --border: #1E2B25;
+  --border-strong: #2A3C34;
 
   /* Semantic & Presence */
   --success: #10B981;
@@ -131,9 +173,9 @@
   --telemetry-http: #F59E0B;
 
   /* Shadows */
-  --shadow-sm: 0 2px 8px -1px rgba(2, 6, 23, 0.45);
-  --shadow-popover: 0 12px 28px -4px rgba(2, 6, 23, 0.65), 0 0 1px 1px rgba(51, 65, 85, 0.6);
-  --shadow-modal: 0 24px 48px -12px rgba(2, 6, 23, 0.8), 0 0 1px 1px rgba(51, 65, 85, 0.8);
+  --shadow-sm: 0 2px 8px -1px rgba(2, 6, 4, 0.45);
+  --shadow-popover: 0 12px 28px -4px rgba(2, 6, 4, 0.65);
+  --shadow-modal: 0 24px 48px -12px rgba(2, 6, 4, 0.8);
 
   --bg-primary: var(--surface-main);
   --bg-secondary: var(--surface-sidebar);

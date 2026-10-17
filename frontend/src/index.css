@@ -1,3 +1,4 @@
+@import "tailwindcss";
 @import './design/tokens.css';
 
 *,
@@ -14,20 +15,49 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
-  font-family: var(--font-sans, 'Quicksand', system-ui, -apple-system, sans-serif);
-  background-color: var(--bg-canvas, #F8FAFC);
+  font-family: var(--font-sans, 'Plus Jakarta Sans', 'Quicksand', system-ui, -apple-system, sans-serif);
+  background: var(--bg-canvas-gradient, var(--bg-canvas, #DFECE5));
   color: var(--text-primary, #0F172A);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.workspace-grid {
-  display: flex;
+.workspace-viewport {
   width: 100vw;
   height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--bg-canvas-gradient, var(--bg-canvas, #DFECE5));
   overflow: hidden;
-  background-color: var(--bg-canvas);
-  color: var(--text-primary);
+}
+
+.floating-card-shell {
+  width: 100%;
+  max-width: 1540px;
+  height: calc(100vh - 40px);
+  background-color: var(--card-floating-bg, #FFFFFF);
+  border-radius: var(--card-floating-radius, 36px);
+  box-shadow: var(--card-floating-shadow);
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--border);
+}
+
+.desktop-sidebar-wrapper {
+  height: 100%;
+  display: flex;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+}
+
+.desktop-member-wrapper {
+  height: 100%;
+  display: flex;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
 }
 
 .workspace-main-column {
@@ -38,7 +68,7 @@ body,
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background-color: var(--bg-surface);
+  background-color: var(--card-floating-bg, #FFFFFF);
 }
 
 .mobile-topbar {

@@ -49,9 +49,10 @@ const WorkspaceContent: React.FC = () => {
   }
 
   return (
-    <div className="workspace-grid" role="application" aria-label="Discord Mini Oceanic Workspace">
-      {/* Column 1: Guild Rail (72px) */}
-      <GuildRail />
+    <div className="workspace-viewport">
+      <div className="floating-card-shell" role="application" aria-label="Discord Mini Sage Modern Workspace">
+        {/* Column 1: Guild Rail */}
+        <GuildRail />
 
       {/* Mobile backdrop for slide-over drawers */}
       {mobileDrawerOpen !== 'none' && (
@@ -172,6 +173,7 @@ const WorkspaceContent: React.FC = () => {
           <MemberSidebar />
         </div>
       )}
+      </div>
 
       {/* Global Modals & Overlays */}
       <SettingsModal />
