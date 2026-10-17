@@ -28,28 +28,29 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  background: var(--bg-canvas-gradient, var(--bg-canvas, #DFECE5));
+  padding: 24px 36px;
+  background: var(--bg-canvas-gradient, var(--bg-canvas, #95AAA0));
   overflow: hidden;
 }
 
 .floating-card-shell {
   width: 100%;
-  max-width: 1540px;
-  height: calc(100vh - 40px);
+  max-width: 1480px;
+  height: calc(100vh - 48px);
   background-color: var(--card-floating-bg, #FFFFFF);
   border-radius: var(--card-floating-radius, 36px);
   box-shadow: var(--card-floating-shadow);
   display: flex;
   overflow: hidden;
   position: relative;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.85);
 }
 
 .desktop-sidebar-wrapper {
   height: 100%;
   display: flex;
   flex-shrink: 0;
+  width: 320px;
   border-right: 1px solid var(--border);
 }
 

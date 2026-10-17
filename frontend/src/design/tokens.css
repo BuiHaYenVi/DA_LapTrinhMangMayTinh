@@ -5,12 +5,12 @@
 
 :root,
 [data-theme='light'] {
-  /* Sage Modern Floating Canvas */
-  --bg-canvas: #DFECE5;
-  --bg-canvas-gradient: radial-gradient(circle at 10% 15%, #F0F6F2 0%, #DFECE5 55%, #D4E4DC 100%);
+  /* Sage Modern Floating Canvas (Exact match to reference mockup) */
+  --bg-canvas: #95AAA0;
+  --bg-canvas-gradient: radial-gradient(circle at 50% 45%, #9FB5AA 0%, #8DA398 100%);
   --card-floating-bg: #FFFFFF;
   --card-floating-radius: 36px;
-  --card-floating-shadow: 0 25px 60px -15px rgba(22, 45, 35, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.7);
+  --card-floating-shadow: 0 32px 85px -15px rgba(20, 42, 33, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.9);
 
   /* Surfaces */
   --surface: #FFFFFF;
@@ -30,14 +30,14 @@
   --on-surface-muted: #64748B;
   --on-primary: #FFFFFF;
 
-  /* High Contrast Chat Bubbles (Image Reference) */
-  --bubble-incoming-bg: #12181F;
+  /* High Contrast Chat Bubbles (Mockup Reference: Deep Black & Crisp White) */
+  --bubble-incoming-bg: #111111;
   --bubble-incoming-text: #FFFFFF;
   --bubble-incoming-time: rgba(255, 255, 255, 0.65);
   --bubble-outgoing-bg: #FFFFFF;
-  --bubble-outgoing-text: #0F172A;
-  --bubble-outgoing-border: #E5EFE9;
-  --bubble-outgoing-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.06);
+  --bubble-outgoing-text: #111827;
+  --bubble-outgoing-border: #E8EFEA;
+  --bubble-outgoing-shadow: 0 2px 12px -2px rgba(15, 23, 42, 0.05);
 
   /* Active Pills & Highlights */
   --active-pill-bg: #E8F2EC;

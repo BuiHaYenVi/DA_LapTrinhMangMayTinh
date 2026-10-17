@@ -8,6 +8,7 @@ export interface User {
   username: string;
   displayName: string;
   avatarColor?: string;
+  avatarUrl?: string;
   status?: PresenceStatus;
   customStatus?: string;
   role?: MemberRole;
