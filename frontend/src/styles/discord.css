@@ -1216,4 +1216,38 @@ body {
   background-color: #da373c;
 }
 
+/* ============================================================== */
+/* CREATE SERVER MODAL (DISCORD STYLE)                            */
+/* ============================================================== */
+.server-modal-card {
+  background-color: #313338 !important;
+  border: 1px solid var(--border-color);
+  border-radius: 14px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6) !important;
+  padding: 24px !important;
+}
+
+.server-template-item {
+  transition: all 0.16s ease !important;
+}
+
+.server-template-item:hover {
+  background-color: #35373c !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  transform: translateY(-1px);
+}
+
+.server-template-item:active {
+  transform: translateY(0);
+}
+
+.btn-join-server {
+  transition: all 0.16s ease !important;
+}
+
+.btn-join-server:hover {
+  background-color: #4e5058 !important;
+  color: #fff !important;
+}
+
 

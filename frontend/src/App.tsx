@@ -8,6 +8,7 @@ import { MemberSidebar } from './components/MemberSidebar';
 import { LoginView } from './components/LoginView';
 import { RegisterView } from './components/RegisterView';
 import { Logo } from './components/Logo';
+import { CreateServerModal } from './components/CreateServerModal';
 import './styles/discord.css';
 
 type AuthStatus = 'checking' | 'login' | 'register' | 'authenticated';
@@ -26,6 +27,7 @@ export const App: React.FC = () => {
   const [_pendingRequests, setPendingRequests] = useState<PendingFriendRequest[]>([]);
   const [_isConnected, setIsConnected] = useState<boolean>(true);
   const [unreadMap, setUnreadMap] = useState<Record<number, number>>({});
+  const [isCreateServerOpen, setIsCreateServerOpen] = useState<boolean>(false);
 
   // 1. Kiểm tra phiên đăng nhập từ cookie khi nạp ứng dụng
   useEffect(() => {
@@ -230,9 +232,33 @@ export const App: React.FC = () => {
   };
 
   const handleCreateRoom = () => {
-    const name = prompt('Nhập tên phòng chat mới:');
-    if (name && name.trim()) {
-      chatBridge.createRoom(name.trim());
+    setIsCreateServerOpen(true);
+  };
+
+  const handleModalCreateRoom = (name: string, description?: string) => {
+    chatBridge.createRoom(name).then(() => {
+      if (description) {
+        setTimeout(() => {
+          const created = rooms.find(r => r.name === name);
+          if (created) {
+            chatBridge.setRoomDesc(created.id, description);
+          }
+        }, 500);
+      }
+    });
+  };
+
+  const handleModalJoinRoom = (input: string) => {
+    const clean = input.trim();
+    if (!isNaN(Number(clean))) {
+      chatBridge.joinRoom(Number(clean));
+    } else {
+      const found = rooms.find(r => r.inviteCode === clean || r.name.toLowerCase().includes(clean.toLowerCase()));
+      if (found) {
+        chatBridge.joinRoom(found.id);
+      } else {
+        alert(`Không tìm thấy phòng phù hợp với "${clean}". Vui lòng kiểm tra lại ID phòng hoặc mã mời.`);
+      }
     }
   };
 
@@ -411,6 +437,15 @@ export const App: React.FC = () => {
         onSetMemberRole={handleSetMemberRole}
         onTransferOwner={handleTransferOwner}
         onKickMember={handleKickMember}
+      />
+
+      {/* Modal Tạo Máy Chủ Chuẩn Discord */}
+      <CreateServerModal
+        isOpen={isCreateServerOpen}
+        onClose={() => setIsCreateServerOpen(false)}
+        onCreateRoom={handleModalCreateRoom}
+        onJoinRoom={handleModalJoinRoom}
+        currentUserName={currentUser?.displayName || currentUser?.username}
       />
     </div>
   );
