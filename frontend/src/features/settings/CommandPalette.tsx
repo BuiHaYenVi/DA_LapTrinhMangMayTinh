@@ -53,14 +53,24 @@ export const CommandPalette: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  const closeCommandPalette = () => {
+    setQuery('');
+    setSelectedIndex(0);
+    setCommandPaletteOpen(false);
+  };
+
   // Global Ctrl+K / Cmd+K shortcut listener
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
+        setQuery('');
+        setSelectedIndex(0);
         setCommandPaletteOpen(!isCommandPaletteOpen);
       } else if (e.key === 'Escape' && isCommandPaletteOpen) {
         e.preventDefault();
+        setQuery('');
+        setSelectedIndex(0);
         setCommandPaletteOpen(false);
       }
     };
@@ -69,13 +79,11 @@ export const CommandPalette: React.FC = () => {
   }, [isCommandPaletteOpen, setCommandPaletteOpen]);
 
   useEffect(() => {
-    if (isCommandPaletteOpen) {
-      setQuery('');
-      setSelectedIndex(0);
-      window.setTimeout(() => {
-        inputRef.current?.focus();
-      }, 20);
-    }
+    if (!isCommandPaletteOpen) return;
+    const timer = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 20);
+    return () => window.clearTimeout(timer);
   }, [isCommandPaletteOpen]);
 
   const allItems = useMemo<CommandActionItem[]>(() => {
@@ -244,10 +252,6 @@ export const CommandPalette: React.FC = () => {
     );
   }, [allItems, query]);
 
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
-
   if (!isCommandPaletteOpen) return null;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -262,7 +266,7 @@ export const CommandPalette: React.FC = () => {
     } else if (e.key === 'Enter' && filteredItems[selectedIndex]) {
       e.preventDefault();
       filteredItems[selectedIndex].onSelect();
-      setCommandPaletteOpen(false);
+      closeCommandPalette();
     }
   };
 
@@ -273,7 +277,7 @@ export const CommandPalette: React.FC = () => {
       aria-modal="true"
       aria-label="Command Palette"
       onClick={(e) => {
-        if (e.target === e.currentTarget) setCommandPaletteOpen(false);
+        if (e.target === e.currentTarget) closeCommandPalette();
       }}
     >
       <div className="modal-dialog cmd-palette-dialog" onKeyDown={handleKeyDown}>
@@ -284,7 +288,10 @@ export const CommandPalette: React.FC = () => {
             type="text"
             className="cmd-search-input"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIndex(0);
+            }}
             placeholder={t.commandPalette.placeholder}
           />
           <span className="kbd-badge">ESC</span>
@@ -312,7 +319,7 @@ export const CommandPalette: React.FC = () => {
                   onMouseEnter={() => setSelectedIndex(idx)}
                   onClick={() => {
                     item.onSelect();
-                    setCommandPaletteOpen(false);
+                    closeCommandPalette();
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>

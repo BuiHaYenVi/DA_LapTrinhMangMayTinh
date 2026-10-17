@@ -309,7 +309,10 @@ Không nên xem các tính năng chưa được kiểm thử là đã hoàn thi�
 
 ## 12. Tài liệu liên quan
 
-- [`docs/PROTOCOL.md`](docs/PROTOCOL.md): đặc tả giao thức Client–Server, nếu có trong repository.
+- [`DESIGN.md`](DESIGN.md): đặc tả hệ thống thiết kế giao diện **Oceanic Protocol** (Design Tokens, bảng màu Light/Dark Navy, Typography Quicksand).
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): tài liệu kiến trúc hệ thống đa giao thức (`TCP :5000`, `UDP :5001`, `HTTP :8080`, `WS :8081`, `WebRTC P2P`) và mô hình hợp nhất `Session` / `EventBus`.
+- [`docs/API.md`](docs/API.md): đặc tả REST API (`:8080`), WebSocket JSON Event Envelope (`:8081`) và TypeScript types.
+- [`docs/PROTOCOL.md`](docs/PROTOCOL.md): đặc tả giao thức Client–Server v2 (TCP Pipe/Base64 + UDP Datagram format + Application ACK).
 - [`docs/VI_WORKLOG.md`](docs/VI_WORKLOG.md): nhật ký công việc và thay đổi, nếu có trong repository.
 
 ## 13. Đóng góp và phát triển tiếp
@@ -358,4 +361,69 @@ Dự án được xây dựng phục vụ mục đích học tập và thực h�
 4. **Tiêu chuẩn Commit & Vệ sinh kho mã nguồn**:
    - Tuân thủ Conventional Commits: `feat:`, `fix:`, `refactor:`, `docs:`.
    - Tuyệt đối không commit file rác (`build/`, `dist/`, `.idea/`, `.vscode/`, `nbproject/private/`, `*.jar`, `*.zip`).
-   - Driver PostgreSQL JDBC được tải qua script: `.\Chatserver\lib\download_driver.bat` hoặc PowerShell.
+   - Driver PostgreSQL JDBC được tải qua script: `.\Chatserver\lib\download_driver.bat` hoặc PowerShell.
+
+---
+
+## 17. Bản nâng cấp Discord Web Clone — Oceanic Protocol Edition (Đa giao thức)
+
+Phiên bản **Discord Web Clone (Oceanic Protocol Edition)** mở rộng máy chủ `Chatserver` thành một hệ thống truyền thông đa giao thức bằng **Java 21 thuần (không dùng Spring Boot)** kết hợp với giao diện **React 19 + TypeScript + Vite**, đồng thời giữ **tương thích ngược 100%** với `ChatClient` (Java Swing).
+
+### 17.1. Kiến trúc 5 Giao thức Mạng trên 1 Tiến trình JVM
+
+| Cổng / Giao thức | Lớp xử lý chính | Chức năng cốt lõi |
+|---|---|---|
+| **TCP `:5000`** | `ChatServer`, `ClientHandler`, `TcpSession` | Giao thức ứng dụng v2 (Pipe-delimited + Base64 + `RequestId` + `ACK`), phục vụ `ChatClient` (Java Swing) và đồng bộ thời gian thực với Web Client. |
+| **UDP `:5001`** | `UdpTelemetryServer` | Giao thức Datagram độ trễ thấp cho `TYPING`, `PRESENCE` và đo kiểm `PING`/`PONG` RTT, tự động fallback qua WS/TCP nếu tường lửa chặn UDP. |
+| **HTTP `:8080`** | `HttpApiServer` (`JDK HttpServer`) | REST API phi trạng thái: xác thực JWT (`HMAC-SHA256`), phân trang lịch sử tin nhắn bằng cursor, tìm kiếm toàn văn (`tsvector`), và tải lên/tải xuống tệp nhị phân (`BYTEA` <= 5 MB). |
+| **WebSocket `:8081`** | `DiscordWebSocketServer` & `Rfc6455WebSocketServer` | Kênh đẩy sự kiện JSON song công (`MESSAGE_CREATED`, `REACTION_UPDATED`, `PRESENCE_UPDATED`, `SIGNAL_*`) cùng cài đặt WebSocket RFC 6455 thuần Java. |
+| **WebRTC P2P Mesh** | `VoiceService` + WS Signaling | Gọi thoại & video nhóm nhỏ (tối đa 4 người/kênh thoại) qua kết nối ngang hàng P2P (STUN/TURN). |
+
+> Mô hình dữ liệu hợp nhất (`channel_id == room_id` trong `Chatserver/sql/V003__guilds_channels.sql`) và bộ định tuyến sự kiện `EventBus` giúp người dùng trên **Java Swing Client** và **React Web Client** trò chuyện chung trong cùng một kênh theo thời gian thực.
+
+### 17.2. Cấu hình biến môi trường (`.env.example` & Neon PostgreSQL)
+
+1. Sao chép tệp mẫu `.env.example` ở thư mục gốc thành `.env` (tệp `.env` đã được chặn trong `.gitignore`):
+   ```powershell
+   Copy-Item .env.example .env
+   Copy-Item frontend\.env.example frontend\.env
+   ```
+2. Điền thông tin kết nối **Neon Serverless PostgreSQL** (hoặc PostgreSQL cục bộ) và khóa bí mật `JWT_SECRET` vào `.env`:
+   ```ini
+   NEON_JDBC_URL=jdbc:postgresql://<ep-xxx-pooler>.neon.tech/<db>?sslmode=require
+   NEON_DB_USER=<neon_user>
+   NEON_DB_PASSWORD=<neon_password>
+   JWT_SECRET=<chuoi-bi-mat-it-nhat-32-ky-tu>
+   TCP_PORT=5000
+   UDP_PORT=5001
+   HTTP_PORT=8080
+   WS_PORT=8081
+   ```
+3. Chạy migration CSDL (tự động tạo bảng `guilds`, mở rộng `rooms`/`messages`, chỉ mục `GIN tsvector` và bảng `attachments` `BYTEA`):
+   ```powershell
+   .\scripts\migrate.ps1 -IncludeBaseSchema
+   ```
+
+### 17.3. Khởi chạy toàn bộ hệ thống bằng 1 lệnh (`scripts/dev-all.ps1`)
+
+Script `scripts/dev-all.ps1` tự động kiểm tra và tải các thư viện JAR cần thiết (`postgresql`, `Java-WebSocket`, `gson`, `slf4j`), nạp biến môi trường từ `.env`, biên dịch toàn bộ mã nguồn `Chatserver` bằng `javac`, khởi chạy máy chủ đa giao thức (`:5000`, `:5001`, `:8080`, `:8081`) và mở máy chủ phát triển giao diện Web (`http://localhost:5173`):
+
+```powershell
+# Kiểm tra nhanh môi trường, thư viện JAR và biên dịch thử (Pre-flight check):
+.\scripts\dev-all.ps1 -CheckOnly
+
+# Khởi chạy đồng thời cả Backend (Java Chatserver) và Frontend (React Vite):
+.\scripts\dev-all.ps1
+
+# Hoặc chạy riêng từng phần khi cần gỡ lỗi:
+.\scripts\dev-all.ps1 -BackendOnly
+.\scripts\dev-all.ps1 -FrontendOnly
+```
+
+### 17.4. Danh mục Tài liệu Thiết kế & Đặc tả Kỹ thuật
+
+- **Thiết kế Giao diện & Design Tokens:** [`DESIGN.md`](DESIGN.md)
+- **Kiến trúc Đa giao thức & Sơ đồ Hệ thống:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- **Đặc tả REST API & WebSocket Envelope:** [`docs/API.md`](docs/API.md)
+- **Đặc tả Giao thức Ứng dụng TCP/UDP v2:** [`docs/PROTOCOL.md`](docs/PROTOCOL.md)
+

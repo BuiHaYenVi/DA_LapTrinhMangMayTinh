@@ -220,8 +220,8 @@ public class EventBus {
                 System.currentTimeMillis()
         );
 
-        FRAME_BUFFER.addLast(record);
-        if (FRAME_COUNT.incrementAndGet() > MAX_RECENT_FRAMES) {
+        synchronized (FRAME_BUFFER) {
+            FRAME_BUFFER.addLast(record);
             while (FRAME_BUFFER.size() > MAX_RECENT_FRAMES) {
                 FRAME_BUFFER.pollFirst();
             }

@@ -31,7 +31,7 @@ class ChatBridgeService {
       this.eventSource.onopen = () => {
         this.emit('STATUS', { connected: true });
       };
-    } catch (e) {
+    } catch {
       console.warn("EventSource fallback mode");
     }
   }

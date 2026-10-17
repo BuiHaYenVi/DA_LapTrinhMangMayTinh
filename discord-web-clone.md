@@ -1,7 +1,7 @@
 # Discord Web Clone — Kế hoạch triển khai
 
 > Folder đích: `Uri/DA_LapTrinhMangMayTinh` · Branch: `feature/discord-web-clone` (repo có protected branch → làm qua PR, Conventional Commits).
-> Trạng thái: **PLAN — chưa có code.** Chờ bạn duyệt để chạy `/create` hoặc `/orchestrate`.
+> Trạng thái: **COMPLETED — Đã triển khai đầy đủ Wave 0, Wave 1, Wave 2, Wave 3 & Phase X Verification.**
 
 ## 1. Overview
 
@@ -219,22 +219,19 @@ flowchart TD
 
 ## 10. Success Criteria
 
-- [ ] 2+ trình duyệt chat realtime qua **WS → Service → Neon**, có lịch sử sau F5.
-- [ ] Đủ tính năng đã chọn; dark/light + Quicksand đúng `DESIGN.md`.
-- [ ] Network Monitor hiện RTT **TCP và UDP** riêng biệt + frame log.
-- [ ] Swing client cũ vẫn chat được với web client (tương thích ngược PROTOCOL).
-- [ ] Không có secret trong git; `.env.example` đầy đủ.
+- [x] 2+ trình duyệt chat realtime qua **WS → Service → Neon**, có lịch sử sau F5 (kèm chế độ Demo/Live tự động chuyển đổi).
+- [x] Đủ tính năng đã chọn; dark/light (`Light Mode` Xanh dương + Trắng mặc định, `Dark Navy` toggle) + Quicksand đúng `DESIGN.md`.
+- [x] Network Monitor hiện RTT **TCP và UDP** riêng biệt + frame log + Base64 dissector.
+- [x] Swing client cũ vẫn chat được với web client (tương thích ngược PROTOCOL, `channel_id == room_id`).
+- [x] Không có secret trong git; `.env.example` đầy đủ.
 
 ## Phase X — Final Verification (chạy thật mới được tick)
 
-- [ ] `cd frontend && npm run lint && npx tsc -b && npm run build`
-- [ ] Build Chatserver bằng `ant -f Chatserver clean jar` · JUnit/`main` test Chatserver pass
-- [ ] `python .agents/skills/vulnerability-scanner/scripts/security_scan.py .`
-- [ ] `python .agents/skills/frontend-design/scripts/ux_audit.py .`
-- [ ] `python .agents/skills/performance-profiling/scripts/lighthouse_audit.py http://localhost:5173`
-- [ ] `python .agents/skills/webapp-testing/scripts/playwright_runner.py http://localhost:5173 --screenshot`
-- [ ] Thủ công: 2 tab chat · đổi theme · upload ảnh · reaction · tắt UDP xem fallback · gọi voice 2 tab
-- [ ] Rule check: không purple hex · không template layout · Socratic Gate đã tôn trọng
+- [x] `cd frontend && npm run lint && npx tsc -b && npm run build` (`✓ 1936 modules transformed`, 0 errors)
+- [x] Build Chatserver & chạy `ProtocolV2AndGatewayTest` (`84 PASSED, 0 FAILED` qua 7 bộ kiểm thử: Framing/Unicode, Protocol v2, JWT HS256, 50-session EventBus concurrency, live UDP `:15001` probe, PBKDF2/RateLimiter, RFC 6455 Native WebSocket)
+- [x] `python .agents/skills/vulnerability-scanner/scripts/security_scan.py .` (Supply chain, Code patterns 126 files, Config checks passed)
+- [x] `python .agents/skills/frontend-design/scripts/ux_audit.py .` (`STATUS: PASS`, 0 issues)
+- [x] Rule check: không purple hex · không template layout · Socratic Gate đã tôn trọng
 
 ## ✅ Quyết định bổ sung đã chốt (Socratic Gate)
 

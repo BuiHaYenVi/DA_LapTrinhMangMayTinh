@@ -54,19 +54,32 @@ export const SettingsModal: React.FC = () => {
 
   const t = getTranslation(locale);
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
-  const [selectedStatus, setSelectedStatus] = useState<PresenceStatus>(
-    currentUser?.status ?? 'ONLINE',
-  );
-  const [customStatusText, setCustomStatusText] = useState<string>(
-    currentUser?.customStatus ?? '',
-  );
+  const [statusOverride, setStatusOverride] = useState<{
+    userId: number | undefined;
+    status: PresenceStatus;
+  } | null>(null);
+  const [customStatusOverride, setCustomStatusOverride] = useState<{
+    userId: number | undefined;
+    text: string;
+  } | null>(null);
 
-  useEffect(() => {
-    if (currentUser) {
-      setSelectedStatus(currentUser.status ?? 'ONLINE');
-      setCustomStatusText(currentUser.customStatus ?? '');
-    }
-  }, [currentUser]);
+  const selectedStatus: PresenceStatus =
+    statusOverride && statusOverride.userId === currentUser?.id
+      ? statusOverride.status
+      : (currentUser?.status ?? 'ONLINE');
+
+  const customStatusText: string =
+    customStatusOverride && customStatusOverride.userId === currentUser?.id
+      ? customStatusOverride.text
+      : (currentUser?.customStatus ?? '');
+
+  const setSelectedStatus = (status: PresenceStatus) => {
+    setStatusOverride({ userId: currentUser?.id, status });
+  };
+
+  const setCustomStatusText = (text: string) => {
+    setCustomStatusOverride({ userId: currentUser?.id, text });
+  };
 
   useEffect(() => {
     if (!isSettingsOpen) return;
