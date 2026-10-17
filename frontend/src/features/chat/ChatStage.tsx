@@ -4,7 +4,6 @@ import {
   Pin,
   Search,
   Users,
-  Activity,
   Reply,
   Smile,
   Edit3,
@@ -218,8 +217,6 @@ export const ChatStage: React.FC = () => {
     toggleReaction,
     togglePinMessage,
     searchChannelMessages,
-    isMonitorOpen,
-    setMonitorOpen,
     isMemberSidebarOpen,
     setMemberSidebarOpen,
   } = useAppStore();
@@ -584,22 +581,7 @@ export const ChatStage: React.FC = () => {
             )}
           </div>
 
-          {/* Network Monitor Button */}
-          <button
-            type="button"
-            onClick={() => setMonitorOpen(!isMonitorOpen)}
-            aria-label="Mở bảng giám sát giao thức TCP/UDP"
-            className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold transition ${
-              isMonitorOpen
-                ? 'border-[#2563EB] bg-[#2563EB] text-white shadow-xs'
-                : isDark
-                ? 'border-[#334155] bg-[#0F172A] text-[#38BDF8] hover:border-[#3B82F6]'
-                : 'border-[#DBEAFE] bg-[#EFF6FF] text-[#2563EB] hover:bg-[#DBEAFE]'
-            }`}
-          >
-            <Activity className="h-3.5 w-3.5" />
-            <span className="hidden xl:inline">Protocol Monitor</span>
-          </button>
+
 
           {/* Member Sidebar Toggle */}
           <button

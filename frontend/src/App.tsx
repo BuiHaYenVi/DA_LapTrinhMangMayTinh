@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Activity,
   AlertCircle,
   CheckCircle2,
   Info,
@@ -16,7 +15,6 @@ import { ChannelSidebar } from './features/guild/ChannelSidebar';
 import { MemberSidebar } from './features/guild/MemberSidebar';
 import { ChatStage } from './features/chat/ChatStage';
 import { FriendsAndDmStage } from './features/friends/FriendsAndDmStage';
-import { NetworkMonitorPanel } from './features/monitor/NetworkMonitorPanel';
 import { VoiceCallStage } from './features/voice/VoiceCallStage';
 import { SettingsModal } from './features/settings/SettingsModal';
 import { CommandPalette } from './features/settings/CommandPalette';
@@ -29,8 +27,6 @@ const WorkspaceContent: React.FC = () => {
     activeGuild,
     activeChannel,
     activeVoiceChannelId,
-    isMonitorOpen,
-    setMonitorOpen,
     isMemberSidebarOpen,
     setCommandPaletteOpen,
     mobileDrawerOpen,
@@ -116,15 +112,6 @@ const WorkspaceContent: React.FC = () => {
             >
               <Search size={16} />
             </button>
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={() => setMonitorOpen(!isMonitorOpen)}
-              aria-label="Bật/tắt Network Monitor"
-              style={{ padding: '6px', borderRadius: '8px' }}
-            >
-              <Activity size={16} />
-            </button>
             {viewMode === 'guild' && (
               <button
                 type="button"
@@ -158,9 +145,6 @@ const WorkspaceContent: React.FC = () => {
         >
           {viewMode === 'guild' ? <ChatStage /> : <FriendsAndDmStage />}
         </div>
-
-        {/* Network Monitor Telemetry Panel (TCP :5000 vs UDP :5001 RTT & Protocol Frame Dissector) */}
-        {isMonitorOpen && <NetworkMonitorPanel />}
       </main>
 
       {/* Column 4: Member & Role Sidebar (260px) */}

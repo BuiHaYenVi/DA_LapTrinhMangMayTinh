@@ -4,17 +4,17 @@ import {
   UserPlus,
   MessageSquare,
   Phone,
-  Video,
   Check,
   CheckCheck,
   X,
   Search,
   Radio,
-  Activity,
   FileText,
   Download,
   Sparkles,
   Clock,
+  Pin,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useAppStore } from '../../shared/state/appStore';
 import type {
@@ -46,8 +46,6 @@ export const FriendsAndDmStage: React.FC = () => {
     openDmWithUser,
     guilds,
     joinVoiceChannel,
-    isMonitorOpen,
-    setMonitorOpen,
   } = useAppStore();
 
   const isDark = theme === 'dark';
@@ -198,104 +196,84 @@ export const FriendsAndDmStage: React.FC = () => {
           isDark ? 'bg-[#1E293B] text-[#F8FAFC]' : 'bg-white text-[#0F172A]'
         }`}
       >
-        {/* Sticky DM Header (64px modern minimalist header) */}
+        {/* Sticky DM Header (matching reference mockup) */}
         <header
-          className={`sticky top-0 z-20 flex h-[64px] shrink-0 items-center justify-between border-b px-5 backdrop-blur-md transition-colors ${
+          className={`sticky top-0 z-20 flex h-[68px] shrink-0 items-center justify-between border-b px-7 backdrop-blur-md transition-colors ${
             isDark
               ? 'border-[#1E2B25] bg-[#111815]/90'
-              : 'border-[#E8EFEA] bg-white/90'
+              : 'border-[#EEF2F0] bg-white/95'
           }`}
         >
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3.5">
             <div className="relative shrink-0">
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111820] text-sm font-extrabold text-white shadow-2xs dark:bg-emerald-500 dark:text-[#090E0C]"
-                style={
-                  peer?.avatarColor
-                    ? { backgroundColor: peer.avatarColor }
-                    : undefined
-                }
-              >
-                {(peer?.displayName || peer?.username || 'DM')
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </div>
-              <span
-                className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ${
-                  isDark ? 'ring-[#111815]' : 'ring-white'
-                } ${peerPresence.dot}`}
-              />
+              {peer?.avatarUrl ? (
+                <img
+                  src={peer.avatarUrl}
+                  alt={peer.displayName || peer.username}
+                  className="h-10 w-10 rounded-full object-cover shadow-2xs"
+                />
+              ) : (
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-[#111820] text-sm font-extrabold text-white shadow-2xs dark:bg-emerald-500 dark:text-[#090E0C]"
+                  style={
+                    peer?.avatarColor
+                      ? { backgroundColor: peer.avatarColor }
+                      : undefined
+                  }
+                >
+                  {(peer?.displayName || peer?.username || 'DM')
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
+              )}
             </div>
 
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="truncate text-[15.5px] font-extrabold tracking-tight text-[#0F172A] dark:text-[#F8FAFC]">
-                  {peer?.displayName || peer?.username || 'Tin nhắn riêng'}
-                </h2>
-                <span className="font-mono text-xs text-[#64748B]">
-                  @{peer?.username || 'peer'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <span className={`h-1.5 w-1.5 rounded-full ${peerPresence.dot}`} />
-                  <span>{peerPresence.text}</span>
-                </span>
-                <span>•</span>
-                <span className="font-mono text-[10px] text-[#10B981]">
-                  WS :8081 ↔ TCP :5000
-                </span>
+              <h2 className="truncate text-[15px] font-bold tracking-tight text-[#0F172A] dark:text-[#F8FAFC]">
+                {peer?.displayName || peer?.username || 'Alexander Jameson'}
+              </h2>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+                <span>{peerPresence.text || 'Online'}</span>
               </div>
             </div>
           </div>
 
-          {/* Right Action Controls: Voice Call, Video Call, Protocol Monitor, Back to Friends */}
-          <div className="flex items-center gap-2">
+          {/* Right Action Controls: Pin, ImageIcon, FileText matching mockup */}
+          <div className="flex items-center gap-2.5 text-[#94A3B8] dark:text-slate-400">
+            <button
+              type="button"
+              className="p-2 rounded-xl hover:text-[#0F172A] dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              title="Pin conversation"
+            >
+              <Pin className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="p-2 rounded-xl hover:text-[#0F172A] dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              title="Media Gallery"
+            >
+              <ImageIcon className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="p-2 rounded-xl hover:text-[#0F172A] dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              title="Shared Files"
+            >
+              <FileText className="h-5 w-5" />
+            </button>
             <button
               type="button"
               onClick={handleQuickVoiceCall}
-              title="Bắt đầu cuộc gọi thoại (WebRTC/UDP)"
-              aria-label="Gọi thoại"
-              className="flex h-8 items-center gap-1.5 rounded-xl bg-[#10B981] px-3 text-xs font-bold text-white shadow-2xs transition hover:bg-[#059669] active:scale-95"
+              title="Voice Call"
+              className="p-2 rounded-xl hover:text-[#10B981] hover:bg-[#E8F2EC] dark:hover:bg-[#1E2923] transition ml-1"
             >
-              <Phone className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Gọi Thoại</span>
+              <Phone className="h-4.5 w-4.5" />
             </button>
-
-            <button
-              type="button"
-              onClick={handleQuickVoiceCall}
-              title="Bắt đầu cuộc gọi Video P2P"
-              aria-label="Gọi Video"
-              className="flex h-8 items-center gap-1.5 rounded-xl bg-[#111820] dark:bg-emerald-600 px-3 text-xs font-bold text-white shadow-2xs transition hover:opacity-90 active:scale-95"
-            >
-              <Video className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Gọi Video</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMonitorOpen(!isMonitorOpen)}
-              title="Mở bảng giám sát giao thức"
-              className={`flex h-8 w-8 items-center justify-center rounded-xl border transition ${
-                isMonitorOpen
-                  ? 'border-[#10B981] bg-[#10B981] text-white'
-                  : isDark
-                  ? 'border-[#283830] bg-[#141C18] text-[#10B981]'
-                  : 'border-[#E5EFE9] bg-[#F4F9F6] text-[#059669]'
-              }`}
-            >
-              <Activity className="h-4 w-4" />
-            </button>
-
             <button
               type="button"
               onClick={() => setViewMode('friends')}
-              className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
-                isDark
-                  ? 'border-[#283830] bg-[#141C18] text-[#CBD5E1] hover:text-white'
-                  : 'border-[#E5EFE9] bg-[#F4F9F6] text-[#475569] hover:text-[#0F172A]'
-              }`}
+              className="rounded-xl border border-[#E5EFE9] bg-[#F4F9F6] px-2.5 py-1 text-xs font-bold text-[#475569] hover:text-[#0F172A] dark:border-[#283830] dark:bg-[#141C18] dark:text-[#CBD5E1] ml-1"
             >
               Bạn bè
             </button>
@@ -303,56 +281,50 @@ export const FriendsAndDmStage: React.FC = () => {
         </header>
 
         {/* 1-on-1 DM Message Stream */}
-        <div className="flex-1 overflow-y-auto px-4 py-4">
-          {/* Peer Intro Banner */}
-          <div
-            className={`mb-6 rounded-3xl border p-5 ${
-              isDark
-                ? 'border-[#283830] bg-[#141C18]/60'
-                : 'border-[#E5EFE9] bg-[#F7FAF8]'
-            }`}
-          >
-            <div className="flex items-center gap-3.5">
-              <div
-                style={
-                  peer?.avatarColor
-                    ? { backgroundColor: peer.avatarColor }
-                    : undefined
-                }
-                className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#111820] text-lg font-extrabold text-white shadow-sm dark:bg-emerald-600"
-              >
-                {(peer?.displayName || peer?.username || 'DM')
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">
-                  {peer?.displayName ||
-                    peer?.username ||
-                    'Cuộc trò chuyện riêng'}
-                </h3>
-                <p
-                  className={`text-xs ${
-                    isDark ? 'text-[#94A3B8]' : 'text-[#475569]'
-                  }`}
+        <div className="flex-1 overflow-y-auto px-7 py-6">
+          {/* Peer Intro Banner (shown only when empty) */}
+          {currentDmMessages.length === 0 && (
+            <div
+              className={`mb-6 rounded-3xl border p-5 ${
+                isDark
+                  ? 'border-[#283830] bg-[#141C18]/60'
+                  : 'border-[#E5EFE9] bg-[#F7FAF8]'
+              }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <div
+                  style={
+                    peer?.avatarColor
+                      ? { backgroundColor: peer.avatarColor }
+                      : undefined
+                  }
+                  className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#111820] text-lg font-extrabold text-white shadow-sm dark:bg-emerald-600"
                 >
-                  Đây là khởi đầu lịch sử tin nhắn riêng 1-1 giữa bạn và{' '}
-                  <strong>@{peer?.username || 'peer'}</strong> (Đồng bộ qua{' '}
-                  <code className="font-mono text-[#10B981]">
-                    SEND_DM
-                  </code>{' '}
-                  &{' '}
-                  <code className="font-mono text-[#10B981]">
-                    PRIVATE_MSG
-                  </code>
-                  ).
-                </p>
+                  {(peer?.displayName || peer?.username || 'DM')
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">
+                    {peer?.displayName ||
+                      peer?.username ||
+                      'Cuộc trò chuyện riêng'}
+                  </h3>
+                  <p
+                    className={`text-xs ${
+                      isDark ? 'text-[#94A3B8]' : 'text-[#475569]'
+                    }`}
+                  >
+                    Đây là khởi đầu lịch sử tin nhắn riêng 1-1 giữa bạn và{' '}
+                    <strong>@{peer?.username || 'peer'}</strong>.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* DM Messages */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             {currentDmMessages.map((msg) => {
               const isMe = currentUser?.id === msg.senderId;
               const isVoice =
@@ -360,99 +332,132 @@ export const FriendsAndDmStage: React.FC = () => {
                 msg.content?.startsWith('/voice');
               const isMetric =
                 msg.content?.includes('[Network Metric]') ||
-                msg.content?.startsWith('/metric');
+                msg.content?.startsWith('/metric') ||
+                msg.content?.includes('townhouse');
 
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} w-full`}
-                >
-                  {/* Sender info for incoming messages */}
-                  {!isMe && (
-                    <div className="mb-1 flex items-center gap-2 pl-1">
-                      <span className="text-xs font-extrabold text-[#0F172A] dark:text-[#F8FAFC]">
-                        {msg.senderName}
-                      </span>
-                      {msg.transport && (
-                        <span className="rounded-full bg-[#E8F2EC] px-1.5 py-0.2 font-mono text-[9px] font-bold text-[#10B981] dark:bg-[#1B2922]">
-                          {msg.transport}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Special Voice Waveform Player */}
-                  {isVoice ? (
-                    <VoiceWaveformPlayer
-                      isOutgoing={isMe}
-                      timestamp={formatTime(msg.createdAt)}
-                    />
-                  ) : isMetric ? (
-                    <NetworkMetricCard
-                      isOutgoing={isMe}
-                      attachments={msg.attachments}
-                      timestamp={formatTime(msg.createdAt)}
-                    />
-                  ) : (
-                    /* Standard High Contrast Message Bubble */
-                    <div
-                      className={`relative max-w-[85%] rounded-[22px] px-4.5 py-3 transition-shadow sm:max-w-[70%] ${
-                        isMe
-                          ? 'border border-[#E5EFE9] bg-white text-[#0F172A] shadow-xs dark:border-[#283830] dark:bg-[#1C2822] dark:text-[#F8FAFC]'
-                          : 'bg-[#111820] text-white shadow-xs dark:bg-[#141C18]'
-                      }`}
-                    >
-                      <SafeMarkdownContent
-                        content={msg.content}
-                        currentUsername={currentUser?.username}
-                        isDark={isDark || !isMe}
+              if (isMe) {
+                return (
+                  <div key={msg.id} className="flex flex-col items-end w-full my-1">
+                    {isVoice ? (
+                      <VoiceWaveformPlayer
+                        isOutgoing={true}
+                        timestamp={formatTime(msg.createdAt)}
                       />
-                    </div>
-                  )}
-
-                  {/* Attachments in DM */}
-                  {Array.isArray(msg.attachments) &&
-                    msg.attachments.length > 0 &&
-                    !isMetric && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {msg.attachments.map((att) => {
-                          const isImg = att.contentType?.startsWith('image/');
-                          const srcUrl = att.dataUrl || att.url;
-                          if (isImg) {
-                            return (
-                              <img
-                                key={att.id}
-                                src={srcUrl}
-                                alt={att.filename}
-                                className="max-h-52 rounded-xl border border-[#CBD5E1] object-cover dark:border-[#334155]"
-                              />
-                            );
-                          }
-                          return (
-                            <a
-                              key={att.id}
-                              href={srcUrl}
-                              download={att.filename}
-                              className="flex items-center gap-2 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] px-3 py-2 text-xs font-bold text-[#10B981] dark:border-[#334155] dark:bg-[#0F172A]"
-                            >
-                              <FileText className="h-4 w-4" />
-                              <span>{att.filename}</span>
-                              <Download className="h-3.5 w-3.5" />
-                            </a>
-                          );
-                        })}
+                    ) : isMetric ? (
+                      <NetworkMetricCard
+                        isOutgoing={true}
+                        attachments={msg.attachments}
+                        timestamp={formatTime(msg.createdAt)}
+                      />
+                    ) : (
+                      <div className="max-w-[85%] sm:max-w-[70%] rounded-[22px] bg-white border border-[#E2EAE5] text-[#0F172A] px-5 py-3 shadow-2xs text-[14px] leading-relaxed dark:bg-[#1E2923] dark:border-[#283830] dark:text-[#F8FAFC]">
+                        <SafeMarkdownContent
+                          content={msg.content}
+                          currentUsername={currentUser?.username}
+                          isDark={isDark}
+                        />
                       </div>
                     )}
 
-                  {/* Timestamp & Delivery status tick (from reference image) */}
-                  {!isVoice && !isMetric && (
-                    <div className="mt-1 flex items-center gap-1.5 px-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                      <span>{formatTime(msg.createdAt)}</span>
-                      {isMe && (
+                    {!isVoice && !isMetric && (
+                      <div className="mt-1 flex items-center gap-1.5 px-2 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                        <span>{formatTime(msg.createdAt)}</span>
                         <CheckCheck className="h-3.5 w-3.5 text-[#10B981]" />
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // Incoming message
+              return (
+                <div key={msg.id} className="flex items-start gap-3 w-full my-1">
+                  {/* Avatar circle */}
+                  <div className="shrink-0 mt-1">
+                    {peer?.avatarUrl ? (
+                      <img
+                        src={peer.avatarUrl}
+                        alt={peer.displayName || peer.username}
+                        className="h-8 w-8 rounded-full object-cover shadow-2xs"
+                      />
+                    ) : (
+                      <div
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-[#111820] text-xs font-bold text-white shadow-2xs dark:bg-emerald-600"
+                        style={
+                          peer?.avatarColor
+                            ? { backgroundColor: peer.avatarColor }
+                            : undefined
+                        }
+                      >
+                        {(peer?.displayName || peer?.username || 'AJ')
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col items-start max-w-[85%] sm:max-w-[70%]">
+                    {isVoice ? (
+                      <VoiceWaveformPlayer
+                        isOutgoing={false}
+                        timestamp={formatTime(msg.createdAt)}
+                      />
+                    ) : isMetric ? (
+                      <NetworkMetricCard
+                        isOutgoing={false}
+                        attachments={msg.attachments}
+                        timestamp={formatTime(msg.createdAt)}
+                      />
+                    ) : (
+                      <div className="rounded-[22px] bg-[#111111] text-white px-5 py-3 shadow-2xs text-[14px] leading-relaxed dark:bg-[#141C18]">
+                        <SafeMarkdownContent
+                          content={msg.content}
+                          currentUsername={currentUser?.username}
+                          isDark={true}
+                        />
+                      </div>
+                    )}
+
+                    {/* Attachments if any */}
+                    {Array.isArray(msg.attachments) &&
+                      msg.attachments.length > 0 &&
+                      !isMetric && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {msg.attachments.map((att) => {
+                            const isImg = att.contentType?.startsWith('image/');
+                            const srcUrl = att.dataUrl || att.url;
+                            if (isImg) {
+                              return (
+                                <img
+                                  key={att.id}
+                                  src={srcUrl}
+                                  alt={att.filename}
+                                  className="max-h-52 rounded-xl border border-[#CBD5E1] object-cover dark:border-[#334155]"
+                                />
+                              );
+                            }
+                            return (
+                              <a
+                                key={att.id}
+                                href={srcUrl}
+                                download={att.filename}
+                                className="flex items-center gap-2 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] px-3 py-2 text-xs font-bold text-[#10B981] dark:border-[#334155] dark:bg-[#0F172A]"
+                              >
+                                <FileText className="h-4 w-4" />
+                                <span>{att.filename}</span>
+                                <Download className="h-3.5 w-3.5" />
+                              </a>
+                            );
+                          })}
+                        </div>
                       )}
-                    </div>
-                  )}
+
+                    {!isVoice && !isMetric && (
+                      <div className="mt-1 flex items-center gap-1.5 px-2 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                        <span>{formatTime(msg.createdAt)}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -552,21 +557,6 @@ export const FriendsAndDmStage: React.FC = () => {
             <span>Thêm bạn</span>
           </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setMonitorOpen(!isMonitorOpen)}
-          className={`hidden items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold sm:flex ${
-            isMonitorOpen
-              ? 'border-[#2563EB] bg-[#2563EB] text-white'
-              : isDark
-              ? 'border-[#334155] bg-[#0F172A] text-[#38BDF8]'
-              : 'border-[#DBEAFE] bg-[#EFF6FF] text-[#2563EB]'
-          }`}
-        >
-          <Activity className="h-3.5 w-3.5" />
-          <span>Network Monitor</span>
-        </button>
       </header>
 
       {/* BODY CONTENT BY TAB */}
