@@ -41,8 +41,6 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     theme,
     viewMode,
     activeChannel,
-    activeDmId,
-    dmConversations,
     members,
     friends,
     typingUsers,
@@ -345,19 +343,12 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     }
   };
 
-  // Resolve active DM peer name if in DM mode
-  const activeDmConv = Array.isArray(dmConversations)
-    ? dmConversations.find((c) => c.id === activeDmId)
-    : undefined;
+
 
   const defaultPlaceholder =
     placeholder ||
     (effectiveMode === 'dm'
-      ? `Nhắn tin riêng tới @${
-          activeDmConv?.peerUser?.displayName ||
-          activeDmConv?.peerUser?.username ||
-          'bạn bè'
-        }...`
+      ? 'Write a Message'
       : `Nhắn tin vào #${
           activeChannel?.name || 'general'
         } (Hỗ trợ Markdown, @mention, dán ảnh Ctrl+V ≤ 5MB)`);
