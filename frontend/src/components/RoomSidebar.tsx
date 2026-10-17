@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Room, User } from '../types/chat';
 import { Hash, Plus, Settings, ChevronDown, LogOut, Copy, Check, Trash2 } from 'lucide-react';
+import { Logo } from './Logo';
 
 interface Props {
   rooms: Room[];
@@ -72,9 +73,10 @@ export const RoomSidebar: React.FC<Props> = ({
   return (
     <div className="room-sidebar">
       {/* Server Header Dropdown */}
-      <div className="server-header" onClick={onCreateRoom} title="Nhấn để tạo thêm phòng" style={{ cursor: 'pointer' }}>
-        <span>LTMang ▾</span>
-        <ChevronDown size={18} />
+      <div className="server-header" onClick={onCreateRoom} title="Nhấn để tạo thêm phòng" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Logo size={24} withGlow={false} />
+        <span style={{ fontWeight: 700 }}>LTMang Chat</span>
+        <ChevronDown size={16} style={{ marginLeft: 'auto' }} />
       </div>
 
       {/* Channels Section */}

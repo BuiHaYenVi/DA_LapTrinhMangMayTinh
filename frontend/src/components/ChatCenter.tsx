@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import type { Room, MessageItem, User } from '../types/chat';
 import { Hash, Search, UserPlus, LogOut, Plus, Smile, Image, Paperclip, Send, Edit3, Trash2 } from 'lucide-react';
+import { Logo } from './Logo';
 
 interface Props {
   currentRoom: Room | null;
@@ -417,10 +418,19 @@ export const ChatCenter: React.FC<Props> = ({
             )}
           </>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
-            <Hash size={48} />
-            <p style={{ marginTop: '12px', fontSize: '16px', fontWeight: 600 }}>Chưa chọn phòng chat</p>
-            <p style={{ fontSize: '13px' }}>Hãy chọn một phòng ở danh sách bên trái để tham gia trò chuyện.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', textAlign: 'center', padding: '0 20px' }}>
+            <div style={{ marginBottom: '18px' }}>
+              <Logo size={76} />
+            </div>
+            <h3 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-header)', margin: '0 0 8px' }}>
+              LTMANG CHAT SYSTEM
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-normal)', maxWidth: '440px', lineHeight: '1.6', margin: '0 0 16px' }}>
+              Nền tảng giao tiếp nhóm thời gian thực qua giao thức mạng TCP Socket.
+            </p>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+              👈 Hãy chọn một phòng ở danh sách bên trái hoặc nhấn nút [+] để tạo phòng mới.
+            </p>
           </div>
         )}
       </div>

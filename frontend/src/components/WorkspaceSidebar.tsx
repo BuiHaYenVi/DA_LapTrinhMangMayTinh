@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { MessageSquare, Plus, Settings } from 'lucide-react';
+import { Plus, Settings } from 'lucide-react';
+import { Logo } from './Logo';
 
 interface Props {
   onDirectMessage: () => void;
@@ -14,10 +15,11 @@ export const WorkspaceSidebar: React.FC<Props> = ({ onDirectMessage, onAddServer
     <div className="workspace-strip">
       <button 
         className={`pill-item ${activeItem === 'dm' ? 'active' : ''}`}
-        title="Tin nhắn trực tiếp"
+        title="LTMang Chat - Trang chủ"
         onClick={() => { setActiveItem('dm'); onDirectMessage(); }}
+        style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent' }}
       >
-        <MessageSquare size={24} />
+        <Logo size={42} withGlow={false} />
       </button>
 
       <div className="strip-separator" />
