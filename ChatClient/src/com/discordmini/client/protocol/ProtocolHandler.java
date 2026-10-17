@@ -26,7 +26,8 @@ public final class ProtocolHandler {
         try {
             return new String(Base64.getDecoder().decode(value), StandardCharsets.UTF_8);
         } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("Invalid Base64 field in protocol frame.", ex);
+            // Fallback an toàn nếu Server gửi plain text: trả về trực tiếp chuỗi gốc thay vì crash
+            return value;
         }
     }
 
