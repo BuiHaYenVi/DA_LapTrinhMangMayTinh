@@ -233,11 +233,7 @@ export const ChannelSidebar: React.FC = () => {
     <>
       <aside
         aria-label="Danh sách kênh và tin nhắn trực tiếp"
-        className={`relative flex h-full w-[320px] shrink-0 flex-col border-r select-none transition-colors duration-200 ${
-          isDark
-            ? 'border-[#1E2B25] bg-[#111815] text-[#F8FAFC]'
-            : 'border-[#F0F4F1] bg-white text-[#0F172A]'
-        }`}
+        className="relative flex h-full w-full flex-col select-none transition-colors duration-200"
       >
         {/* TOP HEADER (Only for Guild mode) */}
         {viewMode === 'guild' ? (

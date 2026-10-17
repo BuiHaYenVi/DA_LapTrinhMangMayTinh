@@ -28,95 +28,153 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 36px;
+  padding: 16px 20px;
   background: var(--bg-canvas-gradient, var(--bg-canvas, #EFF5F0));
   overflow: hidden;
 }
 
-.floating-card-shell {
+/* 2-Card Floating Workspace Container + Left Dock */
+.workspace-layout-container {
   width: 100%;
-  max-width: 1480px;
-  height: calc(100vh - 48px);
-  background-color: var(--card-floating-bg, #FFFFFF);
-  border-radius: var(--card-floating-radius, 36px);
-  box-shadow: var(--card-floating-shadow);
+  max-width: 1560px;
+  height: calc(100vh - 32px);
   display: flex;
-  overflow: hidden;
+  align-items: stretch;
+  gap: 16px;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.85);
+  overflow: hidden;
 }
 
-.desktop-sidebar-wrapper {
+/* Left Slim Floating Dock */
+.dock-rail-shell {
+  width: 60px;
   height: 100%;
   display: flex;
   flex-shrink: 0;
-  width: 320px;
-  border-right: 1px solid var(--border);
-  background-color: var(--surface-sidebar, #FFFFFF);
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  position: relative;
+  z-index: 20;
 }
 
-.desktop-member-wrapper {
+/* Card 1: Messages / Channel Sidebar Card (Matching Mockup) */
+.card-sidebar-shell {
+  width: 340px;
   height: 100%;
-  display: flex;
   flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  background-color: var(--surface-sidebar, #FFFFFF);
-}
-
-.workspace-main-column {
-  flex: 1 1 0%;
-  min-width: 0;
-  height: 100%;
+  background-color: var(--card-floating-bg, #FFFFFF);
+  border-radius: var(--card-floating-radius, 32px);
+  box-shadow: 0 20px 50px -12px rgba(20, 42, 33, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.9);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  transition: transform 0.22s ease, box-shadow 0.2s ease;
+}
+
+[data-theme='dark'] .card-sidebar-shell {
+  background-color: #111815;
+  box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Card 2: Main Chat Stage Card (Matching Mockup) */
+.card-chat-shell {
+  flex: 1 1 0%;
+  min-width: 0;
+  height: 100%;
   background: var(--chat-stage-ambient, var(--chat-stage-bg, #F1F7F5));
+  border-radius: var(--card-floating-radius, 32px);
+  box-shadow: 0 20px 50px -12px rgba(20, 42, 33, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  transition: box-shadow 0.2s ease;
+}
+
+[data-theme='dark'] .card-chat-shell {
+  box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Slide-over Member Drawer (slides in gracefully over Card 2) */
+.member-slide-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 280px;
+  z-index: 30;
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(16px);
+  border-left: 1px solid var(--border, #E8EFEA);
+  box-shadow: -10px 0 30px -5px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme='dark'] .member-slide-drawer {
+  background-color: rgba(17, 24, 21, 0.96);
+  border-left: 1px solid #1E2B25;
+  box-shadow: -10px 0 30px -5px rgba(0, 0, 0, 0.55);
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .mobile-topbar {
   display: none;
   align-items: center;
   justify-content: space-between;
-  height: 44px;
-  padding: 0 12px;
-  background-color: var(--bg-subtle);
-  border-bottom: 1px solid var(--border-subtle);
+  height: 48px;
+  padding: 0 14px;
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border, #E8EFEA);
   flex-shrink: 0;
 }
 
+[data-theme='dark'] .mobile-topbar {
+  background-color: rgba(17, 24, 21, 0.85);
+  border-bottom: 1px solid #1E2B25;
+}
+
 @media (max-width: 1024px) {
+  .workspace-viewport {
+    padding: 8px 12px;
+  }
+
+  .workspace-layout-container {
+    gap: 10px;
+    height: calc(100vh - 16px);
+  }
+
   .mobile-topbar {
     display: flex;
   }
 
-  .desktop-sidebar-wrapper {
+  .card-sidebar-shell {
     position: fixed;
-    top: 0;
-    bottom: 0;
+    top: 8px;
+    bottom: 8px;
     left: 72px;
     z-index: 60;
     transform: translateX(-120%);
-    transition: transform 0.22s ease;
-    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.28);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.28);
   }
 
-  .desktop-sidebar-wrapper.drawer-open {
-    transform: translateX(0);
-  }
-
-  .desktop-member-wrapper {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    right: 0;
-    z-index: 60;
-    transform: translateX(110%);
-    transition: transform 0.22s ease;
-    box-shadow: -8px 0 28px rgba(15, 23, 42, 0.28);
-  }
-
-  .desktop-member-wrapper.drawer-open {
+  .card-sidebar-shell.drawer-open {
     transform: translateX(0);
   }
 }

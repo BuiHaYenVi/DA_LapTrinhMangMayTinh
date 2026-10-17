@@ -46,117 +46,113 @@ const WorkspaceContent: React.FC = () => {
 
   return (
     <div className="workspace-viewport">
-      <div className="floating-card-shell" role="application" aria-label="Discord Mini Sage Modern Workspace">
-        {/* Column 1: Guild Rail */}
+      <div className="workspace-layout-container" role="application" aria-label="Discord Mini Sage Modern Workspace">
+        {/* Left Floating Dock (~60px) */}
         <GuildRail />
 
-      {/* Mobile backdrop for slide-over drawers */}
-      {mobileDrawerOpen !== 'none' && (
-        <div
-          onClick={() => setMobileDrawerOpen('none')}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.45)',
-            zIndex: 55,
-          }}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Column 2: Channel & DM Sidebar (240px) */}
-      <div
-        className={`desktop-sidebar-wrapper ${
-          mobileDrawerOpen === 'channels' ? 'drawer-open' : ''
-        }`}
-      >
-        <ChannelSidebar />
-      </div>
-
-      {/* Column 3: Main Chat / Friends / Voice / Network Monitor Stage (1fr) */}
-      <main className="workspace-main-column">
-        {/* Responsive mobile topbar (< 1024px) */}
-        <div className="mobile-topbar">
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() =>
-              setMobileDrawerOpen(
-                mobileDrawerOpen === 'channels' ? 'none' : 'channels',
-              )
-            }
-            aria-label="Mở danh sách kênh"
+        {/* Mobile backdrop for slide-over drawers */}
+        {mobileDrawerOpen !== 'none' && (
+          <div
+            onClick={() => setMobileDrawerOpen('none')}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 10px',
-              borderRadius: '8px',
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.45)',
+              zIndex: 55,
             }}
-          >
-            <Menu size={16} />
-            <span style={{ fontWeight: 700, fontSize: '13px' }}>
-              {viewMode === 'guild'
-                ? `#${activeChannel?.name || activeGuild?.name || 'general'}`
-                : 'Bạn bè & DM'}
-            </span>
-          </button>
+            aria-hidden="true"
+          />
+        )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* Card 1: Channel & DM Sidebar Card (340px) */}
+        <aside
+          className={`card-sidebar-shell ${
+            mobileDrawerOpen === 'channels' ? 'drawer-open' : ''
+          }`}
+        >
+          <ChannelSidebar />
+        </aside>
+
+        {/* Card 2: Main Chat / Friends / Voice Stage Card (1fr) */}
+        <main className="card-chat-shell">
+          {/* Responsive mobile topbar (< 1024px) */}
+          <div className="mobile-topbar">
             <button
               type="button"
               className="btn-ghost"
-              onClick={() => setCommandPaletteOpen(true)}
-              aria-label="Tìm kiếm nhanh Ctrl+K"
-              style={{ padding: '6px', borderRadius: '8px' }}
+              onClick={() =>
+                setMobileDrawerOpen(
+                  mobileDrawerOpen === 'channels' ? 'none' : 'channels',
+                )
+              }
+              aria-label="Mở danh sách kênh"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 10px',
+                borderRadius: '8px',
+              }}
             >
-              <Search size={16} />
+              <Menu size={16} />
+              <span style={{ fontWeight: 700, fontSize: '13px' }}>
+                {viewMode === 'guild'
+                  ? `#${activeChannel?.name || activeGuild?.name || 'general'}`
+                  : 'Bạn bè & DM'}
+              </span>
             </button>
-            {viewMode === 'guild' && (
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button
                 type="button"
                 className="btn-ghost"
-                onClick={() =>
-                  setMobileDrawerOpen(
-                    mobileDrawerOpen === 'members' ? 'none' : 'members',
-                  )
-                }
-                aria-label="Mở danh sách thành viên"
+                onClick={() => setCommandPaletteOpen(true)}
+                aria-label="Tìm kiếm nhanh Ctrl+K"
                 style={{ padding: '6px', borderRadius: '8px' }}
               >
-                <Users size={16} />
+                <Search size={16} />
               </button>
-            )}
+              {viewMode === 'guild' && (
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() =>
+                    setMobileDrawerOpen(
+                      mobileDrawerOpen === 'members' ? 'none' : 'members',
+                    )
+                  }
+                  aria-label="Mở danh sách thành viên"
+                  style={{ padding: '6px', borderRadius: '8px' }}
+                >
+                  <Users size={16} />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* WebRTC Voice/Video Call Stage (when connected to a voice channel) */}
-        {activeVoiceChannelId !== null && <VoiceCallStage />}
+          {/* WebRTC Voice/Video Call Stage (when connected to a voice channel) */}
+          {activeVoiceChannelId !== null && <VoiceCallStage />}
 
-        {/* Main Content: Guild Channel Chat OR Friends & 1-on-1 DM Stage */}
-        <div
-          style={{
-            flex: '1 1 0%',
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          }}
-        >
-          {viewMode === 'guild' ? <ChatStage /> : <FriendsAndDmStage />}
-        </div>
-      </main>
+          {/* Main Content: Guild Channel Chat OR Friends & 1-on-1 DM Stage */}
+          <div
+            style={{
+              flex: '1 1 0%',
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            {viewMode === 'guild' ? <ChatStage /> : <FriendsAndDmStage />}
+          </div>
 
-      {/* Column 4: Member & Role Sidebar (260px) */}
-      {viewMode === 'guild' && isMemberSidebarOpen && (
-        <div
-          className={`desktop-member-wrapper ${
-            mobileDrawerOpen === 'members' ? 'drawer-open' : ''
-          }`}
-        >
-          <MemberSidebar />
-        </div>
-      )}
+          {/* Slide-over Member Drawer (slides in gracefully over Card 2) */}
+          {viewMode === 'guild' && isMemberSidebarOpen && (
+            <div className="member-slide-drawer">
+              <MemberSidebar />
+            </div>
+          )}
+        </main>
       </div>
 
       {/* Global Modals & Overlays */}

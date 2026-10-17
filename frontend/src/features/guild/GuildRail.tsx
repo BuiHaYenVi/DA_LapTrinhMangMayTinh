@@ -128,11 +128,7 @@ export const GuildRail: React.FC = () => {
     <>
       <aside
         aria-label="Thanh máy chủ và điều hướng chính"
-        className={`relative z-20 flex h-full w-[72px] shrink-0 flex-col items-center justify-between border-r py-5 select-none transition-colors duration-200 ${
-          isDark
-            ? 'border-[#1E2B25] bg-[#111815] text-[#F8FAFC]'
-            : 'border-[#F0F4F1] bg-white text-[#0F172A]'
-        }`}
+        className="dock-rail-shell select-none"
       >
         {/* Top: Cloverleaf Brand Logo + Nav items */}
         <div className="flex w-full flex-col items-center gap-4 overflow-y-auto no-scrollbar">

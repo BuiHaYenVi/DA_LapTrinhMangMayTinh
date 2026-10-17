@@ -31,6 +31,7 @@ export const MemberSidebar: React.FC = () => {
     members,
     friends,
     isMemberSidebarOpen,
+    setMemberSidebarOpen,
     openDmWithUser,
     sendFriendRequest,
     updateMemberRole,
@@ -239,11 +240,7 @@ export const MemberSidebar: React.FC = () => {
   return (
     <aside
       aria-label="Danh sách thành viên kênh"
-      className={`relative flex h-full w-[260px] shrink-0 flex-col border-l select-none transition-colors duration-200 ${
-        isDark
-          ? 'border-[#1E2B25] bg-[#111815] text-[#F8FAFC]'
-          : 'border-[#E8EFEA] bg-white text-[#0F172A]'
-      }`}
+      className="relative flex h-full w-full flex-col select-none transition-colors duration-200"
     >
       {/* Top Summary Header (64px) */}
       <div
@@ -256,10 +253,21 @@ export const MemberSidebar: React.FC = () => {
             Thành viên ({normalizedMembers.length})
           </span>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F5EE] px-2 py-0.5 font-mono text-[10px] font-bold text-[#059669]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" />
-          {normalizedMembers.length - offlineMembers.length} Online
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F5EE] px-2 py-0.5 font-mono text-[10px] font-bold text-[#059669]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" />
+            {normalizedMembers.length - offlineMembers.length} Online
+          </span>
+          <button
+            type="button"
+            onClick={() => setMemberSidebarOpen(false)}
+            className="rounded-lg p-1.5 text-[#64748B] hover:bg-slate-100 hover:text-[#0F172A] dark:hover:bg-slate-800 dark:hover:text-white transition"
+            title="Đóng danh sách thành viên"
+            aria-label="Đóng danh sách thành viên"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Scrollable Role Groups */}

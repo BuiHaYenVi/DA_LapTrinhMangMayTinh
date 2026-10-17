@@ -855,7 +855,7 @@ export const AppStoreProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isMonitorOpen, setMonitorOpen] = useState<boolean>(false);
   const [isSettingsOpen, setSettingsOpen] = useState<boolean>(false);
   const [isCommandPaletteOpen, setCommandPaletteOpen] = useState<boolean>(false);
-  const [isMemberSidebarOpen, setMemberSidebarOpen] = useState<boolean>(true);
+  const [isMemberSidebarOpen, setMemberSidebarOpen] = useState<boolean>(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<'none' | 'channels' | 'members'>('none');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
