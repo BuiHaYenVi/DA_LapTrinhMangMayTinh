@@ -5,12 +5,16 @@
 
 :root,
 [data-theme='light'] {
-  /* Sage Modern Floating Canvas (Exact match to reference mockup) */
-  --bg-canvas: #95AAA0;
-  --bg-canvas-gradient: radial-gradient(circle at 50% 45%, #9FB5AA 0%, #8DA398 100%);
+  /* Sage & Cream Modern Atmospheric Floating Canvas (Exact match to reference mockup) */
+  --bg-canvas: #EFF5F0;
+  --bg-canvas-gradient: radial-gradient(circle at 12% 12%, #FCF7F1 0%, transparent 55%), radial-gradient(circle at 88% 88%, #E1EDE3 0%, transparent 60%), linear-gradient(135deg, #FBF8F3 0%, #F4F7F4 50%, #E5EFE8 100%);
   --card-floating-bg: #FFFFFF;
   --card-floating-radius: 36px;
-  --card-floating-shadow: 0 32px 85px -15px rgba(20, 42, 33, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.9);
+  --card-floating-shadow: 0 32px 85px -15px rgba(20, 42, 33, 0.16), 0 0 0 1px rgba(255, 255, 255, 0.9);
+
+  /* Chat Stage Atmospheric Ambient Gradient (Soft warm cream to sage mint pastel gradient from reference image) */
+  --chat-stage-bg: linear-gradient(180deg, #FFFFFF 0%, #F8FAF9 25%, #F1F7F5 70%, #ECF4F0 100%);
+  --chat-stage-ambient: radial-gradient(circle at 10% 5%, #FFFFFF 0%, transparent 45%), radial-gradient(circle at 90% 95%, #E8F2EC 0%, transparent 55%), #F1F7F5;
 
   /* Surfaces */
   --surface: #FFFFFF;
@@ -101,10 +105,14 @@
 [data-theme='dark'] {
   /* Dark Emerald Canvas */
   --bg-canvas: #090E0C;
-  --bg-canvas-gradient: radial-gradient(circle at 10% 15%, #101915 0%, #090E0C 70%);
+  --bg-canvas-gradient: radial-gradient(circle at 12% 12%, #14201A 0%, transparent 60%), radial-gradient(circle at 88% 88%, #0C1410 0%, transparent 65%), #090E0C;
   --card-floating-bg: #111815;
   --card-floating-radius: 36px;
   --card-floating-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+
+  /* Chat Stage Atmospheric Ambient Gradient (Dark Emerald) */
+  --chat-stage-bg: linear-gradient(180deg, #111815 0%, #131E19 45%, #0F1612 100%);
+  --chat-stage-ambient: radial-gradient(circle at 15% 5%, #182620 0%, transparent 50%), radial-gradient(circle at 85% 95%, #0D1411 0%, transparent 60%), #111815;
 
   /* Dark Charcoal Surfaces */
   --surface: #111815;

@@ -340,16 +340,19 @@ export const ChatStage: React.FC = () => {
   return (
     <section
       aria-label="Khu vực trò chuyện chính"
-      className={`relative flex h-full min-w-0 flex-1 flex-col transition-colors duration-200 ${
-        isDark ? 'bg-[#1E293B] text-[#F8FAFC]' : 'bg-white text-[#0F172A]'
-      }`}
+      className="relative flex h-full min-w-0 flex-1 flex-col text-[#0F172A] transition-colors duration-200 dark:text-[#F8FAFC]"
+      style={{
+        background: isDark
+          ? 'var(--chat-stage-ambient, linear-gradient(180deg, #111815 0%, #131E19 45%, #0F1612 100%))'
+          : 'var(--chat-stage-ambient, linear-gradient(180deg, #FFFFFF 0%, #F8FAF9 25%, #F1F7F5 70%, #ECF4F0 100%))',
+      }}
     >
       {/* STICKY TOP HEADER (64px, modern minimalist style from reference image) */}
       <header
         className={`sticky top-0 z-20 flex h-[64px] shrink-0 items-center justify-between border-b px-5 backdrop-blur-md transition-colors ${
           isDark
-            ? 'border-[#1E2B25] bg-[#111815]/90'
-            : 'border-[#E8EFEA] bg-white/90'
+            ? 'border-[#1E2B25] bg-[#111815]/85'
+            : 'border-[#E8EFEA]/80 bg-white/80'
         }`}
       >
         {/* Left: Contact/Channel Avatar + Name + Online status indicator */}
@@ -606,10 +609,10 @@ export const ChatStage: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {/* Channel Welcome Hero Banner */}
         <div
-          className={`mb-6 rounded-2xl border p-5 ${
+          className={`mb-6 rounded-2xl border p-5 backdrop-blur-xs transition ${
             isDark
-              ? 'border-[#334155] bg-[#0F172A]/60'
-              : 'border-[#DBEAFE] bg-gradient-to-r from-[#EFF6FF] to-[#F8FAFC]'
+              ? 'border-[#1E2B25] bg-[#16201C]/80 shadow-2xs'
+              : 'border-[#E8EFEA] bg-white/80 shadow-2xs'
           }`}
         >
           <div className="flex items-center gap-3">

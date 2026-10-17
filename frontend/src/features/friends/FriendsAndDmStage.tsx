@@ -192,16 +192,19 @@ export const FriendsAndDmStage: React.FC = () => {
     return (
       <section
         aria-label="Trò chuyện riêng trực tiếp (Direct Message)"
-        className={`flex h-full min-w-0 flex-1 flex-col transition-colors duration-200 ${
-          isDark ? 'bg-[#1E293B] text-[#F8FAFC]' : 'bg-white text-[#0F172A]'
-        }`}
+        className="flex h-full min-w-0 flex-1 flex-col text-[#0F172A] transition-colors duration-200 dark:text-[#F8FAFC]"
+        style={{
+          background: isDark
+            ? 'var(--chat-stage-ambient, linear-gradient(180deg, #111815 0%, #131E19 45%, #0F1612 100%))'
+            : 'var(--chat-stage-ambient, linear-gradient(180deg, #FFFFFF 0%, #F8FAF9 25%, #F1F7F5 70%, #ECF4F0 100%))',
+        }}
       >
         {/* Sticky DM Header (matching reference mockup) */}
         <header
           className={`sticky top-0 z-20 flex h-[68px] shrink-0 items-center justify-between border-b px-7 backdrop-blur-md transition-colors ${
             isDark
-              ? 'border-[#1E2B25] bg-[#111815]/90'
-              : 'border-[#EEF2F0] bg-white/95'
+              ? 'border-[#1E2B25] bg-[#111815]/85'
+              : 'border-[#EEF2F0]/80 bg-white/85'
           }`}
         >
           <div className="flex min-w-0 items-center gap-3.5">
@@ -477,14 +480,17 @@ export const FriendsAndDmStage: React.FC = () => {
   return (
     <section
       aria-label="Quản lý bạn bè và lời mời kết bạn"
-      className={`flex h-full min-w-0 flex-1 flex-col transition-colors duration-200 ${
-        isDark ? 'bg-[#1E293B] text-[#F8FAFC]' : 'bg-white text-[#0F172A]'
-      }`}
+      className="flex h-full min-w-0 flex-1 flex-col text-[#0F172A] transition-colors duration-200 dark:text-[#F8FAFC]"
+      style={{
+        background: isDark
+          ? 'var(--chat-stage-ambient, linear-gradient(180deg, #111815 0%, #131E19 45%, #0F1612 100%))'
+          : 'var(--chat-stage-ambient, linear-gradient(180deg, #FFFFFF 0%, #F8FAF9 25%, #F1F7F5 70%, #ECF4F0 100%))',
+      }}
     >
       {/* TOP FRIENDS NAVIGATION HEADER (56px) */}
       <header
-        className={`flex h-[56px] shrink-0 items-center justify-between border-b px-4 ${
-          isDark ? 'border-[#334155]' : 'border-[#E2E8F0]'
+        className={`flex h-[56px] shrink-0 items-center justify-between border-b px-4 backdrop-blur-md ${
+          isDark ? 'border-[#1E2B25] bg-[#111815]/85' : 'border-[#E8EFEA]/80 bg-white/80'
         }`}
       >
         <div className="flex flex-wrap items-center gap-2">

@@ -29,7 +29,7 @@ body,
   align-items: center;
   justify-content: center;
   padding: 24px 36px;
-  background: var(--bg-canvas-gradient, var(--bg-canvas, #95AAA0));
+  background: var(--bg-canvas-gradient, var(--bg-canvas, #EFF5F0));
   overflow: hidden;
 }
 
@@ -52,6 +52,7 @@ body,
   flex-shrink: 0;
   width: 320px;
   border-right: 1px solid var(--border);
+  background-color: var(--surface-sidebar, #FFFFFF);
 }
 
 .desktop-member-wrapper {
@@ -59,6 +60,7 @@ body,
   display: flex;
   flex-shrink: 0;
   border-left: 1px solid var(--border);
+  background-color: var(--surface-sidebar, #FFFFFF);
 }
 
 .workspace-main-column {
@@ -69,7 +71,7 @@ body,
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background-color: var(--card-floating-bg, #FFFFFF);
+  background: var(--chat-stage-ambient, var(--chat-stage-bg, #F1F7F5));
 }
 
 .mobile-topbar {
