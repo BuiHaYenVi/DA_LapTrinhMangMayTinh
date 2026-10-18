@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { User, Room, Friend } from '../types/chat';
 import { Crown, Shield, MoreVertical } from 'lucide-react';
 import { UserProfileCard } from './UserProfileCard';
-import type { SettingsTabId } from './UserSettingsModal';
+import { loadStoredSettings, type StoredSettings, type SettingsTabId } from './UserSettingsModal';
 
 interface Props {
   members: User[];
@@ -35,11 +35,22 @@ export const MemberSidebar: React.FC<Props> = ({
 }) => {
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
   const [activeProfile, setActiveProfile] = useState<{ user: User; anchorRect: DOMRect } | null>(null);
+  const [currentUserStyle, setCurrentUserStyle] = useState<StoredSettings>(loadStoredSettings);
 
   const onlineMembers = members.filter(m => m.online !== false);
   const offlineMembers = members.filter(m => m.online === false);
   const isOwner = currentUserRole === 'OWNER';
   const isAdmin = currentUserRole === 'ADMIN';
+
+  React.useEffect(() => {
+    const handleSync = () => setCurrentUserStyle(loadStoredSettings());
+    window.addEventListener('user_settings_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('user_settings_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
 
   React.useEffect(() => {
     const handleOutsideClick = () => setSelectedMember(null);
@@ -72,8 +83,24 @@ export const MemberSidebar: React.FC<Props> = ({
     const canManage = !isMe && (isOwner || (isAdmin && member.role !== 'OWNER' && member.role !== 'ADMIN'));
     const isSelected = activeProfile?.user.id === member.id;
 
-    // Determine status dot class
-    const presenceClass = member.presenceStatus || (isOnline ? 'online' : 'offline');
+    // Đồng bộ ảnh đại diện, màu sắc, biểu tượng và trạng thái cho chính mình (isMe)
+    const avatarColor = isMe 
+      ? (currentUserStyle.avatarColor || member.avatarColor || 'var(--accent)')
+      : (member.avatarColor || undefined);
+
+    const avatarChar = isMe
+      ? (currentUserStyle.avatarIcon || member.avatarIcon || (member.displayName ? member.displayName.charAt(0).toUpperCase() : 'U'))
+      : (member.avatarIcon || (member.displayName ? member.displayName.charAt(0).toUpperCase() : 'U'));
+
+    const isEmoji = isMe ? Boolean(currentUserStyle.avatarIcon) : Boolean(member.avatarIcon);
+
+    const presenceClass = isMe
+      ? (currentUserStyle.presenceStatus || 'online')
+      : (member.presenceStatus || (isOnline ? 'online' : 'offline'));
+
+    const effectiveCustomStatus = isMe
+      ? (currentUserStyle.customStatus || member.customStatus || '')
+      : (member.customStatus || '');
 
     return (
       <div 
@@ -94,15 +121,15 @@ export const MemberSidebar: React.FC<Props> = ({
           <div 
             className="user-avatar-circle"
             style={{
-              backgroundColor: member.avatarColor || undefined,
-              fontSize: member.avatarIcon ? '16px' : undefined
+              backgroundColor: avatarColor,
+              fontSize: isEmoji ? '16px' : undefined
             }}
           >
-            {member.avatarIcon || (member.displayName ? member.displayName.charAt(0).toUpperCase() : 'U')}
+            {avatarChar}
           </div>
           <div 
             className={`status-dot ${presenceClass}`} 
-            title={isOnline ? 'Trực tuyến' : 'Ngoại tuyến'} 
+            title={presenceClass === 'online' ? 'Trực tuyến' : (presenceClass === 'offline' ? 'Ngoại tuyến' : presenceClass)} 
           />
         </div>
 
@@ -122,10 +149,10 @@ export const MemberSidebar: React.FC<Props> = ({
               </span>
             )}
           </div>
-          {member.customStatus && (
+          {effectiveCustomStatus && (
             <span 
               className="member-custom-status" 
-              title={member.customStatus}
+              title={effectiveCustomStatus}
               style={{
                 fontSize: '11px',
                 color: 'var(--text-muted, #949ba4)',
@@ -135,7 +162,7 @@ export const MemberSidebar: React.FC<Props> = ({
                 lineHeight: '1.2'
               }}
             >
-              {member.customStatus}
+              💬 {effectiveCustomStatus}
             </span>
           )}
         </div>

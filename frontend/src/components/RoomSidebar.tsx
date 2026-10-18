@@ -403,7 +403,7 @@ export const RoomSidebar: React.FC<Props> = ({
                       <div className="user-avatar-circle" style={{ width: '32px', height: '32px', fontSize: '13px' }}>
                         {friend.displayName ? Array.from(friend.displayName.trim())[0]?.toUpperCase() : 'U'}
                       </div>
-                      <div className={`status-dot ${friend.online ? '' : 'offline'}`} />
+                      <div className={`status-dot ${friend.online ? 'online' : 'offline'}`} />
                     </div>
 
                     <div className="dm-conv-body">

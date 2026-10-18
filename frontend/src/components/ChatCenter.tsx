@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Logo } from './Logo';
 import { EmojiStickerPicker, QuickAttachMenu, parseStickerToken, extractStickerFromContent } from './chat/EmojiStickerPicker';
+import { loadStoredSettings } from './UserSettingsModal';
 
 interface Props {
   currentRoom: Room | null;
@@ -37,11 +38,8 @@ function formatMessageTime(rawTime: string): { short: string; full: string } {
 
   let use12h = false;
   try {
-    const raw = localStorage.getItem('discord_mini_user_settings_v2');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed.timeFormat === '12h') use12h = true;
-    }
+    const settings = loadStoredSettings();
+    if (settings.timeFormat === '12h') use12h = true;
   } catch {
     // default 24h
   }
@@ -228,6 +226,13 @@ export const ChatCenter: React.FC<Props> = ({
       )
     : messages;
 
+  const [, setSettingsTick] = useState(0);
+  useEffect(() => {
+    const onSettingsUpdate = () => setSettingsTick(v => v + 1);
+    window.addEventListener('user_settings_updated', onSettingsUpdate);
+    return () => window.removeEventListener('user_settings_updated', onSettingsUpdate);
+  }, []);
+
   const handleSend = () => {
     if (!inputText.trim()) return;
     onSendMessage(inputText.trim());
@@ -236,20 +241,19 @@ export const ChatCenter: React.FC<Props> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      try {
-        const raw = localStorage.getItem('discord_mini_user_settings_v2');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed.enterToSend === false && !e.ctrlKey) {
-            return;
-          }
+    if (e.key === 'Enter') {
+      const stored = loadStoredSettings();
+      if (stored.enterToSend === false) {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          handleSend();
         }
-      } catch {
-        // default enterToSend = true
+        return;
       }
-      e.preventDefault();
-      handleSend();
+      if (!e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
     }
   };
 
@@ -277,15 +281,8 @@ export const ChatCenter: React.FC<Props> = ({
 
   // Cuộn xuống tin mới nhất (tôn trọng cài đặt autoScroll)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('discord_mini_user_settings_v2');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.autoScroll === false) return;
-      }
-    } catch {
-      // default autoScroll = true
-    }
+    const stored = loadStoredSettings();
+    if (stored.autoScroll === false) return;
     if (chatMessagesRef.current && !isLoading) {
       chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
     }
@@ -789,7 +786,7 @@ export const ChatCenter: React.FC<Props> = ({
           <button 
             type="button"
             className="chat-send-btn" 
-            title="Gửi tin nhắn (Enter)"
+            title={loadStoredSettings().enterToSend ? "Gửi tin nhắn (Enter)" : "Gửi tin nhắn (Ctrl + Enter)"}
             onClick={handleSend}
             disabled={!inputText.trim() || !currentChannel || isLoading}
             aria-label="Gửi tin nhắn"

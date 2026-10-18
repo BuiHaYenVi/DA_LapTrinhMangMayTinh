@@ -16,7 +16,7 @@ import { CreateRoomModal } from './components/CreateServerModal';
 import { CreateChannelModal } from './components/CreateChannelModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { AppTitlebar } from './components/AppTitlebar';
-import { UserSettingsModal, type SettingsTabId } from './components/UserSettingsModal';
+import { UserSettingsModal, type SettingsTabId, loadStoredSettings } from './components/UserSettingsModal';
 import { Toast } from './components/Toast';
 import { useRoomUnread } from './components/rail/useRoomUnread';
 import './styles/discord.css';
@@ -162,15 +162,12 @@ export const App: React.FC = () => {
   useEffect(() => {
     const applyDisplaySettings = () => {
       try {
-        const raw = localStorage.getItem('discord_mini_user_settings_v2');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed.fontSize) {
-            document.documentElement.setAttribute('data-font-size', parsed.fontSize);
-          }
-          if (parsed.messageDensity) {
-            document.documentElement.setAttribute('data-density', parsed.messageDensity);
-          }
+        const stored = loadStoredSettings();
+        if (stored.fontSize) {
+          document.documentElement.setAttribute('data-font-size', stored.fontSize);
+        }
+        if (stored.messageDensity) {
+          document.documentElement.setAttribute('data-density', stored.messageDensity);
         }
       } catch {
         // ignore
@@ -183,10 +180,12 @@ export const App: React.FC = () => {
 
   const playNotificationSound = useCallback(() => {
     try {
-      const raw = localStorage.getItem('discord_mini_user_settings_v2');
-      const parsed = raw ? JSON.parse(raw) : {};
-      if (parsed.soundEnabled === false) return;
-      const vol = typeof parsed.soundVolume === 'number' ? parsed.soundVolume : 75;
+      const stored = loadStoredSettings();
+      if (stored.soundEnabled === false) return;
+      // Nếu trạng thái đang là Không làm phiền (dnd), tắt âm thanh
+      if (stored.presenceStatus === 'dnd') return;
+
+      const vol = typeof stored.soundVolume === 'number' ? stored.soundVolume : 75;
       if (vol <= 0) return;
 
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -216,6 +215,18 @@ export const App: React.FC = () => {
     setUserSettingsInitialTab(initialTab);
     setIsUserSettingsOpen(true);
   };
+
+  // Phím tắt toàn cục: Ctrl + , -> Mở cài đặt
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        handleOpenSettings('account');
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState<boolean>(false);
   const [isCreateChannelOpen, setIsCreateChannelOpen] = useState<boolean>(false);
   const [isMemberListOpen, setIsMemberListOpen] = useState<boolean>(true);

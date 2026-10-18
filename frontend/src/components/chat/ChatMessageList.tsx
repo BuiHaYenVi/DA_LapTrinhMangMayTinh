@@ -3,6 +3,7 @@ import type { MessageItem } from '../../types/chat';
 import { RotateCw, Edit3, Trash2 } from 'lucide-react';
 import { formatDateLabel, getDateKey, shouldGroupWithPrevious, formatTime } from './chatShared';
 import { extractStickerFromContent } from './EmojiStickerPicker';
+import { loadStoredSettings } from '../UserSettingsModal';
 
 interface Props {
   messages: MessageItem[];
@@ -28,18 +29,19 @@ export const ChatMessageList: React.FC<Props> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
+  const [, setTick] = useState(0);
+
+  // Lắng nghe thay đổi cài đặt (định dạng giờ, mật độ...) để re-render ngay
+  useEffect(() => {
+    const onUpdate = () => setTick(v => v + 1);
+    window.addEventListener('user_settings_updated', onUpdate);
+    return () => window.removeEventListener('user_settings_updated', onUpdate);
+  }, []);
 
   // Tự cuộn xuống đáy khi có tin nhắn mới (tôn trọng cài đặt autoScroll)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('discord_mini_user_settings_v2');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.autoScroll === false) return;
-      }
-    } catch {
-      // default autoScroll = true
-    }
+    const stored = loadStoredSettings();
+    if (stored.autoScroll === false) return;
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }

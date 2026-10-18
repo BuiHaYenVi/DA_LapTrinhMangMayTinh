@@ -601,7 +601,8 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                             backgroundColor: 
                               presenceStatus === 'online' ? '#23a55a' :
                               presenceStatus === 'idle' ? '#f0b232' :
-                              presenceStatus === 'dnd' ? '#f23f43' : '#80848e'
+                              presenceStatus === 'dnd' ? '#f23f43' : 'var(--bg-1)',
+                            boxShadow: (presenceStatus === 'invisible' || presenceStatus === 'offline') ? 'inset 0 0 0 2.5px #80848e' : undefined
                           }} 
                         />
                       </div>
@@ -667,23 +668,6 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                       <Check size={13} /> Đã liên kết
                     </span>
                   </div>
-
-                  {/* Số điện thoại */}
-                  <div className="settings-account-row-item">
-                    <div>
-                      <div className="settings-account-row-label">Số điện thoại</div>
-                      <div className="settings-account-row-val" style={{ color: 'var(--text-muted)' }}>
-                        Bạn chưa thêm số điện thoại nào cả.
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="settings-row-action-btn"
-                      onClick={() => setProfileFeedback({ text: 'Tính năng liên kết SMS đang được nâng cấp ở bản tiếp theo.', type: 'notice' })}
-                    >
-                      Thêm
-                    </button>
-                  </div>
                 </div>
 
                 <div className="settings-toggle-divider" style={{ margin: '14px 0' }} />
@@ -707,7 +691,10 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                         onClick={() => handleSelectPresenceStatus(st.id as PresenceStatus)}
                         className={`settings-presence-btn ${presenceStatus === st.id ? 'active' : ''}`}
                       >
-                        <span className="presence-dot-indicator" style={{ backgroundColor: st.color }} />
+                        <span 
+                          className={`presence-dot-indicator ${st.id}`} 
+                          style={st.id === 'invisible' ? { backgroundColor: '#2b2d31', boxShadow: 'inset 0 0 0 2px #80848e' } : { backgroundColor: st.color }} 
+                        />
                         <div className="presence-btn-text">
                           <span className="presence-btn-title">{st.label}</span>
                           <span className="presence-btn-desc">{st.desc}</span>
@@ -1026,7 +1013,8 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                             backgroundColor: 
                               presenceStatus === 'online' ? '#23a55a' :
                               presenceStatus === 'idle' ? '#f0b232' :
-                              presenceStatus === 'dnd' ? '#f23f43' : '#80848e'
+                              presenceStatus === 'dnd' ? '#f23f43' : '#1e1f22',
+                            boxShadow: (presenceStatus === 'invisible' || presenceStatus === 'offline') ? 'inset 0 0 0 3px #80848e' : undefined
                           }}
                         />
                       </div>

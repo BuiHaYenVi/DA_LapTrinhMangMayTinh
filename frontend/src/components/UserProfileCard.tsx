@@ -379,7 +379,7 @@ export const UserProfileCard: React.FC<Props> = ({
               {/* Chấm trạng thái có viền dày */}
               <div 
                 className={`discord-profile-status-badge ${effectivePresence}`}
-                style={{ backgroundColor: presenceColors[effectivePresence] }}
+                style={effectivePresence === 'offline' || effectivePresence === 'invisible' ? undefined : { backgroundColor: presenceColors[effectivePresence] }}
                 title={presenceLabels[effectivePresence]}
               />
             </div>
@@ -569,8 +569,8 @@ export const UserProfileCard: React.FC<Props> = ({
                           onClick={() => handleSelectPresence(st.id as PresenceStatus)}
                         >
                           <span 
-                            className="chip-dot" 
-                            style={{ backgroundColor: st.color }} 
+                            className={`chip-dot ${st.id}`} 
+                            style={st.id === 'invisible' ? { backgroundColor: '#2b2d31', boxShadow: 'inset 0 0 0 2px #80848e' } : { backgroundColor: st.color }} 
                           />
                           <span>{st.label}</span>
                         </button>

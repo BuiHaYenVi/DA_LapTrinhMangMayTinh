@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Send, Smile, PlusCircle } from 'lucide-react';
 import { EmojiStickerPicker, QuickAttachMenu } from './EmojiStickerPicker';
+import { loadStoredSettings } from '../UserSettingsModal';
 
 interface Props {
   placeholder?: string;
@@ -17,6 +18,13 @@ export const ChatComposer: React.FC<Props> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const onUpdate = () => setTick(v => v + 1);
+    window.addEventListener('user_settings_updated', onUpdate);
+    return () => window.removeEventListener('user_settings_updated', onUpdate);
+  }, []);
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -31,20 +39,21 @@ export const ChatComposer: React.FC<Props> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      try {
-        const raw = localStorage.getItem('discord_mini_user_settings_v2');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed.enterToSend === false && !e.ctrlKey) {
-            return;
-          }
+    if (e.key === 'Enter') {
+      const stored = loadStoredSettings();
+      if (stored.enterToSend === false) {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          handleSubmit();
+        } else {
+          e.preventDefault();
         }
-      } catch {
-        // default enterToSend = true
+        return;
       }
-      e.preventDefault();
-      handleSubmit();
+      if (!e.shiftKey) {
+        e.preventDefault();
+        handleSubmit();
+      }
     }
   };
 
@@ -124,7 +133,7 @@ export const ChatComposer: React.FC<Props> = ({
             <button
               type="submit"
               className="dm-composer-btn send"
-              title="Gửi tin nhắn"
+              title={loadStoredSettings().enterToSend ? "Gửi tin nhắn (Enter)" : "Gửi tin nhắn (Ctrl + Enter)"}
               aria-label="Gửi tin nhắn"
               disabled={!text.trim() || disabled}
             >

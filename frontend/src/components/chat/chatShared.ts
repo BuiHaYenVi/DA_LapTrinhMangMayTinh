@@ -50,9 +50,30 @@ export function formatTime(raw?: string | number | null): string {
                       d.getMonth() === yesterday.getMonth() &&
                       d.getFullYear() === yesterday.getFullYear();
 
-  const hours = String(d.getHours()).padStart(2, '0');
+  let is12h = false;
+  try {
+    const rawSettings = localStorage.getItem('discord_mini_user_settings_v2') || localStorage.getItem('huddle_user_settings');
+    if (rawSettings) {
+      const parsed = JSON.parse(rawSettings);
+      if (parsed.timeFormat === '12h') {
+        is12h = true;
+      }
+    }
+  } catch {
+    // fallback 24h
+  }
+
   const minutes = String(d.getMinutes()).padStart(2, '0');
-  const timeStr = `${hours}:${minutes}`;
+  let timeStr = '';
+  if (is12h) {
+    const h = d.getHours();
+    const period = h >= 12 ? 'CH' : 'SA';
+    const h12 = h % 12 || 12;
+    timeStr = `${String(h12).padStart(2, '0')}:${minutes} ${period}`;
+  } else {
+    const hours = String(d.getHours()).padStart(2, '0');
+    timeStr = `${hours}:${minutes}`;
+  }
 
   if (isToday) {
     return timeStr;

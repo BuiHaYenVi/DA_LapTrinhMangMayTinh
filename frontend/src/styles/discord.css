@@ -1671,9 +1671,10 @@ body {
   box-shadow: 0 0 4px rgba(35, 165, 90, 0.4);
 }
 
-.member-item .status-dot.offline {
-  background-color: #80848e !important;
-  box-shadow: none;
+.member-item .status-dot.offline,
+.member-item .status-dot.invisible {
+  background-color: var(--bg-sidebar-secondary, #2b2d31) !important;
+  box-shadow: inset 0 0 0 2.5px #80848e !important;
 }
 
 /* Badge hiển thị vai trò trong menu chuột phải */
@@ -7266,19 +7267,28 @@ body {
 }
 
 /* Tùy chọn Cỡ chữ & Mật độ tin nhắn từ UserSettingsModal */
+html[data-font-size="small"] .msg-body,
+html[data-font-size="small"] .msg-text-content,
 html[data-font-size="14px"] .msg-body,
 html[data-font-size="14px"] .msg-text-content {
   font-size: 13.5px !important;
+  line-height: 1.35 !important;
 }
 
+html[data-font-size="medium"] .msg-body,
+html[data-font-size="medium"] .msg-text-content,
 html[data-font-size="15px"] .msg-body,
 html[data-font-size="15px"] .msg-text-content {
   font-size: 15px !important;
+  line-height: 1.45 !important;
 }
 
+html[data-font-size="large"] .msg-body,
+html[data-font-size="large"] .msg-text-content,
 html[data-font-size="16px"] .msg-body,
 html[data-font-size="16px"] .msg-text-content {
   font-size: 16.5px !important;
+  line-height: 1.55 !important;
 }
 
 html[data-density="compact"] .discord-message-row {
@@ -7312,8 +7322,8 @@ html[data-density="compact"] .dm-message-row {
 }
 .status-dot.invisible,
 .status-dot.offline {
-  background-color: #80848e !important;
-  box-shadow: none;
+  background-color: var(--bg-sidebar-secondary, #2b2d31) !important;
+  box-shadow: inset 0 0 0 2.5px #80848e !important;
 }
 
 /* Highlight item khi đang mở profile popover */
@@ -7437,6 +7447,43 @@ html[data-density="compact"] .dm-message-row {
   border-radius: 50%;
   border: 4px solid #232428;
   box-sizing: content-box;
+}
+
+.discord-profile-status-badge.online {
+  background-color: #23a55a !important;
+  box-shadow: 0 0 4px rgba(35, 165, 90, 0.4);
+}
+.discord-profile-status-badge.idle {
+  background-color: #f0b232 !important;
+}
+.discord-profile-status-badge.dnd {
+  background-color: #f23f43 !important;
+}
+.discord-profile-status-badge.offline,
+.discord-profile-status-badge.invisible {
+  background-color: #232428 !important;
+  box-shadow: inset 0 0 0 3px #80848e !important;
+}
+
+.settings-live-status-dot.online {
+  background-color: #23a55a !important;
+}
+.settings-live-status-dot.idle {
+  background-color: #f0b232 !important;
+}
+.settings-live-status-dot.dnd {
+  background-color: #f23f43 !important;
+}
+.settings-live-status-dot.offline,
+.settings-live-status-dot.invisible {
+  background-color: #1e1f22 !important;
+  box-shadow: inset 0 0 0 3px #80848e !important;
+}
+
+.presence-dot-indicator.invisible,
+.presence-dot-indicator.offline {
+  background-color: #2b2d31 !important;
+  box-shadow: inset 0 0 0 2px #80848e !important;
 }
 
 /* Bong bóng trạng thái tùy chỉnh kiểu Discord */

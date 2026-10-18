@@ -198,7 +198,7 @@ export const FriendsView: React.FC<Props> = ({
                         <div className="user-avatar-circle" style={{ width: '36px', height: '36px', fontSize: '14px' }}>
                           {friend.displayName ? Array.from(friend.displayName.trim())[0]?.toUpperCase() : 'U'}
                         </div>
-                        <div className={`status-dot ${friend.online ? '' : 'offline'}`} />
+                        <div className={`status-dot ${friend.online ? 'online' : 'offline'}`} />
                       </div>
 
                       <div className="friend-name-block">
@@ -364,7 +364,7 @@ export const FriendsView: React.FC<Props> = ({
                             <div className="user-avatar-circle" style={{ width: '36px', height: '36px', fontSize: '14px' }}>
                               {user.displayName ? Array.from(user.displayName.trim())[0]?.toUpperCase() : 'U'}
                             </div>
-                            <div className={`status-dot ${user.online ? '' : 'offline'}`} />
+                            <div className={`status-dot ${user.online ? 'online' : 'offline'}`} />
                           </div>
 
                           <div className="friend-name-block">
