@@ -4,7 +4,7 @@ import { chatBridge } from '../services/chatBridge';
 import { 
   X, User as UserIcon, Palette, Bell, MessageSquare, 
   Activity, Keyboard, Info, LogOut, Check, Volume2, 
-  ArrowDown, Lock, RefreshCw, AlertTriangle
+  ArrowDown, Lock, RefreshCw
 } from 'lucide-react';
 
 export type SettingsTabId = 
@@ -130,8 +130,6 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const [isChangingPass, setIsChangingPass] = useState(false);
   const [passFeedback, setPassFeedback] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // Logout confirmation
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Network tab state
   const [pingMs, setPingMs] = useState(24);
@@ -152,7 +150,6 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
       setAvatarColor(stored.avatarColor || '#2DD4BF');
       setProfileFeedback(null);
       setPassFeedback(null);
-      setShowLogoutConfirm(false);
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -215,12 +212,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       // Đóng modal khi bấm Escape
       if (e.key === 'Escape') {
-        if (showLogoutConfirm) {
-          setShowLogoutConfirm(false);
-          e.stopPropagation();
-        } else {
-          onClose();
-        }
+        onClose();
         return;
       }
 
@@ -264,7 +256,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, activeTab, showLogoutConfirm, onClose, tabs]);
+  }, [isOpen, activeTab, onClose, tabs]);
 
   // Kiểm tra có thay đổi ở form hồ sơ không
   const initialName = currentUser?.displayName || currentUser?.username || '';
@@ -417,7 +409,10 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
             <button
               type="button"
               className="settings-nav-logout-btn"
-              onClick={() => setShowLogoutConfirm(true)}
+              onClick={() => {
+                onClose();
+                onLogout();
+              }}
               title="Đăng xuất khỏi tài khoản"
             >
               <LogOut size={16} />
@@ -1033,52 +1028,6 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
           )}
         </main>
       </div>
-
-      {/* ================= HỘP THOẠI XÁC NHẬN ĐĂNG XUẤT ================= */}
-      {showLogoutConfirm && (
-        <div 
-          className="settings-confirm-overlay"
-          onClick={e => {
-            e.stopPropagation();
-            setShowLogoutConfirm(false);
-          }}
-        >
-          <div 
-            className="settings-confirm-card"
-            onClick={e => e.stopPropagation()}
-            role="alertdialog"
-            aria-modal="true"
-          >
-            <div className="settings-confirm-header">
-              <AlertTriangle size={24} className="danger-icon" />
-              <h3>Xác nhận đăng xuất</h3>
-            </div>
-            <p className="settings-confirm-body">
-              Bạn có chắc chắn muốn đăng xuất khỏi tài khoản <strong>{currentUser?.displayName || currentUser?.username}</strong> không?
-            </p>
-            <div className="settings-confirm-actions">
-              <button
-                type="button"
-                className="settings-btn-cancel"
-                onClick={() => setShowLogoutConfirm(false)}
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                className="settings-btn-danger"
-                onClick={() => {
-                  setShowLogoutConfirm(false);
-                  onClose();
-                  onLogout();
-                }}
-              >
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
