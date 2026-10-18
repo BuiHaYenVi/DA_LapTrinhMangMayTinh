@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { User } from '../types/chat';
 import { chatBridge } from '../services/chatBridge';
 import { Logo } from './Logo';
-import { Eye, EyeOff, AlertCircle, CheckCircle2, Wifi, WifiOff } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface LoginViewProps {
   onLoginSuccess: (user: User) => void;
@@ -23,7 +23,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState(prefilledSuccessMsg);
-  const [serverOnline, setServerOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (prefilledUsername) {
@@ -36,15 +35,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
       setSuccessMessage(prefilledSuccessMsg);
     }
   }, [prefilledSuccessMsg]);
-
-  // Kiểm tra trạng thái máy chủ ChatServer TCP khi mở form
-  useEffect(() => {
-    chatBridge.getStatus().then(status => {
-      setServerOnline(status.serverOnline);
-    }).catch(() => {
-      setServerOnline(false);
-    });
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,32 +88,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
               <Logo size={48} withGlow={true} />
             </div>
             <h1 className="auth-title">Chào mừng trở lại!</h1>
-            <p className="auth-subtitle">Rất mừng được gặp lại bạn trên LTMang Chat!</p>
-          </div>
-
-          {/* Badge trạng thái máy chủ ChatServer */}
-          <div 
-            className={`server-status-pill ${serverOnline === true ? 'online' : serverOnline === false ? 'offline' : 'checking'}`}
-            title="Trạng thái kết nối trực tiếp Socket TCP tới ChatServer (cổng 5000)"
-          >
-            {serverOnline === true ? (
-              <>
-                <span className="status-dot online" />
-                <Wifi size={13} className="status-icon" />
-                <span className="status-text">ChatServer: Trực tuyến (Cổng 5000)</span>
-              </>
-            ) : serverOnline === false ? (
-              <>
-                <span className="status-dot offline" />
-                <WifiOff size={13} className="status-icon" />
-                <span className="status-text">ChatServer: Ngoại tuyến (Kiểm tra cổng 5000)</span>
-              </>
-            ) : (
-              <>
-                <span className="status-dot checking" />
-                <span className="status-text">Đang kiểm tra kết nối máy chủ...</span>
-              </>
-            )}
+            <p className="auth-subtitle">Rất mừng được gặp lại bạn trên Huddle!</p>
           </div>
 
           {/* Thông báo Thành công hoặc Lỗi */}

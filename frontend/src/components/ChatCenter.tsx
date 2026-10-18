@@ -474,7 +474,7 @@ export const ChatCenter: React.FC<Props> = ({
               <Logo size={64} />
             </div>
             <h2 className="empty-state-title">
-              {currentRoom ? `Phòng ${currentRoom.name}` : 'Chào mừng bạn đến với LTMang Chat'}
+              {currentRoom ? `Phòng ${currentRoom.name}` : 'Chào mừng bạn đến với Huddle'}
             </h2>
             <p className="empty-state-desc">
               {currentRoom 

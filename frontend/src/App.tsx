@@ -1209,7 +1209,7 @@ export const App: React.FC = () => {
           <div className="pulse" style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
             <Logo size={64} />
           </div>
-          <h3 style={{ color: 'var(--text-header)', margin: '16px 0 8px' }}>LTMANG CHAT</h3>
+          <h3 style={{ color: 'var(--text-header)', margin: '16px 0 8px' }}>HUDDLE</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Đang kiểm tra phiên đăng nhập...</p>
         </div>
       </div>

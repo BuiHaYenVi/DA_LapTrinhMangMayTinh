@@ -80,7 +80,7 @@ export const AppTitlebar: React.FC<AppTitlebarProps> = ({
               className="titlebar-room-name"
               title="Trang chủ"
             >
-              LTMang Chat
+              Huddle
             </span>
           </div>
         )}

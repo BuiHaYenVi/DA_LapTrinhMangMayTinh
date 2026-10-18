@@ -232,7 +232,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
           </button>
 
           <p className="auth-terms-hint">
-            Bằng việc đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của LTMang Chat.
+            Bằng việc đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của Huddle.
           </p>
 
           <div className="auth-footer-link">

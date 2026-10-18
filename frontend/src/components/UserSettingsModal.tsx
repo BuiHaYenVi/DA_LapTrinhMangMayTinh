@@ -998,9 +998,9 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
 
               <div className="settings-card-box about-box">
                 <div className="about-brand-row">
-                  <div className="about-logo-badge">LTM</div>
+                  <div className="about-logo-badge">HDL</div>
                   <div>
-                    <h3 className="about-app-name">LTMang Chat</h3>
+                    <h3 className="about-app-name">Huddle</h3>
                     <span className="about-app-version">Phiên bản v2.0 (Ổn định)</span>
                   </div>
                 </div>
