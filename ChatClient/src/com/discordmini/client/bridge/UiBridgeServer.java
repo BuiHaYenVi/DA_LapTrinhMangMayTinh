@@ -862,7 +862,8 @@ public class UiBridgeServer {
         if (maxAgeSeconds >= 0) {
             sb.append("; Max-Age=").append(maxAgeSeconds);
         }
-        if ("https".equalsIgnoreCase(exchange.getRequestURI().getScheme())) {
+        String proto = exchange.getRequestHeaders().getFirst("X-Forwarded-Proto");
+        if ("https".equalsIgnoreCase(proto) || "https".equalsIgnoreCase(exchange.getRequestURI().getScheme())) {
             sb.append("; Secure");
         }
         exchange.getResponseHeaders().set("Set-Cookie", sb.toString());
@@ -895,22 +896,53 @@ public class UiBridgeServer {
 
     private boolean validateCsrf(HttpExchange exchange) {
         String origin = exchange.getRequestHeaders().getFirst("Origin");
-        if (origin != null && !origin.isBlank()) {
-            return origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:");
-        }
         String referer = exchange.getRequestHeaders().getFirst("Referer");
-        if (referer != null && !referer.isBlank()) {
-            return referer.startsWith("http://localhost:") || referer.startsWith("http://127.0.0.1:");
+        String checkUrl = (origin != null && !origin.isBlank()) ? origin : referer;
+
+        if (checkUrl == null || checkUrl.isBlank()) {
+            return true;
         }
-        return true;
+
+        // 1. Cho phép môi trường localhost và 127.0.0.1
+        if (checkUrl.startsWith("http://localhost:") || checkUrl.startsWith("http://127.0.0.1:")
+                || checkUrl.startsWith("https://localhost:") || checkUrl.startsWith("https://127.0.0.1:")) {
+            return true;
+        }
+
+        // 2. Cho phép domain Render (.onrender.com)
+        if (checkUrl.contains(".onrender.com")) {
+            return true;
+        }
+
+        // 3. Khớp Same-Origin theo Host / X-Forwarded-Host của request hiện tại
+        try {
+            java.net.URI uri = new java.net.URI(checkUrl);
+            String originHost = uri.getHost();
+
+            String hostHeader = exchange.getRequestHeaders().getFirst("X-Forwarded-Host");
+            if (hostHeader == null || hostHeader.isBlank()) {
+                hostHeader = exchange.getRequestHeaders().getFirst("Host");
+            }
+            if (hostHeader != null && !hostHeader.isBlank()) {
+                String reqHost = hostHeader.contains(":") ? hostHeader.split(":", 2)[0] : hostHeader;
+                if (originHost != null && originHost.equalsIgnoreCase(reqHost)) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // 4. Cho phép qua biến môi trường ALLOWED_ORIGIN nếu có
+        String allowed = System.getenv("ALLOWED_ORIGIN");
+        if (allowed != null && !allowed.isBlank() && checkUrl.startsWith(allowed)) {
+            return true;
+        }
+
+        return false;
     }
 
     private void addCorsHeaders(HttpExchange exchange) {
         String origin = exchange.getRequestHeaders().getFirst("Origin");
-        if (origin != null && (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:"))) {
-            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
-            exchange.getResponseHeaders().set("Access-Control-Allow-Credentials", "true");
-        } else if (origin != null && !origin.isBlank()) {
+        if (origin != null && !origin.isBlank()) {
             exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
             exchange.getResponseHeaders().set("Access-Control-Allow-Credentials", "true");
         }
