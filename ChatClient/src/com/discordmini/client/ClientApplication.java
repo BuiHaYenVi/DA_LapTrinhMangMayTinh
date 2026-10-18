@@ -35,6 +35,24 @@ public class ClientApplication {
         int port = DEFAULT_PORT;
         int httpPort = DEFAULT_HTTP_PORT;
 
+        // 1. Kiểm tra biến môi trường (ưu tiên khi chạy trên Docker/Render/Cloud)
+        String envPort = System.getenv("PORT");
+        if (envPort != null && !envPort.isBlank()) {
+            try {
+                httpPort = Integer.parseInt(envPort.trim());
+            } catch (NumberFormatException ignored) {}
+        }
+        String envHost = System.getenv("CHAT_SERVER_HOST");
+        if (envHost != null && !envHost.isBlank()) {
+            host = envHost.trim();
+        }
+        String envChatPort = System.getenv("CHAT_SERVER_PORT");
+        if (envChatPort != null && !envChatPort.isBlank()) {
+            try {
+                port = Integer.parseInt(envChatPort.trim());
+            } catch (NumberFormatException ignored) {}
+        }
+
         if (args != null) {
             for (String arg : args) {
                 if ("--swing".equalsIgnoreCase(arg) || "-swing".equalsIgnoreCase(arg)) {
@@ -48,6 +66,11 @@ public class ClientApplication {
             if (args.length > 1 && !args[1].startsWith("-")) {
                 try {
                     port = Integer.parseInt(args[1]);
+                } catch (NumberFormatException ignored) {}
+            }
+            if (args.length > 2 && !args[2].startsWith("-")) {
+                try {
+                    httpPort = Integer.parseInt(args[2]);
                 } catch (NumberFormatException ignored) {}
             }
         }

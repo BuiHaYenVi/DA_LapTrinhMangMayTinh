@@ -100,11 +100,15 @@ public class UiBridgeServer {
     }
 
     public void start() throws IOException {
+        String bindHost = System.getenv("BIND_HOST");
+        if (bindHost == null || bindHost.isBlank()) {
+            // Khi chạy trên Render/Cloud/Docker (có biến PORT), lắng nghe 0.0.0.0 để đón traffic từ Internet/Reverse Proxy
+            bindHost = (System.getenv("PORT") != null) ? "0.0.0.0" : "127.0.0.1";
+        }
         IOException lastEx = null;
         for (int p = port; p < port + 20; p++) {
             try {
-                // Ràng buộc nghiêm ngặt vào loopback 127.0.0.1 theo yêu cầu an toàn
-                server = HttpServer.create(new InetSocketAddress("127.0.0.1", p), 0);
+                server = HttpServer.create(new InetSocketAddress(bindHost, p), 0);
                 actualPort = p;
                 break;
             } catch (IOException ex) {
@@ -112,7 +116,7 @@ public class UiBridgeServer {
             }
         }
         if (server == null) {
-            throw (lastEx != null) ? lastEx : new IOException("Không thể mở cổng HTTP server trong khoảng " + port + "-" + (port + 20));
+            throw (lastEx != null) ? lastEx : new IOException("Không thể mở cổng HTTP server trong khoảng " + port + "-" + (port + 20) + " trên host " + bindHost);
         }
 
         // Endpoint trạng thái kết nối máy chủ

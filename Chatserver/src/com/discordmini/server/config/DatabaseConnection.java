@@ -30,6 +30,33 @@ public class DatabaseConnection {
         String envPass = System.getenv("DB_PASSWORD");
         String envDriver = System.getenv("DB_DRIVER");
 
+        // Hỗ trợ tự động phân tích DATABASE_URL (chuẩn Render, Railway, Supabase: postgres://user:pass@host:port/db)
+        String renderDbUrl = System.getenv("DATABASE_URL");
+        if (renderDbUrl != null && !renderDbUrl.isBlank()) {
+            try {
+                String cleanUrl = renderDbUrl.trim();
+                if (cleanUrl.startsWith("postgres://")) {
+                    cleanUrl = "postgresql://" + cleanUrl.substring("postgres://".length());
+                }
+                java.net.URI dbUri = new java.net.URI(cleanUrl);
+                String userInfo = dbUri.getUserInfo();
+                if (userInfo != null && userInfo.contains(":")) {
+                    String[] parts = userInfo.split(":", 2);
+                    if (envUser == null) envUser = parts[0];
+                    if (envPass == null) envPass = parts[1];
+                }
+                int port = dbUri.getPort() > 0 ? dbUri.getPort() : 5432;
+                String path = dbUri.getPath();
+                String query = dbUri.getQuery();
+                if (envUrl == null) {
+                    envUrl = "jdbc:postgresql://" + dbUri.getHost() + ":" + port + path + (query != null ? "?" + query : "");
+                }
+                System.out.println("[DB CONFIG] Đã tự động nhận diện DATABASE_URL: " + dbUri.getHost() + ":" + port + path);
+            } catch (Exception ex) {
+                System.err.println("[DB WARNING] Không thể phân tích DATABASE_URL: " + ex.getMessage());
+            }
+        }
+
         Properties props = new Properties();
         String[] candidatePaths = {
             "config/db.properties",

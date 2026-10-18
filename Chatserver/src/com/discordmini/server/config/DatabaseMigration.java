@@ -24,6 +24,55 @@ public class DatabaseMigration {
             }
 
             try (Statement st = conn.createStatement()) {
+                // 0. Tạo các bảng nền tảng nếu là CSDL mới hoàn toàn trên Render/Cloud
+                st.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id SERIAL PRIMARY KEY,
+                        username VARCHAR(50) UNIQUE NOT NULL,
+                        password VARCHAR(255) NOT NULL,
+                        display_name VARCHAR(100) NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """);
+                st.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS rooms (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(100) UNIQUE NOT NULL,
+                        created_by INT REFERENCES users(id) ON DELETE SET NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """);
+                st.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS room_members (
+                        id SERIAL PRIMARY KEY,
+                        room_id INT REFERENCES rooms(id) ON DELETE CASCADE,
+                        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+                        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(room_id, user_id)
+                    )
+                """);
+                st.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS messages (
+                        id SERIAL PRIMARY KEY,
+                        room_id INT REFERENCES rooms(id) ON DELETE CASCADE,
+                        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+                        content TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """);
+                st.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS friendships (
+                        id SERIAL PRIMARY KEY,
+                        requester_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        addressee_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        status VARCHAR(20) DEFAULT 'PENDING' NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT no_self_friend CHECK (requester_id <> addressee_id),
+                        UNIQUE(requester_id, addressee_id)
+                    )
+                """);
+
                 // 1. Tạo bảng channels
                 st.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS channels (
