@@ -672,10 +672,10 @@ export const RoomSidebar: React.FC<Props> = ({
           <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <h3 style={{ marginTop: 0, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8 }}>
               <Trash2 size={20} />
-              <span>Xóa phòng "{confirmDeleteRoom.name}"?</span>
+              <span>Xóa '{confirmDeleteRoom.name}'?</span>
             </h3>
             <p style={{ fontSize: '14px', color: 'var(--text-normal)', lineHeight: 1.5, marginBottom: 20 }}>
-              Bạn có chắc chắn muốn xóa vĩnh viễn phòng <strong>{confirmDeleteRoom.name}</strong>? Toàn bộ các kênh và lịch sử tin nhắn trong phòng này sẽ bị xóa và không thể khôi phục.
+              Bạn có chắc bạn muốn xóa <strong>{confirmDeleteRoom.name}</strong>? Toàn bộ các kênh và lịch sử tin nhắn trong phòng này sẽ bị xóa và không thể hoàn tác.
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button type="button" className="btn-cancel" onClick={() => setConfirmDeleteRoom(null)}>
@@ -695,7 +695,7 @@ export const RoomSidebar: React.FC<Props> = ({
                   cursor: 'pointer'
                 }}
               >
-                Xóa phòng ngay
+                Xóa phòng
               </button>
             </div>
           </div>

@@ -1263,9 +1263,9 @@ export const App: React.FC = () => {
     const roomName = room ? room.name : `phòng #${roomId}`;
     setActionModal({
       isOpen: true,
-      title: 'Xóa Phòng Chat',
-      message: `Bạn có chắc chắn muốn xóa vĩnh viễn phòng "${roomName}" không? Toàn bộ các kênh và lịch sử tin nhắn trong phòng sẽ bị xóa vĩnh viễn và không thể khôi phục.`,
-      confirmText: 'Xóa Phòng Vĩnh Viễn',
+      title: `Xóa '${roomName}'?`,
+      message: `Bạn có chắc bạn muốn xóa "${roomName}"? Hành động này sẽ xóa toàn bộ kênh chat và lịch sử tin nhắn trong phòng và không thể hoàn tác.`,
+      confirmText: 'Xóa phòng',
       cancelText: 'Hủy bỏ',
       isDanger: true,
       onConfirm: () => {
