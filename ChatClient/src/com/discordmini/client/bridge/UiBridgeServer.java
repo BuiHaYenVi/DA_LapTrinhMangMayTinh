@@ -1464,7 +1464,7 @@ public class UiBridgeServer {
                 session.pendingRequests.put("CREATE_CHANNEL", cf);
                 session.roomService.createChannel(roomId, trimmedName);
                 try {
-                    Map<String, Object> res = cf.get(3, TimeUnit.SECONDS);
+                    Map<String, Object> res = cf.get(10, TimeUnit.SECONDS);
                     boolean success = Boolean.TRUE.equals(res.get("success"));
                     if (success) {
                         sendJson(exchange, 200, res);
@@ -1560,7 +1560,7 @@ public class UiBridgeServer {
                 session.pendingRequests.put("CREATE_ROOM", cf);
                 session.roomService.createRoom(trimmedName);
                 try {
-                    Map<String, Object> res = cf.get(3, TimeUnit.SECONDS);
+                    Map<String, Object> res = cf.get(10, TimeUnit.SECONDS);
                     boolean success = Boolean.TRUE.equals(res.get("success"));
                     if (success) {
                         sendJson(exchange, 200, res);

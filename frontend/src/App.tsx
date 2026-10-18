@@ -911,72 +911,39 @@ export const App: React.FC = () => {
 
     pendingCreateRoomRef.current = true;
 
-    return new Promise<{ success: boolean; error?: string }>((resolve) => {
-      let settled = false;
-      const cleanup = () => {
-        settled = true;
-        pendingCreateRoomRef.current = false;
-        window.clearTimeout(timer);
-        unsubscribe();
+    try {
+      const res = await chatBridge.createRoom(trimmedName);
+      const createdRoomId = res.roomId || 0;
+      if (trimmedDesc && createdRoomId > 0) {
+        await chatBridge.setRoomDesc(createdRoomId, trimmedDesc).catch(() => {});
+      }
+
+      const nextRoom: Room = {
+        id: createdRoomId,
+        name: trimmedName,
+        description: trimmedDesc,
+        role: 'OWNER'
       };
 
-      const timer = window.setTimeout(() => {
-        if (!settled) {
-          cleanup();
-          resolve({
-            success: false,
-            error: 'Không nhận được phản hồi tạo phòng. Vui lòng kiểm tra kết nối mạng.'
-          });
-        }
-      }, 8000);
+      setIsDirectMessageMode(false);
+      setCurrentRoom(nextRoom);
+      currentRoomRef.current = nextRoom;
 
-      const unsubscribe = chatBridge.subscribe((event, payload) => {
-        if (settled) return;
+      if (createdRoomId > 0) {
+        clearRoomUnread(createdRoomId);
+        chatBridge.joinRoom(createdRoomId);
+      }
 
-        if (event === 'ERROR') {
-          cleanup();
-          resolve({
-            success: false,
-            error: payload?.message || 'Không thể tạo phòng chat.'
-          });
-          return;
-        }
-
-        if (event === 'ROOMS' && Array.isArray(payload?.rooms)) {
-          const created: Room | undefined = payload.rooms.find(
-            (r: Room) => r.name.trim().toLowerCase() === trimmedName.toLowerCase()
-          );
-          if (created) {
-            cleanup();
-            if (trimmedDesc) {
-              chatBridge.setRoomDesc(created.id, trimmedDesc);
-            }
-            const nextRoom: Room = {
-              ...created,
-              description: trimmedDesc || created.description || '',
-              role: 'OWNER'
-            };
-            setIsDirectMessageMode(false);
-            setCurrentRoom(nextRoom);
-            currentRoomRef.current = nextRoom;
-            clearRoomUnread(created.id);
-            chatBridge.joinRoom(created.id);
-            showToast(`Đã tạo phòng '${created.name}'`);
-            resolve({ success: true });
-          }
-        }
-      });
-
-      chatBridge.createRoom(trimmedName).catch((err: any) => {
-        if (!settled) {
-          cleanup();
-          resolve({
-            success: false,
-            error: 'Lỗi mạng khi gửi lệnh tạo phòng: ' + (err?.message || 'Không xác định')
-          });
-        }
-      });
-    });
+      showToast(`Đã tạo phòng '${trimmedName}'`);
+      pendingCreateRoomRef.current = false;
+      return { success: true };
+    } catch (err: any) {
+      pendingCreateRoomRef.current = false;
+      return {
+        success: false,
+        error: err?.message || 'Không thể tạo phòng chat. Vui lòng thử lại.'
+      };
+    }
   };
 
   // Tạo Kênh chat mới trong phòng đang chọn

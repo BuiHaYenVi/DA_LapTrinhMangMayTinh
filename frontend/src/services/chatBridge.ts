@@ -254,14 +254,16 @@ class ChatBridgeService {
     });
   }
 
-  public async createRoom(name: string): Promise<void> {
+  public async createRoom(name: string): Promise<{ success: boolean; roomId?: number; name?: string; message?: string }> {
     const res = await this.fetchWithAuth(`${this.baseUrl}/rooms/create`, {
       method: 'POST',
       body: JSON.stringify({ name })
     });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      throw new Error(data.message || `Lỗi máy chủ khi tạo phòng (HTTP ${res.status})`);
     }
+    return data;
   }
 
   public async leaveRoom(): Promise<void> {
