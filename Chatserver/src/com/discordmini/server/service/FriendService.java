@@ -40,6 +40,15 @@ public class FriendService {
         }
     }
 
+    public Integer acceptRequestAndGetRequester(int requestId, int currentUserId) {
+        try {
+            return friendDAO.acceptRequestAndGetRequester(requestId, currentUserId);
+        } catch (Exception e) {
+            System.err.println("Lỗi acceptRequestAndGetRequester FriendService: " + e.getMessage());
+            return null;
+        }
+    }
+
     public boolean acceptRequest(int requestId, int currentUserId) {
         try {
             return friendDAO.acceptRequest(requestId, currentUserId);
@@ -58,11 +67,29 @@ public class FriendService {
         }
     }
 
+    public Integer rejectRequestAndGetRequester(int requestId, int currentUserId) {
+        try {
+            return friendDAO.rejectRequestAndGetRequester(requestId, currentUserId);
+        } catch (Exception e) {
+            System.err.println("Lỗi rejectRequestAndGetRequester FriendService: " + e.getMessage());
+            return null;
+        }
+    }
+
     public boolean rejectRequest(int requestId, int currentUserId) {
         try {
             return friendDAO.rejectRequest(requestId, currentUserId);
         } catch (Exception e) {
             System.err.println("Lỗi rejectRequest FriendService: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean removeFriend(int userId1, int userId2) {
+        try {
+            return friendDAO.removeFriend(userId1, userId2);
+        } catch (Exception e) {
+            System.err.println("Lỗi removeFriend FriendService: " + e.getMessage());
             return false;
         }
     }

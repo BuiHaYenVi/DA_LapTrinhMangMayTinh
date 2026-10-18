@@ -38,6 +38,7 @@ export const FriendsView: React.FC<Props> = ({
   const [filterQuery, setFilterQuery] = useState('');
   const [searchUsernameQuery, setSearchUsernameQuery] = useState('');
   const [sentRequestUserIds, setSentRequestUserIds] = useState<number[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const onlineFriends = friends.filter(f => f.online);
   const displayedFriends = (currentTab === 'online' ? onlineFriends : friends).filter(f => {
@@ -49,6 +50,7 @@ export const FriendsView: React.FC<Props> = ({
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchUsernameQuery.trim()) {
+      setHasSearched(true);
       onSearchUsers(searchUsernameQuery.trim());
     }
   };
@@ -60,57 +62,63 @@ export const FriendsView: React.FC<Props> = ({
 
   return (
     <div className="friends-view-container">
-      {/* 1. Header Bar: Tiêu đề & Danh sách Tab */}
+      {/* 1. Header Bar: Tiêu đề, Tab nhóm & Nút Thêm bạn riêng biệt bên phải */}
       <div className="friends-header-bar">
-        <div className="friends-header-title">
-          <Users size={20} color="var(--accent)" />
-          <span>Bạn bè</span>
+        <div className="friends-header-left">
+          <div className="friends-header-title">
+            <Users size={20} color="var(--accent)" />
+            <span>Bạn bè</span>
+          </div>
+
+          <div className="friends-divider-vertical" />
+
+          <div className="friends-tab-group" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={currentTab === 'online'}
+              className={`friends-tab-btn ${currentTab === 'online' ? 'active' : ''}`}
+              onClick={() => setCurrentTab('online')}
+            >
+              <span>Trực tuyến</span>
+              <span className="friends-tab-count">({onlineFriends.length})</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={currentTab === 'all'}
+              className={`friends-tab-btn ${currentTab === 'all' ? 'active' : ''}`}
+              onClick={() => setCurrentTab('all')}
+            >
+              <span>Tất cả</span>
+              <span className="friends-tab-count">({friends.length})</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={currentTab === 'pending'}
+              className={`friends-tab-btn ${currentTab === 'pending' ? 'active' : ''}`}
+              onClick={() => setCurrentTab('pending')}
+            >
+              <span>Chờ xử lý</span>
+              {pendingRequests.length > 0 && (
+                <span className="friends-badge-count">{pendingRequests.length}</span>
+              )}
+            </button>
+          </div>
         </div>
 
-        <div className="friends-divider-vertical" />
-
-        <div className="friends-tab-group" role="tablist">
+        {/* Nút Thêm bạn là nút nhấn chính (--accent) đặt tách bên phải thanh tab */}
+        <div className="friends-header-right">
           <button
             type="button"
-            role="tab"
-            aria-selected={currentTab === 'online'}
-            className={`friends-tab-btn ${currentTab === 'online' ? 'active' : ''}`}
-            onClick={() => setCurrentTab('online')}
-          >
-            Trực tuyến ({onlineFriends.length})
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={currentTab === 'all'}
-            className={`friends-tab-btn ${currentTab === 'all' ? 'active' : ''}`}
-            onClick={() => setCurrentTab('all')}
-          >
-            Tất cả ({friends.length})
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={currentTab === 'pending'}
-            className={`friends-tab-btn ${currentTab === 'pending' ? 'active' : ''}`}
-            onClick={() => setCurrentTab('pending')}
-          >
-            Chờ xử lý
-            {pendingRequests.length > 0 && (
-              <span className="friends-badge-count">{pendingRequests.length}</span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={currentTab === 'add_friend'}
-            className={`friends-tab-btn add-friend-tab ${currentTab === 'add_friend' ? 'active' : ''}`}
+            className={`btn-add-friend-primary ${currentTab === 'add_friend' ? 'active' : ''}`}
             onClick={() => setCurrentTab('add_friend')}
           >
-            Thêm bạn
+            <UserPlus size={16} />
+            <span>Thêm bạn</span>
           </button>
         </div>
       </div>
@@ -142,10 +150,7 @@ export const FriendsView: React.FC<Props> = ({
             </div>
 
             <div className="friends-section-title">
-              {currentTab === 'online' 
-                ? `TRỰC TUYẾN — ${displayedFriends.length}`
-                : `TẤT CẢ BẠN BÈ — ${displayedFriends.length}`
-              }
+              {currentTab === 'online' ? `BẠN BÈ TRỰC TUYẾN — ${displayedFriends.length}` : `TẤT CẢ BẠN BÈ — ${displayedFriends.length}`}
             </div>
 
             {displayedFriends.length === 0 ? (
@@ -156,17 +161,27 @@ export const FriendsView: React.FC<Props> = ({
                 <h3>{currentTab === 'online' ? 'Không có bạn bè nào đang trực tuyến' : 'Bạn chưa có người bạn nào'}</h3>
                 <p>
                   {currentTab === 'online'
-                    ? 'Bạn bè của bạn hiện đang ngoại tuyến hoặc bận. Hãy thử chuyển sang tab "Tất cả".'
-                    : 'Hãy chuyển qua tab "Thêm bạn" để tìm kiếm và kết nối với bạn bè mới!'}
+                    ? 'Bạn bè của bạn hiện đang ngoại tuyến hoặc bận. Hãy thử kiểm tra tab "Tất cả".'
+                    : 'Hãy kết nối với bạn bè để bắt đầu trò chuyện và chia sẻ phòng chat!'}
                 </p>
-                {currentTab !== 'online' && (
+                {currentTab !== 'online' ? (
                   <button
                     type="button"
                     className="btn-accent"
-                    style={{ marginTop: '12px' }}
+                    style={{ marginTop: '14px', padding: '8px 18px', fontSize: '13px' }}
                     onClick={() => setCurrentTab('add_friend')}
                   >
+                    <UserPlus size={15} style={{ marginRight: '6px' }} />
                     Tìm và thêm bạn ngay
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-subtle"
+                    style={{ marginTop: '14px', padding: '8px 18px', fontSize: '13px' }}
+                    onClick={() => setCurrentTab('all')}
+                  >
+                    Xem tất cả bạn bè
                   </button>
                 )}
               </div>
@@ -180,8 +195,8 @@ export const FriendsView: React.FC<Props> = ({
                   >
                     <div className="friend-info-left">
                       <div className="user-avatar-wrap">
-                        <div className="user-avatar-circle">
-                          {friend.displayName ? friend.displayName.charAt(0).toUpperCase() : 'U'}
+                        <div className="user-avatar-circle" style={{ width: '36px', height: '36px', fontSize: '14px' }}>
+                          {friend.displayName ? Array.from(friend.displayName.trim())[0]?.toUpperCase() : 'U'}
                         </div>
                         <div className={`status-dot ${friend.online ? '' : 'offline'}`} />
                       </div>
@@ -238,6 +253,15 @@ export const FriendsView: React.FC<Props> = ({
                 </div>
                 <h3>Không có lời mời kết bạn nào đang chờ</h3>
                 <p>Tuyệt vời! Bạn đã xử lý hết mọi lời mời kết bạn.</p>
+                <button
+                  type="button"
+                  className="btn-accent"
+                  style={{ marginTop: '14px', padding: '8px 18px', fontSize: '13px' }}
+                  onClick={() => setCurrentTab('add_friend')}
+                >
+                  <UserPlus size={15} style={{ marginRight: '6px' }} />
+                  Tìm bạn mới
+                </button>
               </div>
             ) : (
               <div className="friends-rows-list">
@@ -245,8 +269,8 @@ export const FriendsView: React.FC<Props> = ({
                   <div key={req.requestId} className="friend-row-item">
                     <div className="friend-info-left">
                       <div className="user-avatar-wrap">
-                        <div className="user-avatar-circle">
-                          {req.senderDisplayName ? req.senderDisplayName.charAt(0).toUpperCase() : 'U'}
+                        <div className="user-avatar-circle" style={{ width: '36px', height: '36px', fontSize: '14px' }}>
+                          {req.senderDisplayName ? Array.from(req.senderDisplayName.trim())[0]?.toUpperCase() : 'U'}
                         </div>
                       </div>
 
@@ -321,7 +345,7 @@ export const FriendsView: React.FC<Props> = ({
             </form>
 
             {/* Danh sách kết quả tìm kiếm */}
-            {searchResults.length > 0 && (
+            {searchResults.length > 0 ? (
               <div className="search-results-section" style={{ marginTop: '24px' }}>
                 <div className="friends-section-title">
                   KẾT QUẢ TÌM KIẾM ({searchResults.length})
@@ -337,8 +361,8 @@ export const FriendsView: React.FC<Props> = ({
                       <div key={user.id} className="friend-row-item">
                         <div className="friend-info-left">
                           <div className="user-avatar-wrap">
-                            <div className="user-avatar-circle">
-                              {user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
+                            <div className="user-avatar-circle" style={{ width: '36px', height: '36px', fontSize: '14px' }}>
+                              {user.displayName ? Array.from(user.displayName.trim())[0]?.toUpperCase() : 'U'}
                             </div>
                             <div className={`status-dot ${user.online ? '' : 'offline'}`} />
                           </div>
@@ -356,14 +380,14 @@ export const FriendsView: React.FC<Props> = ({
 
                         <div className="friend-actions-right">
                           {isSelf ? (
-                            <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>Tài khoản của bạn</span>
+                            <span className="badge-already-sent">Bạn</span>
                           ) : isAlreadyFriend ? (
                             <span className="badge-already-friend">
                               <Check size={14} /> Bạn bè
                             </span>
                           ) : isRequestSent ? (
                             <span className="badge-already-sent">
-                              <Clock size={14} /> Đã gửi yêu cầu
+                              <Clock size={14} /> Đã gửi lời mời
                             </span>
                           ) : (
                             <button
@@ -373,7 +397,7 @@ export const FriendsView: React.FC<Props> = ({
                               onClick={() => handleSendRequestClick(user.id)}
                             >
                               <UserPlus size={15} style={{ marginRight: '6px' }} />
-                              Kết bạn
+                              Gửi lời mời
                             </button>
                           )}
                         </div>
@@ -382,6 +406,16 @@ export const FriendsView: React.FC<Props> = ({
                   })}
                 </div>
               </div>
+            ) : (
+              hasSearched && (
+                <div className="friends-empty-card" style={{ marginTop: '32px' }}>
+                  <div className="empty-icon-circle">
+                    <Search size={32} color="var(--accent)" />
+                  </div>
+                  <h3>Không tìm thấy người dùng</h3>
+                  <p>Không có kết quả nào khớp với "{searchUsernameQuery}". Hãy kiểm tra lại chính tả nhé.</p>
+                </div>
+              )
             )}
           </div>
         )}
@@ -389,3 +423,5 @@ export const FriendsView: React.FC<Props> = ({
     </div>
   );
 };
+
+export default FriendsView;

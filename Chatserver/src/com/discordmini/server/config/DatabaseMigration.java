@@ -11,6 +11,10 @@ import java.sql.Statement;
  */
 public class DatabaseMigration {
 
+    public static void main(String[] args) {
+        runMigration();
+    }
+
     public static void runMigration() {
         System.out.println("[MIGRATION] Bắt đầu kiểm tra và nâng cấp cơ sở dữ liệu (Rooms & Channels)...");
         try (Connection conn = DatabaseConnection.getConnection()) {
@@ -41,6 +45,21 @@ public class DatabaseMigration {
                 // 3. Tạo index
                 st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_channels_room_id ON channels(room_id)");
                 st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_messages_channel_id ON messages(channel_id)");
+
+                // 3b. Tạo bảng direct_messages lưu tin nhắn riêng 1-1
+                st.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS direct_messages (
+                        id SERIAL PRIMARY KEY,
+                        sender_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        receiver_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        content TEXT NOT NULL,
+                        sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        is_read BOOLEAN DEFAULT FALSE
+                    )
+                """);
+                st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_dm_pair ON direct_messages(sender_id, receiver_id)");
+                st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_dm_recv ON direct_messages(receiver_id, is_read)");
+                System.out.println("[MIGRATION] Đã kiểm tra/khởi tạo bảng 'direct_messages'.");
 
                 // 4. Di chuyển dữ liệu: Tạo kênh 'chung' cho tất cả các phòng hiện có chưa có kênh 'chung'
                 int newChannelsCount = st.executeUpdate("""

@@ -4448,13 +4448,64 @@ body {
   background-color: var(--bg-3);
 }
 
-/* 3. Khung chat riêng 1-1 (Direct Message Chat) */
+/* ==========================================================================
+   3. Khung chat riêng 1-1 (Direct Message Chat) & Trang Bạn bè
+   ========================================================================== */
+
+/* Khung DM */
 .dm-chat-container {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
+  flex: 1;
+  background-color: var(--bg-2);
+  overflow: hidden;
+  position: relative;
 }
 
+.dm-header-bar {
+  height: 48px;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--bg-2);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.dm-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dm-header-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dm-header-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.dm-header-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.3;
+}
+
+/* Ẩn mũi tên quay lại trên màn hình máy tính rộng */
 .dm-back-btn {
   background: none;
   border: none;
@@ -4470,17 +4521,45 @@ body {
 
 .dm-back-btn:hover {
   color: var(--text-1);
-  background-color: var(--hover-bg);
+  background-color: var(--bg-hover);
 }
 
+@media (min-width: 769px) {
+  .dm-back-btn {
+    display: none !important;
+  }
+}
+
+.dm-invite-header-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: var(--bg-3);
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dm-invite-header-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background-color: var(--accent-soft);
+}
+
+/* Khối giới thiệu đầu cuộc trò chuyện gọn gàng */
 .dm-welcome-banner {
-  padding: 32px 16px 24px;
+  padding: 24px 16px 20px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: 6px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 16px;
+  background-color: transparent;
 }
 
 .dm-welcome-avatar {
@@ -4494,49 +4573,242 @@ body {
   justify-content: center;
   font-size: 26px;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .dm-welcome-name {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--text-1);
   margin: 0;
 }
 
 .dm-welcome-username {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-3);
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
 
 .dm-welcome-desc {
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--text-2);
   line-height: 1.5;
   margin: 0;
+  max-width: 600px;
 }
 
+/* Nút Mời vào phòng chat kiểu phụ */
+.dm-invite-subtle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  background-color: var(--bg-3);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dm-invite-subtle-btn:hover {
+  border-color: var(--accent);
+  background-color: var(--bg-2);
+  color: var(--accent);
+}
+
+/* Phân cách ngày */
+.date-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: 20px 16px 12px;
+}
+
+.date-separator::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: var(--border);
+  z-index: 1;
+}
+
+.date-separator-label {
+  position: relative;
+  z-index: 2;
+  background-color: var(--bg-2);
+  padding: 2px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+/* Danh sách tin nhắn DM */
 .dm-message-item {
   display: flex;
-  gap: 16px;
-  padding: 4px 16px;
+  gap: 14px;
+  padding: 6px 16px;
   border-radius: 4px;
   transition: background-color 0.15s ease;
+  position: relative;
 }
 
 .dm-message-item:hover {
-  background-color: var(--hover-bg);
+  background-color: var(--bg-hover);
 }
 
 .dm-message-item.grouped {
-  padding-top: 1px;
-  padding-bottom: 1px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.dm-message-item.pending {
+  opacity: 0.65;
+}
+
+.dm-message-item.failed {
+  background-color: rgba(237, 66, 69, 0.08);
+}
+
+.msg-gutter-spacer {
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.msg-header {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 3px;
+}
+
+.msg-author {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.msg-timestamp {
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-left: 8px;
+  font-weight: 400;
+}
+
+.msg-sending-tag {
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+  margin-left: 6px;
+}
+
+.msg-body {
+  font-size: 14px;
+  color: var(--text-1);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.msg-error-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--accent-red);
+}
+
+.msg-retry-btn {
+  background: none;
+  border: 1px solid var(--accent-red);
+  color: var(--accent-red);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.msg-retry-btn:hover {
+  background-color: rgba(237, 66, 69, 0.15);
 }
 
 .avatar-me {
   background-color: var(--accent) !important;
   color: var(--on-accent) !important;
+}
+
+/* Ô nhập tin nhắn bám đáy, rộng hết cột */
+.dm-input-container {
+  padding: 0 16px 20px;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dm-input-pill {
+  width: 100%;
+  background-color: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  min-height: 44px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.dm-input-pill:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.dm-input-pill input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  padding: 10px 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+.dm-input-pill input::placeholder {
+  color: var(--text-3);
+}
+
+/* Danh sách DM ở thanh bên trái (RoomSidebar) */
+.dm-sidebar-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: background-color 0.15s ease;
+  margin: 1px 0;
+  color: var(--text-2);
+}
+
+.dm-sidebar-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.dm-sidebar-item.active {
+  background-color: var(--accent-soft) !important;
+  color: var(--text-1) !important;
+  font-weight: 600;
 }
 
 .direct-unread-badge {
@@ -4548,21 +4820,177 @@ body {
   padding: 1px 7px;
   min-width: 18px;
   text-align: center;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 16px;
+  flex-shrink: 0;
+}
+
+/* Header & Tabs của Trang Bạn bè (FriendsView) */
+.friends-header-bar {
+  height: 48px;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--bg-2);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.friends-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.friends-header-right {
+  display: flex;
+  align-items: center;
+}
+
+.friends-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.friends-divider-vertical {
+  width: 1px;
+  height: 20px;
+  background-color: var(--border);
+}
+
+.friends-tab-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.friends-tab-btn {
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.friends-tab-btn:hover {
+  color: var(--text-1);
+  background-color: var(--bg-hover);
+}
+
+.friends-tab-btn.active {
+  color: var(--text-1) !important;
+  font-weight: 600;
+  background-color: var(--accent-soft);
+}
+
+.friends-tab-count {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.friends-badge-count {
+  background-color: var(--accent-red);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
   line-height: 16px;
 }
 
-.dm-sidebar-item {
-  transition: background-color 0.15s ease;
+/* Nút Thêm bạn là nút nhấn chính (--accent) tách bên phải */
+.btn-add-friend-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--accent);
+  color: var(--on-accent);
+  border: none;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
 }
 
-.dm-sidebar-item:hover {
-  background-color: var(--hover-bg);
+.btn-add-friend-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 
-.dm-sidebar-item.active {
-  background-color: var(--active-bg);
+.btn-add-friend-primary.active {
+  outline: 2px solid var(--accent-strong);
+}
+
+.btn-subtle {
+  background-color: var(--bg-3);
   color: var(--text-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-weight: 500;
+}
+
+.btn-subtle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Trạng thái trống (Empty state) */
+.friends-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-2);
+}
+
+.empty-icon-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-color: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.friends-empty-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0 0 8px;
+}
+
+.friends-empty-card p {
+  font-size: 13.5px;
+  color: var(--text-2);
+  max-width: 420px;
+  line-height: 1.5;
+  margin: 0;
 }
 
 /* Modal Mời bạn bè vào phòng */
@@ -4576,7 +5004,8 @@ body {
 }
 
 .invite-room-row:hover {
-  background-color: var(--hover-bg);
+  background-color: var(--bg-hover);
 }
+
 
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { Room, Channel, User, Friend } from '../types/chat';
+import type { Room, Channel, User, Friend, MessageItem } from '../types/chat';
 import { 
   Hash, Plus, Settings, ChevronDown, ChevronUp, LogOut, 
   UserPlus, Users, MessageSquare
@@ -16,6 +16,7 @@ interface Props {
   currentDirectUser?: Friend | null;
   onSelectDirectUser?: (friend: Friend | null) => void;
   directUnreadMap?: Record<number, number>;
+  directMessagesMap?: Record<number, MessageItem[]>;
   onOpenAddFriend?: () => void;
   onSelectChannel: (channel: Channel) => void;
   onCreateChannel: () => void;
@@ -42,6 +43,7 @@ export const RoomSidebar: React.FC<Props> = ({
   currentDirectUser = null,
   onSelectDirectUser,
   directUnreadMap = {},
+  directMessagesMap = {},
   onOpenAddFriend,
   onSelectChannel,
   onCreateChannel,
@@ -187,32 +189,61 @@ export const RoomSidebar: React.FC<Props> = ({
               friends.map(friend => {
                 const isActive = currentDirectUser?.id === friend.id;
                 const unread = directUnreadMap[friend.id] || 0;
+                const friendMsgs = directMessagesMap?.[friend.id] || [];
+                const lastMsg = friendMsgs.length > 0 ? friendMsgs[friendMsgs.length - 1] : null;
 
                 return (
                   <div
                     key={friend.id}
                     className={`channel-item dm-sidebar-item ${isActive ? 'active' : ''}`}
                     onClick={() => onSelectDirectUser && onSelectDirectUser(friend)}
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: 'pointer', padding: '6px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center' }}
                   >
-                    <div className="user-avatar-wrap" style={{ marginRight: '8px' }}>
-                      <div className="user-avatar-circle" style={{ width: '28px', height: '28px', fontSize: '12px' }}>
-                        {friend.displayName ? friend.displayName.charAt(0).toUpperCase() : 'U'}
+                    <div className="user-avatar-wrap" style={{ marginRight: '10px', position: 'relative', flexShrink: 0 }}>
+                      <div className="user-avatar-circle" style={{ width: '32px', height: '32px', fontSize: '13px' }}>
+                        {friend.displayName ? Array.from(friend.displayName.trim())[0]?.toUpperCase() : 'U'}
                       </div>
-                      <div className={`status-dot ${friend.online ? '' : 'offline'}`} style={{ width: '8px', height: '8px', bottom: '-1px', right: '-1px' }} />
+                      <div className={`status-dot ${friend.online ? '' : 'offline'}`} style={{ width: '9px', height: '9px', bottom: '-1px', right: '-1px' }} />
                     </div>
 
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <div className="channel-name" style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', fontWeight: unread > 0 ? 700 : 500 }}>
-                        {friend.displayName}
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                        <div className="channel-name" style={{
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                          fontSize: '13px',
+                          fontWeight: unread > 0 ? 700 : 500,
+                          color: isActive ? 'var(--text-1)' : (unread > 0 ? 'var(--text-1)' : 'var(--text-2)')
+                        }}>
+                          {friend.displayName}
+                        </div>
+                        {lastMsg?.timestamp && (
+                          <span style={{ fontSize: '11px', color: 'var(--text-3)', flexShrink: 0 }}>
+                            {lastMsg.timestamp}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginTop: '2px' }}>
+                        <div style={{
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                          fontSize: '11.5px',
+                          color: unread > 0 ? 'var(--text-1)' : 'var(--text-3)',
+                          fontWeight: unread > 0 ? 600 : 400
+                        }}>
+                          {lastMsg ? lastMsg.content : `@${friend.username}`}
+                        </div>
+
+                        {unread > 0 && (
+                          <span className="direct-unread-badge" style={{ flexShrink: 0 }}>
+                            {unread}
+                          </span>
+                        )}
                       </div>
                     </div>
-
-                    {unread > 0 && (
-                      <span className="direct-unread-badge" style={{ marginLeft: '6px' }}>
-                        {unread}
-                      </span>
-                    )}
                   </div>
                 );
               })

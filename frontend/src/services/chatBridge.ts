@@ -307,6 +307,13 @@ class ChatBridgeService {
     });
   }
 
+  public async getDirectHistory(targetUserId: number, limit = 50): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/direct-history`, {
+      method: 'POST',
+      body: JSON.stringify({ targetUserId, limit })
+    });
+  }
+
   public async inviteMember(roomId: number, targetUserId: number): Promise<void> {
     await this.fetchWithAuth(`${this.baseUrl}/rooms/invite`, {
       method: 'POST',
@@ -339,6 +346,13 @@ class ChatBridgeService {
     await this.fetchWithAuth(`${this.baseUrl}/friends/reject`, {
       method: 'POST',
       body: JSON.stringify({ requestId })
+    });
+  }
+
+  public async removeFriend(friendId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/friends/remove`, {
+      method: 'POST',
+      body: JSON.stringify({ friendId })
     });
   }
 

@@ -110,6 +110,8 @@ public class ClientHandler implements Runnable {
                 case JOIN_CHANNEL -> handleJoinChannel(parts);
                 case UPDATE_PROFILE -> handleUpdateProfile(parts);
                 case CHANGE_PASSWORD -> handleChangePassword(parts);
+                case FRIEND_REMOVE -> handleFriendRemove(parts);
+                case GET_DM_HISTORY -> handleGetDmHistory(parts);
             }
         } catch (Exception e) {
             sendError(
@@ -467,62 +469,76 @@ public class ClientHandler implements Runnable {
         requireArgs(parts, 3);
 
         try {
-            int targetUserId = parseId(parts[1], "ID người nhận");
+            String targetParam = ProtocolHandler.decode(parts[1]).trim();
             String content = ProtocolHandler.decode(parts[2]).trim();
 
             if (content.isBlank()) {
-                sendError(
-                        ProtocolErrorCode.BAD_REQUEST,
-                        "Nội dung tin nhắn không được để trống."
-                );
+                sendError(ProtocolErrorCode.BAD_REQUEST, "Nội dung tin nhắn không được để trống.");
                 return;
             }
 
             if (content.length() > MAX_MESSAGE_LENGTH) {
-                sendError(
-                        ProtocolErrorCode.BAD_REQUEST,
-                        "Tin nhắn không được vượt quá 5000 ký tự."
-                );
+                sendError(ProtocolErrorCode.BAD_REQUEST, "Tin nhắn không được vượt quá 5000 ký tự.");
                 return;
             }
 
-            if (targetUserId == user.getId()) {
-                sendError(
-                        ProtocolErrorCode.INVALID_RECIPIENT,
-                        "Không thể tự gửi tin nhắn cho chính mình."
-                );
-                return;
-            }
-
-            String timeStr = java.time.LocalTime.now().toString();
-
-            if (timeStr.length() > 8) {
-                timeStr = timeStr.substring(0, 8);
-            }
-
-            String packet = "NEW_PRIVATE_MESSAGE|"
-                    + user.getId() + "|"
-                    + ProtocolHandler.encode(user.getDisplayName()) + "|"
-                    + ProtocolHandler.encode(content) + "|"
-                    + ProtocolHandler.encode(timeStr);
-
-            boolean sent = server.getClientManager().sendToUser(
-                    targetUserId, packet
-            );
-
-            if (!sent) {
-                sendError(
-                        ProtocolErrorCode.USER_OFFLINE,
-                        "Người dùng này hiện không online."
-                );
+            User targetUser = null;
+            if (targetParam.matches("\\d+")) {
+                int targetUserId = Integer.parseInt(targetParam);
+                targetUser = server.getUserDAO().findById(targetUserId);
             } else {
-                connection.send("PRIVATE_MESSAGE_SENT|" + targetUserId);
+                targetUser = server.getUserDAO().findUser(targetParam);
             }
-        } catch (NumberFormatException e) {
-            sendError(
-                    ProtocolErrorCode.BAD_REQUEST,
-                    "ID người nhận không hợp lệ."
-            );
+
+            if (targetUser == null) {
+                sendError(ProtocolErrorCode.USER_NOT_FOUND, "Không tìm thấy người dùng nhận tin nhắn.");
+                return;
+            }
+
+            if (targetUser.getId() == user.getId()) {
+                sendError(ProtocolErrorCode.INVALID_RECIPIENT, "Không thể tự gửi tin nhắn cho chính mình.");
+                return;
+            }
+
+            // 1. LƯU VÀO DATABASE (Server là nguồn sự thật)
+            var saved = server.getDirectMessageDAO().saveMessage(user.getId(), targetUser.getId(), content);
+            if (saved == null) {
+                sendError(ProtocolErrorCode.DATABASE_ERROR, "Không thể lưu tin nhắn riêng vào cơ sở dữ liệu.");
+                return;
+            }
+
+            long messageId = saved.id();
+            String timeStr = saved.sentAt() != null ? saved.sentAt().toString() : java.time.LocalTime.now().toString().substring(0, 8);
+
+            // 2. Gửi phản hồi xác nhận cho người gửi (ACK kèm messageId và thời gian lưu DB)
+            connection.send("DM_SENT|" + messageId + "|" + targetUser.getId() + "|" + ProtocolHandler.encode(content) + "|" + ProtocolHandler.encode(timeStr));
+            connection.send("PRIVATE_MESSAGE_SENT|" + targetUser.getId());
+
+            // 3. Tìm ClientHandler của đối phương theo username chuẩn hóa (chữ thường, thống nhất)
+            ClientHandler recipientHandler = server.getClientManager().getByUsername(targetUser.getUsername());
+            if (recipientHandler == null) {
+                recipientHandler = server.getClientManager().get(targetUser.getId());
+            }
+
+            // 4. Nếu đối phương online -> gửi sự kiện thời gian thực
+            if (recipientHandler != null) {
+                String dmPacket = "DM_RECEIVED|"
+                        + messageId + "|"
+                        + user.getId() + "|"
+                        + ProtocolHandler.encode(user.getUsername()) + "|"
+                        + ProtocolHandler.encode(user.getDisplayName()) + "|"
+                        + ProtocolHandler.encode(content) + "|"
+                        + ProtocolHandler.encode(timeStr);
+                recipientHandler.connection.send(dmPacket);
+                // Gửi kèm NEW_PRIVATE_MESSAGE cho tương thích ngược
+                recipientHandler.connection.send("NEW_PRIVATE_MESSAGE|"
+                        + user.getId() + "|"
+                        + ProtocolHandler.encode(user.getDisplayName()) + "|"
+                        + ProtocolHandler.encode(content) + "|"
+                        + ProtocolHandler.encode(timeStr));
+            }
+        } catch (Exception e) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Lỗi xử lý gửi tin nhắn riêng: " + e.getMessage());
         }
     }
 
@@ -1052,9 +1068,19 @@ public class ClientHandler implements Runnable {
             case "OK" -> {
                 connection.send("OK|FRIEND_REQUEST|" + targetUserId);
                 // Gửi thông báo thời gian thực đến người nhận nếu đang online
-                var targetHandler = server.getClientManager().get(targetUserId);
+                User targetUser = server.getUserDAO().findById(targetUserId);
+                ClientHandler targetHandler = targetUser != null
+                        ? server.getClientManager().getByUsername(targetUser.getUsername())
+                        : server.getClientManager().get(targetUserId);
+                if (targetHandler == null) {
+                    targetHandler = server.getClientManager().get(targetUserId);
+                }
+
                 if (targetHandler != null) {
+                    // Sự kiện theo bảng đặc tả: FRIEND_REQUEST_RECEIVED
+                    targetHandler.connection.send("FRIEND_REQUEST_RECEIVED|" + user.getId() + "|" + ProtocolHandler.encode(user.getUsername()) + "|" + ProtocolHandler.encode(user.getDisplayName()));
                     targetHandler.connection.send("INCOMING_FRIEND_REQUEST|" + user.getId() + "|" + ProtocolHandler.encode(user.getUsername()) + "|" + ProtocolHandler.encode(user.getDisplayName()));
+                    targetHandler.handleFriendPendingList();
                 }
             }
             case "SELF_REQUEST" -> sendError(ProtocolErrorCode.BAD_REQUEST, "Không thể tự gửi lời mời kết bạn cho chính mình.");
@@ -1091,21 +1117,35 @@ public class ClientHandler implements Runnable {
 
         int targetId = parseId(parts[1], "ID yêu cầu hoặc người gửi");
 
-        // Hỗ trợ cả requestId hoặc senderId
-        boolean success = server.getFriendService().acceptRequest(targetId, user.getId());
-        if (!success) {
-            success = server.getFriendService().acceptRequestFromUser(targetId, user.getId());
+        // Tìm chính xác người gửi lời mời (requester)
+        Integer requesterId = server.getFriendService().acceptRequestAndGetRequester(targetId, user.getId());
+        if (requesterId == null) {
+            boolean success = server.getFriendService().acceptRequestFromUser(targetId, user.getId());
+            if (success) {
+                requesterId = targetId;
+            }
         }
 
-        if (success) {
+        if (requesterId != null) {
             connection.send("OK|FRIEND_ACCEPT|" + targetId);
             handleFriendList();
+            handleFriendPendingList();
 
-            // Gửi thông báo realtime cho người bạn được chấp nhận nếu đang online
-            var otherHandler = server.getClientManager().get(targetId);
+            // Tìm ClientHandler của đối phương theo username chuẩn hóa chữ thường
+            User requesterUser = server.getUserDAO().findById(requesterId);
+            ClientHandler otherHandler = requesterUser != null
+                    ? server.getClientManager().getByUsername(requesterUser.getUsername())
+                    : server.getClientManager().get(requesterId);
+            if (otherHandler == null) {
+                otherHandler = server.getClientManager().get(requesterId);
+            }
+
             if (otherHandler != null) {
+                // Gửi sự kiện thời gian thực cho người gửi lời mời: FRIEND_REQUEST_ACCEPTED
+                otherHandler.connection.send("FRIEND_REQUEST_ACCEPTED|" + user.getId() + "|" + ProtocolHandler.encode(user.getUsername()) + "|" + ProtocolHandler.encode(user.getDisplayName()));
                 otherHandler.connection.send("FRIEND_ACCEPTED|" + user.getId() + "|" + ProtocolHandler.encode(user.getDisplayName()));
                 otherHandler.handleFriendList();
+                otherHandler.handleFriendPendingList();
             }
         } else {
             sendError(ProtocolErrorCode.BAD_REQUEST, "Lời mời kết bạn không tồn tại hoặc đã được xử lý.");
@@ -1116,15 +1156,76 @@ public class ClientHandler implements Runnable {
         requireLogin();
         requireArgs(parts, 2);
 
-        int requestId = parseId(parts[1], "ID yêu cầu");
-        boolean success = server.getFriendService().rejectRequest(requestId, user.getId());
+        int targetId = parseId(parts[1], "ID yêu cầu");
+        Integer requesterId = server.getFriendService().rejectRequestAndGetRequester(targetId, user.getId());
 
-        if (success) {
-            connection.send("OK|FRIEND_REJECT|" + requestId);
+        if (requesterId != null) {
+            connection.send("OK|FRIEND_REJECT|" + targetId);
             handleFriendPendingList();
+
+            User requesterUser = server.getUserDAO().findById(requesterId);
+            ClientHandler otherHandler = requesterUser != null
+                    ? server.getClientManager().getByUsername(requesterUser.getUsername())
+                    : server.getClientManager().get(requesterId);
+            if (otherHandler != null) {
+                otherHandler.connection.send("FRIEND_REQUEST_DECLINED|" + user.getId());
+                otherHandler.handleFriendPendingList();
+            }
         } else {
             sendError(ProtocolErrorCode.BAD_REQUEST, "Không thể từ chối lời mời hoặc lời mời không tồn tại.");
         }
+    }
+
+    private void handleFriendRemove(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 2);
+
+        int friendId = parseId(parts[1], "ID bạn bè");
+        boolean ok = server.getFriendService().removeFriend(user.getId(), friendId);
+
+        if (ok) {
+            connection.send("OK|FRIEND_REMOVE|" + friendId);
+            handleFriendList();
+
+            User friendUser = server.getUserDAO().findById(friendId);
+            ClientHandler otherHandler = friendUser != null
+                    ? server.getClientManager().getByUsername(friendUser.getUsername())
+                    : server.getClientManager().get(friendId);
+            if (otherHandler != null) {
+                otherHandler.connection.send("FRIEND_REMOVED|" + user.getId());
+                otherHandler.handleFriendList();
+            }
+        } else {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Không thể hủy kết bạn hoặc hai người chưa phải bạn bè.");
+        }
+    }
+
+    private void handleGetDmHistory(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 2);
+
+        int targetUserId = parseId(parts[1], "ID người dùng");
+        int limit = parts.length >= 3 ? parseId(parts[2], "Giới hạn tin nhắn") : 50;
+
+        var history = server.getDirectMessageDAO().getHistory(user.getId(), targetUserId, limit);
+        StringBuilder sb = new StringBuilder("DM_HISTORY|").append(targetUserId);
+
+        for (var m : history) {
+            sb.append('|')
+                    .append(m.id())
+                    .append(',')
+                    .append(m.senderId())
+                    .append(',')
+                    .append(ProtocolHandler.encode(m.senderDisplayName()))
+                    .append(',')
+                    .append(ProtocolHandler.encode(m.content()))
+                    .append(',')
+                    .append(ProtocolHandler.encode(m.sentAt() != null ? m.sentAt().toString() : ""))
+                    .append(',')
+                    .append(m.isRead() ? "READ" : "UNREAD");
+        }
+        connection.send(sb.toString());
+        server.getDirectMessageDAO().markAsRead(user.getId(), targetUserId);
     }
 
     private void handleFriendList() {

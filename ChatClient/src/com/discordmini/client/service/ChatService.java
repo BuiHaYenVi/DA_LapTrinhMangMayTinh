@@ -158,6 +158,15 @@ public class ChatService {
         getHistory(0);
     }
 
+    /**
+     * Gửi yêu cầu lấy lịch sử tin nhắn riêng 1-1 với targetUserId.
+     */
+    public void getDirectHistory(int targetUserId, int limit) {
+        if (client.isConnected()) {
+            client.sendCommand("GET_DM_HISTORY", String.valueOf(targetUserId), String.valueOf(limit > 0 ? limit : 50));
+        }
+    }
+
     private void handleServerPacket(String packet) {
         try {
             String[] parts = ProtocolHandler.split(packet);

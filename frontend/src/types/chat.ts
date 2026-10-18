@@ -43,6 +43,7 @@ export interface MessageItem {
   isEdited?: boolean;
   isDirect?: boolean;
   targetId?: number;
+  status?: 'sending' | 'sent' | 'failed';
   reactions?: Reaction[];
   attachment?: {
     name: string;

@@ -10,6 +10,11 @@ import java.util.Map;
 
 public class ClientManager {
     private final Map<Integer, ClientHandler> online = new ConcurrentHashMap<>();
+    private final Map<String, ClientHandler> onlineByUsername = new ConcurrentHashMap<>();
+
+    private static String normalize(String username) {
+        return username == null ? "" : username.trim().toLowerCase();
+    }
 
     /**
      * Thao tác nguyên tử thêm người dùng online nếu chưa có phiên nào khác.
@@ -17,12 +22,23 @@ public class ClientManager {
      */
     public boolean tryAdd(User user, ClientHandler client) {
         if (user == null || client == null) return false;
-        return online.putIfAbsent(user.getId(), client) == null;
+        boolean added = online.putIfAbsent(user.getId(), client) == null;
+        if (added) {
+            String norm = normalize(user.getUsername());
+            if (!norm.isEmpty()) {
+                onlineByUsername.put(norm, client);
+            }
+        }
+        return added;
     }
 
     public void add(User user, ClientHandler client) {
         if (user != null && client != null) {
             online.put(user.getId(), client);
+            String norm = normalize(user.getUsername());
+            if (!norm.isEmpty()) {
+                onlineByUsername.put(norm, client);
+            }
         }
     }
 
@@ -32,7 +48,12 @@ public class ClientManager {
      */
     public boolean remove(User user, ClientHandler client) {
         if (user != null && client != null) {
-            return online.remove(user.getId(), client);
+            boolean removed = online.remove(user.getId(), client);
+            if (removed) {
+                String norm = normalize(user.getUsername());
+                onlineByUsername.remove(norm, client);
+            }
+            return removed;
         }
         return false;
     }
@@ -40,12 +61,31 @@ public class ClientManager {
     public void remove(User user) {
         if (user != null) {
             online.remove(user.getId());
+            String norm = normalize(user.getUsername());
+            onlineByUsername.remove(norm);
         }
     }
 
     public ClientHandler get(int userId) { return online.get(userId); }
 
+    public ClientHandler getByUsername(String username) {
+        if (username == null) return null;
+        return onlineByUsername.get(normalize(username));
+    }
+
+    public ClientHandler findClient(int userId, String username) {
+        if (username != null && !username.isBlank()) {
+            ClientHandler c = getByUsername(username);
+            if (c != null) return c;
+        }
+        return get(userId);
+    }
+
     public boolean isOnline(int userId) { return online.containsKey(userId); }
+
+    public boolean isOnlineByUsername(String username) {
+        return username != null && onlineByUsername.containsKey(normalize(username));
+    }
 
     public int getOnlineCount() { return online.size(); }
 

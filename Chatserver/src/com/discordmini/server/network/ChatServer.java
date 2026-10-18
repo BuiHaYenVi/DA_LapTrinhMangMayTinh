@@ -27,6 +27,7 @@ public class ChatServer {
     private final RoomDAO roomDAO = new RoomDAO();
     private final MessageDAO messageDAO = new MessageDAO();
     private final com.discordmini.server.dao.FriendDAO friendDAO = new com.discordmini.server.dao.FriendDAO();
+    private final com.discordmini.server.dao.DirectMessageDAO directMessageDAO = new com.discordmini.server.dao.DirectMessageDAO();
 
     private final ClientManager clientManager = new ClientManager();
     private final RoomManager roomManager = new RoomManager();
@@ -158,4 +159,5 @@ public class ChatServer {
     public ChatService getChatService() { return chatService; }
     public com.discordmini.server.service.FriendService getFriendService() { return friendService; }
     public com.discordmini.server.dao.FriendDAO getFriendDAO() { return friendDAO; }
+    public com.discordmini.server.dao.DirectMessageDAO getDirectMessageDAO() { return directMessageDAO; }
 }

@@ -38,5 +38,8 @@ public enum MessageType {
     JOIN_CHANNEL,
     // Cài đặt người dùng & Hồ sơ
     UPDATE_PROFILE,
-    CHANGE_PASSWORD
+    CHANGE_PASSWORD,
+    // Quản lý bạn bè & Tin nhắn riêng bổ sung
+    FRIEND_REMOVE,
+    GET_DM_HISTORY
 }

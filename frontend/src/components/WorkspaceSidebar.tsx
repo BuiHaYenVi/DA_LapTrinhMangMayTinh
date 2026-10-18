@@ -12,6 +12,29 @@ interface Props {
   onCreateRoom: () => void;
 }
 
+const ROOM_PALETTE = [
+  '#5865F2', // Blurple
+  '#3BA55C', // Green
+  '#FAA81A', // Yellow/Gold
+  '#ED4245', // Red
+  '#EB459E', // Pink
+  '#00A8FC', // Sky Blue
+  '#57F287', // Lime
+  '#E67E22', // Orange
+];
+
+export function getInitial(name: string): string {
+  if (!name || !name.trim()) return '?';
+  const trimmed = name.trim();
+  const segments = Array.from(trimmed);
+  return segments[0] || '?';
+}
+
+export function getRoomColor(roomId: number): string {
+  const num = Math.abs(Number(roomId) || 0);
+  return ROOM_PALETTE[num % ROOM_PALETTE.length];
+}
+
 export const WorkspaceSidebar: React.FC<Props> = ({
   rooms,
   currentRoom,
@@ -42,7 +65,8 @@ export const WorkspaceSidebar: React.FC<Props> = ({
       <div className="workspace-rooms-list">
         {rooms.map(room => {
           const isSelected = !isDirectMessageMode && currentRoom?.id === room.id;
-          const initial = room.name ? room.name.trim().charAt(0).toUpperCase() : 'P';
+          const initial = getInitial(room.name);
+          const roomBg = getRoomColor(room.id);
 
           return (
             <div key={room.id} className={`workspace-pill-wrap ${isSelected ? 'active' : ''}`}>
@@ -53,6 +77,10 @@ export const WorkspaceSidebar: React.FC<Props> = ({
                 title={room.name}
                 onClick={() => onSelectRoom(room)}
                 aria-label={`Phòng ${room.name}`}
+                style={{
+                  backgroundColor: isSelected ? 'var(--accent)' : roomBg,
+                  color: '#ffffff'
+                }}
               >
                 <span className="room-initial-letter">{initial}</span>
               </button>

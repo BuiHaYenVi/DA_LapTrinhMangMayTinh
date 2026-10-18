@@ -147,9 +147,11 @@ public class UiBridgeServer {
         server.createContext("/api/messages/delete", new DeleteMessageHandler());
         server.createContext("/api/messages/history", new HistoryPageHandler());
         server.createContext("/api/messages/private", new SendPrivateMessageHandler());
+        server.createContext("/api/messages/direct-history", new DirectHistoryHandler());
         server.createContext("/api/friends/request", new FriendRequestHandler());
         server.createContext("/api/friends/accept", new FriendAcceptHandler());
         server.createContext("/api/friends/reject", new FriendRejectHandler());
+        server.createContext("/api/friends/remove", new FriendRemoveHandler());
         server.createContext("/api/friends/refresh", new FriendRefreshHandler());
         server.createContext("/api/friends/search", new FriendSearchHandler());
         server.createContext("/api/user/profile", new UpdateProfileHandler());
@@ -212,6 +214,7 @@ public class UiBridgeServer {
         public final List<Map<String, Object>> memberCache = new CopyOnWriteArrayList<>();
         public final List<Map<String, Object>> friendCache = new CopyOnWriteArrayList<>();
         public final List<Map<String, Object>> pendingCache = new CopyOnWriteArrayList<>();
+        public final List<Map<String, Object>> dmHistoryBuffer = new CopyOnWriteArrayList<>();
 
         private final Consumer<String> packetListener;
         private final Consumer<String> connectionListener;
@@ -465,6 +468,88 @@ public class UiBridgeServer {
                     }
                     broadcastSse("NEW_MESSAGE", Map.of("message", m, "roomId", rId, "channelId", chId));
                 }
+                case "DM_RECEIVED" -> {
+                    int msgId = Integer.parseInt(p[1]);
+                    int sId = Integer.parseInt(p[2]);
+                    String sUsername = ProtocolHandler.decode(p[3]);
+                    String sDisplayName = ProtocolHandler.decode(p[4]);
+                    String content = ProtocolHandler.decode(p[5]);
+                    String time = ProtocolHandler.decode(p[6]);
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", msgId);
+                    m.put("senderId", sId);
+                    m.put("senderUsername", sUsername);
+                    m.put("senderName", sDisplayName);
+                    m.put("content", content);
+                    m.put("timestamp", time);
+                    m.put("isEdited", false);
+                    m.put("isDirect", true);
+                    m.put("isMine", false);
+                    broadcastSse("DM_RECEIVED", Map.of(
+                            "message", m,
+                            "senderId", sId,
+                            "senderUsername", sUsername,
+                            "senderDisplayName", sDisplayName,
+                            "content", content,
+                            "timestamp", time
+                    ));
+                    broadcastSse("NEW_PRIVATE_MESSAGE", Map.of(
+                            "message", m,
+                            "senderId", sId,
+                            "senderName", sDisplayName,
+                            "content", content,
+                            "time", time
+                    ));
+                }
+                case "DM_SENT" -> {
+                    int msgId = Integer.parseInt(p[1]);
+                    int targetId = Integer.parseInt(p[2]);
+                    String content = ProtocolHandler.decode(p[3]);
+                    String time = ProtocolHandler.decode(p[4]);
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", msgId);
+                    m.put("senderId", userId);
+                    m.put("senderUsername", username);
+                    m.put("senderName", displayName);
+                    m.put("content", content);
+                    m.put("timestamp", time);
+                    m.put("isEdited", false);
+                    m.put("isDirect", true);
+                    m.put("isMine", true);
+                    broadcastSse("DM_SENT", Map.of(
+                            "message", m,
+                            "targetUserId", targetId,
+                            "content", content,
+                            "timestamp", time
+                    ));
+                }
+                case "DM_HISTORY_BEGIN" -> dmHistoryBuffer.clear();
+                case "DM_HISTORY_ITEM" -> {
+                    int msgId = Integer.parseInt(p[1]);
+                    int sId = Integer.parseInt(p[2]);
+                    String sUsername = ProtocolHandler.decode(p[3]);
+                    String sDisplayName = ProtocolHandler.decode(p[4]);
+                    String content = ProtocolHandler.decode(p[5]);
+                    String time = ProtocolHandler.decode(p[6]);
+                    boolean isMine = p.length >= 8 && "true".equalsIgnoreCase(p[7]);
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", msgId);
+                    m.put("senderId", sId);
+                    m.put("senderUsername", sUsername);
+                    m.put("senderName", sDisplayName);
+                    m.put("content", content);
+                    m.put("timestamp", time);
+                    m.put("isEdited", false);
+                    m.put("isDirect", true);
+                    m.put("isMine", isMine);
+                    dmHistoryBuffer.add(m);
+                }
+                case "DM_HISTORY_END" -> {
+                    int targetId = p.length > 1 ? Integer.parseInt(p[1]) : 0;
+                    List<Map<String, Object>> msgs = new ArrayList<>(dmHistoryBuffer);
+                    dmHistoryBuffer.clear();
+                    broadcastSse("DM_HISTORY", Map.of("targetUserId", targetId, "messages", msgs));
+                }
                 case "NEW_PRIVATE_MESSAGE" -> {
                     int sId = Integer.parseInt(p[1]);
                     String sName = ProtocolHandler.decode(p[2]);
@@ -478,6 +563,7 @@ public class UiBridgeServer {
                     m.put("timestamp", time);
                     m.put("isEdited", false);
                     m.put("isDirect", true);
+                    m.put("isMine", false);
                     broadcastSse("NEW_PRIVATE_MESSAGE", Map.of(
                             "message", m,
                             "senderId", sId,
@@ -614,12 +700,46 @@ public class UiBridgeServer {
                     }
                     broadcastSse("FRIEND_SEARCH_RESULT", Map.of("results", searchResults));
                 }
+                case "FRIEND_REQUEST_RECEIVED" -> {
+                    friendService.getPendingRequests();
+                    Map<String, Object> req = new HashMap<>();
+                    req.put("requestId", Integer.parseInt(p[1]));
+                    req.put("senderId", Integer.parseInt(p[2]));
+                    req.put("senderUsername", ProtocolHandler.decode(p[3]));
+                    req.put("senderDisplayName", ProtocolHandler.decode(p[4]));
+                    req.put("time", p.length >= 6 ? ProtocolHandler.decode(p[5]) : "");
+                    broadcastSse("FRIEND_REQUEST_RECEIVED", Map.of("request", req));
+                }
+                case "FRIEND_REQUEST_ACCEPTED" -> {
+                    friendService.getFriendList();
+                    friendService.getPendingRequests();
+                    Map<String, Object> data = new HashMap<>();
+                    if (p.length >= 5) {
+                        data.put("requesterId", Integer.parseInt(p[1]));
+                        data.put("acceptedUserId", Integer.parseInt(p[2]));
+                        data.put("acceptedUsername", ProtocolHandler.decode(p[3]));
+                        data.put("acceptedDisplayName", ProtocolHandler.decode(p[4]));
+                    }
+                    broadcastSse("FRIEND_REQUEST_ACCEPTED", data);
+                }
+                case "FRIEND_REQUEST_DECLINED" -> {
+                    friendService.getPendingRequests();
+                    int reqId = p.length > 1 ? Integer.parseInt(p[1]) : 0;
+                    int declinedById = p.length > 2 ? Integer.parseInt(p[2]) : 0;
+                    broadcastSse("FRIEND_REQUEST_DECLINED", Map.of("requestId", reqId, "declinedByUserId", declinedById));
+                }
+                case "FRIEND_REMOVED" -> {
+                    friendService.getFriendList();
+                    int friendId = p.length > 1 ? Integer.parseInt(p[1]) : 0;
+                    broadcastSse("FRIEND_REMOVED", Map.of("friendId", friendId));
+                }
                 case "INCOMING_FRIEND_REQUEST" -> {
                     friendService.getPendingRequests();
                     broadcastSse("INCOMING_FRIEND_REQUEST", Map.of("message", "Bạn nhận được một lời mời kết bạn mới."));
                 }
                 case "FRIEND_ACCEPTED" -> {
                     friendService.getFriendList();
+                    friendService.getPendingRequests();
                     broadcastSse("FRIEND_ACCEPTED", Map.of("message", "Lời mời kết bạn đã được chấp nhận."));
                 }
                 case "ROOM_INVITATION" -> {
@@ -1463,7 +1583,72 @@ public class UiBridgeServer {
                     session.chatService.sendPrivateMessage(targetId, content.trim());
                 }
                 sendJson(exchange, 200, Map.of("success", true));
+            } else if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                int targetId = 0;
+                int limit = 50;
+                String query = exchange.getRequestURI().getQuery();
+                if (query != null) {
+                    for (String param : query.split("&")) {
+                        String[] pair = param.split("=", 2);
+                        if (pair.length == 2) {
+                            if ("targetUserId".equalsIgnoreCase(pair[0]) || "targetId".equalsIgnoreCase(pair[0])) {
+                                try { targetId = Integer.parseInt(pair[1]); } catch (Exception ignored) {}
+                            } else if ("limit".equalsIgnoreCase(pair[0])) {
+                                try { limit = Integer.parseInt(pair[1]); } catch (Exception ignored) {}
+                            }
+                        }
+                    }
+                }
+                if (targetId > 0) {
+                    session.chatService.getDirectHistory(targetId, limit);
+                }
+                sendJson(exchange, 200, Map.of("success", true));
             }
+        }
+    }
+
+    private class DirectHistoryHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            int targetId = 0;
+            int limit = 50;
+            if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String query = exchange.getRequestURI().getQuery();
+                if (query != null) {
+                    for (String param : query.split("&")) {
+                        String[] pair = param.split("=", 2);
+                        if (pair.length == 2) {
+                            if ("targetUserId".equalsIgnoreCase(pair[0]) || "targetId".equalsIgnoreCase(pair[0])) {
+                                try { targetId = Integer.parseInt(pair[1]); } catch (Exception ignored) {}
+                            } else if ("limit".equalsIgnoreCase(pair[0])) {
+                                try { limit = Integer.parseInt(pair[1]); } catch (Exception ignored) {}
+                            }
+                        }
+                    }
+                }
+            } else if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                if (body.containsKey("targetUserId")) {
+                    targetId = ((Number) body.get("targetUserId")).intValue();
+                } else if (body.containsKey("targetId")) {
+                    targetId = ((Number) body.get("targetId")).intValue();
+                }
+                if (body.containsKey("limit")) {
+                    limit = ((Number) body.get("limit")).intValue();
+                }
+            }
+            if (targetId > 0) {
+                session.chatService.getDirectHistory(targetId, limit);
+            }
+            sendJson(exchange, 200, Map.of("success", true));
         }
     }
 
@@ -1738,6 +1923,33 @@ public class UiBridgeServer {
                 Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
                 int reqId = ((Number) body.get("requestId")).intValue();
                 session.friendService.rejectFriendRequest(reqId);
+                sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class FriendRemoveHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int friendId = 0;
+                if (body.containsKey("friendId")) {
+                    friendId = ((Number) body.get("friendId")).intValue();
+                } else if (body.containsKey("targetUserId")) {
+                    friendId = ((Number) body.get("targetUserId")).intValue();
+                }
+                if (friendId > 0) {
+                    session.friendService.removeFriend(friendId);
+                }
                 sendJson(exchange, 200, Map.of("success", true));
             }
         }

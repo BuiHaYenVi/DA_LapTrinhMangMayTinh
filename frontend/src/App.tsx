@@ -234,6 +234,12 @@ export const App: React.FC = () => {
           break;
         case 'STREAM_STATUS':
           setIsStreamConnected(payload.streamConnected === true);
+          if (payload.streamConnected === true) {
+            chatBridge.refreshFriends().catch(() => {});
+            if (currentDirectUserRef.current) {
+              chatBridge.getDirectHistory(currentDirectUserRef.current.id, 50).catch(() => {});
+            }
+          }
           break;
         case 'ROOMS': {
           const updatedRooms: Room[] = payload.rooms || [];
@@ -420,25 +426,70 @@ export const App: React.FC = () => {
         case 'FRIEND_SEARCH_RESULT':
           setSearchResults(payload.results || []);
           break;
+        case 'DM_SENT': {
+          const targetUserId = payload.targetUserId;
+          const msg = payload.message;
+          if (targetUserId && msg) {
+            setDirectMessagesMap((prev) => {
+              const currentList = prev[targetUserId] || [];
+              let replaced = false;
+              const nextList = currentList.map((m) => {
+                if (m.id < 0 && m.content === msg.content && !replaced) {
+                  replaced = true;
+                  return { ...msg, isMe: true };
+                }
+                return m;
+              });
+              if (!replaced && !nextList.some((m) => m.id === msg.id)) {
+                nextList.push({ ...msg, isMe: true });
+              }
+              return {
+                ...prev,
+                [targetUserId]: nextList
+              };
+            });
+          }
+          break;
+        }
+        case 'DM_RECEIVED':
         case 'NEW_PRIVATE_MESSAGE':
         case 'PRIVATE_MESSAGE': {
           const sId = payload.senderId || payload.message?.senderId;
-          const sName = payload.senderName || payload.message?.senderName || 'Bạn bè';
+          const sUsername = payload.senderUsername || payload.message?.senderUsername || '';
+          const sName = payload.senderDisplayName || payload.senderName || payload.message?.senderName || 'Bạn bè';
           const content = payload.content || payload.message?.content || '';
-          const time = payload.time || payload.message?.timestamp || '';
+          const time = payload.timestamp || payload.time || payload.message?.timestamp || '';
+          const msgId = payload.message?.id || Date.now();
           const pm: MessageItem = payload.message || {
-            id: Date.now(),
+            id: msgId,
             senderId: sId,
             senderName: sName,
             content: content,
             timestamp: time,
+            isMe: false,
             isDirect: true
           };
 
           if (sId) {
+            // Tự động thêm vào danh sách bạn bè / danh sách tin nhắn trực tiếp nếu chưa có
+            setFriends((prevFriends) => {
+              if (!prevFriends.some((f) => f.id === sId)) {
+                return [
+                  ...prevFriends,
+                  {
+                    id: sId,
+                    username: sUsername || sName,
+                    displayName: sName,
+                    online: true
+                  }
+                ];
+              }
+              return prevFriends;
+            });
+
             setDirectMessagesMap((prev) => {
               const currentList = prev[sId] || [];
-              if (currentList.some(m => m.id === pm.id && pm.id !== 0)) return prev;
+              if (currentList.some((m) => m.id === pm.id && pm.id > 0)) return prev;
               return {
                 ...prev,
                 [sId]: [...currentList, pm]
@@ -454,6 +505,63 @@ export const App: React.FC = () => {
               showToast(`💬 Tin nhắn riêng từ ${sName}: ${content}`);
             }
           }
+          break;
+        }
+        case 'DM_HISTORY': {
+          const targetUserId = payload.targetUserId;
+          const historyMsgs: MessageItem[] = (payload.messages || []).map((m: any) => ({
+            ...m,
+            isMe: currentUser ? m.senderId === currentUser.id : Boolean(m.isMine),
+            isDirect: true
+          }));
+          if (targetUserId) {
+            setDirectMessagesMap((prev) => {
+              const existing = prev[targetUserId] || [];
+              const map = new Map<number, MessageItem>();
+              for (const m of historyMsgs) {
+                map.set(m.id, m);
+              }
+              for (const m of existing) {
+                if (!map.has(m.id)) {
+                  map.set(m.id, m);
+                }
+              }
+              const sorted = Array.from(map.values()).sort((a, b) => a.id - b.id);
+              return {
+                ...prev,
+                [targetUserId]: sorted
+              };
+            });
+          }
+          break;
+        }
+        case 'FRIEND_REQUEST_RECEIVED': {
+          const req = payload.request;
+          showToast(`🔔 Bạn nhận được lời mời kết bạn từ ${req?.senderDisplayName || 'ai đó'}!`);
+          chatBridge.refreshFriends().catch(() => {});
+          break;
+        }
+        case 'FRIEND_REQUEST_ACCEPTED': {
+          const acceptedName = payload.acceptedDisplayName || 'Bạn bè';
+          showToast(`🎉 ${acceptedName} đã chấp nhận lời mời kết bạn!`);
+          chatBridge.refreshFriends().catch(() => {});
+          break;
+        }
+        case 'FRIEND_REQUEST_DECLINED': {
+          showToast('Lời mời kết bạn đã bị từ chối.');
+          chatBridge.refreshFriends().catch(() => {});
+          break;
+        }
+        case 'FRIEND_REMOVED': {
+          const friendId = payload.friendId;
+          if (friendId) {
+            setFriends((prev) => prev.filter((f) => f.id !== friendId));
+            if (currentDirectUserRef.current?.id === friendId) {
+              setCurrentDirectUser(null);
+              currentDirectUserRef.current = null;
+            }
+          }
+          chatBridge.refreshFriends().catch(() => {});
           break;
         }
         case 'INCOMING_FRIEND_REQUEST':
@@ -522,6 +630,7 @@ export const App: React.FC = () => {
     setIsTcpConnected(true);
     setIsStreamConnected(true);
     setAuthStatus('authenticated');
+    chatBridge.refreshFriends().catch(() => {});
   };
 
   const handleRegisterSuccess = (username: string, message: string) => {
@@ -628,8 +737,10 @@ export const App: React.FC = () => {
   // Chọn người bạn để chat 1-1
   const handleSelectDirectUser = (friend: Friend | null) => {
     setCurrentDirectUser(friend);
+    currentDirectUserRef.current = friend;
     if (friend) {
       setDirectUnreadMap((prev) => ({ ...prev, [friend.id]: 0 }));
+      chatBridge.getDirectHistory(friend.id, 50).catch(() => {});
     }
   };
 
@@ -637,9 +748,9 @@ export const App: React.FC = () => {
   const handleSendPrivateMessage = async (targetUserId: number, content: string) => {
     if (!currentUser) return;
     try {
-      await chatBridge.sendPrivateMessage(targetUserId, content);
+      const tempId = -Date.now();
       const myMessage: MessageItem = {
-        id: Date.now(),
+        id: tempId,
         senderId: currentUser.id,
         senderName: currentUser.displayName,
         content,
@@ -651,6 +762,7 @@ export const App: React.FC = () => {
         ...prev,
         [targetUserId]: [...(prev[targetUserId] || []), myMessage]
       }));
+      await chatBridge.sendPrivateMessage(targetUserId, content);
     } catch (e: any) {
       showToast('Không thể gửi tin nhắn riêng: ' + (e?.message || 'Lỗi mạng'));
     }
@@ -1199,6 +1311,7 @@ export const App: React.FC = () => {
           currentDirectUser={currentDirectUser}
           onSelectDirectUser={handleSelectDirectUser}
           directUnreadMap={directUnreadMap}
+          directMessagesMap={directMessagesMap}
           onOpenAddFriend={() => {
             setCurrentDirectUser(null);
             setFriendsTab('add_friend');

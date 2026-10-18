@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Friend, User, MessageItem } from '../types/chat';
 import { 
-  Send, UserPlus, ArrowLeft, PlusCircle, Smile 
+  Send, UserPlus, ArrowLeft, PlusCircle, Smile, RotateCw 
 } from 'lucide-react';
 
 interface Props {
@@ -13,9 +13,78 @@ interface Props {
   onBackToFriends: () => void;
 }
 
+// 1. Phân tích chuỗi ngày giờ thành Date
+function parseMessageDate(timestamp?: string): Date | null {
+  if (!timestamp) return null;
+  if (timestamp.includes('-')) {
+    const d = new Date(timestamp.replace(' ', 'T'));
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+
+// 2. Nhãn phân cách theo ngày (Hôm nay, Hôm qua, DD/MM/YYYY)
+function getDateSeparatorLabel(timestamp?: string): string {
+  const d = parseMessageDate(timestamp);
+  if (!d) return 'Hôm nay';
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const targetDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  if (targetDay.getTime() === today.getTime()) {
+    return 'Hôm nay';
+  }
+  if (targetDay.getTime() === yesterday.getTime()) {
+    return 'Hôm qua';
+  }
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+// 3. Khóa ngày để so sánh giữa 2 tin nhắn
+function getDateKey(timestamp?: string): string {
+  const d = parseMessageDate(timestamp);
+  if (d) {
+    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  }
+  return 'today';
+}
+
+// 4. Gom tin nhắn liên tiếp của cùng người gửi trong vòng 5 phút
+function shouldGroupWithPrevious(
+  current: MessageItem,
+  previous: MessageItem | undefined,
+  curDateKey: string,
+  prevDateKey: string
+): boolean {
+  if (!previous) return false;
+  if (current.senderId !== previous.senderId) return false;
+  if (curDateKey !== prevDateKey) return false;
+
+  const tCur = parseMessageDate(current.timestamp);
+  const tPrev = parseMessageDate(previous.timestamp);
+  if (tCur && tPrev) {
+    const diffMs = Math.abs(tCur.getTime() - tPrev.getTime());
+    return diffMs <= 5 * 60 * 1000;
+  }
+  if (current.timestamp && previous.timestamp && current.timestamp.length === 5 && previous.timestamp.length === 5) {
+    const [h1, m1] = current.timestamp.split(':').map(Number);
+    const [h2, m2] = previous.timestamp.split(':').map(Number);
+    if (!isNaN(h1) && !isNaN(m1) && !isNaN(h2) && !isNaN(m2)) {
+      const diffMinutes = Math.abs((h1 * 60 + m1) - (h2 * 60 + m2));
+      return diffMinutes <= 5;
+    }
+  }
+  return false;
+}
+
 export const DirectMessageChat: React.FC<Props> = ({
   targetUser,
-  currentUser: _currentUser,
+  currentUser,
   messages,
   onSendMessage,
   onOpenInviteModal,
@@ -54,8 +123,9 @@ export const DirectMessageChat: React.FC<Props> = ({
   return (
     <div className="chat-center-container dm-chat-container">
       {/* 1. Header Bar của DM Chat */}
-      <div className="chat-header-bar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="chat-header-bar dm-header-bar">
+        <div className="dm-header-left">
+          {/* Mũi tên quay lại (ẩn trên màn hình rộng qua CSS) */}
           <button
             type="button"
             className="dm-back-btn"
@@ -66,19 +136,19 @@ export const DirectMessageChat: React.FC<Props> = ({
             <ArrowLeft size={18} />
           </button>
 
-          <div className="user-avatar-wrap">
-            <div className="user-avatar-circle">
-              {targetUser.displayName ? targetUser.displayName.charAt(0).toUpperCase() : 'U'}
+          <div className="user-avatar-wrap" style={{ position: 'relative' }}>
+            <div className="user-avatar-circle" style={{ width: '36px', height: '36px', fontSize: '14px' }}>
+              {targetUser.displayName ? Array.from(targetUser.displayName.trim())[0]?.toUpperCase() : 'U'}
             </div>
             <div className={`status-dot ${targetUser.online ? '' : 'offline'}`} />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span className="channel-title" style={{ fontSize: '15px', fontWeight: 700 }}>
+          <div className="dm-header-meta">
+            <span className="dm-header-name">
               {targetUser.displayName}
             </span>
-            <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>
-              @{targetUser.username} • {targetUser.online ? 'Đang hoạt động' : 'Ngoại tuyến'}
+            <span className="dm-header-sub">
+              @{targetUser.username} • {targetUser.online ? 'Trực tuyến' : 'Ngoại tuyến'}
             </span>
           </div>
         </div>
@@ -86,7 +156,7 @@ export const DirectMessageChat: React.FC<Props> = ({
         <div className="header-actions">
           <button
             type="button"
-            className="header-icon-btn"
+            className="header-icon-btn dm-invite-header-btn"
             title={`Mời ${targetUser.displayName} vào phòng chat`}
             aria-label={`Mời ${targetUser.displayName} vào phòng chat`}
             onClick={() => onOpenInviteModal(targetUser)}
@@ -98,10 +168,10 @@ export const DirectMessageChat: React.FC<Props> = ({
 
       {/* 2. Messages List */}
       <div className="chat-messages-scroll" ref={chatMessagesRef}>
-        {/* Banner mở đầu cuộc trò chuyện */}
+        {/* Khối giới thiệu đầu cuộc trò chuyện gọn gàng */}
         <div className="dm-welcome-banner">
           <div className="dm-welcome-avatar">
-            {targetUser.displayName ? targetUser.displayName.charAt(0).toUpperCase() : 'U'}
+            {targetUser.displayName ? Array.from(targetUser.displayName.trim())[0]?.toUpperCase() : 'U'}
           </div>
           <h2 className="dm-welcome-name">{targetUser.displayName}</h2>
           <div className="dm-welcome-username">@{targetUser.username}</div>
@@ -110,61 +180,96 @@ export const DirectMessageChat: React.FC<Props> = ({
           </p>
           <button
             type="button"
-            className="btn-accent"
-            style={{ marginTop: '12px', padding: '7px 16px', fontSize: '13px' }}
+            className="dm-invite-subtle-btn"
             onClick={() => onOpenInviteModal(targetUser)}
+            title={`Mời ${targetUser.displayName} vào một phòng chat`}
           >
-            <UserPlus size={15} style={{ marginRight: '6px' }} />
-            Mời vào phòng chat
+            <UserPlus size={15} />
+            <span>Mời vào phòng chat</span>
           </button>
         </div>
 
-        <div className="date-separator">
-          <span className="date-separator-label">Tin nhắn riêng</span>
-        </div>
-
-        {/* Danh sách tin nhắn */}
+        {/* Danh sách tin nhắn có phân cách ngày và gộp tin liên tiếp */}
         {messages.map((msg, index) => {
-          const isMe = msg.isMe;
+          const isMe = Boolean(msg.isMe || (currentUser && msg.senderId === currentUser.id));
           const prevMsg = messages[index - 1];
-          const isSameSender = prevMsg && prevMsg.senderId === msg.senderId;
+          const curDateKey = getDateKey(msg.timestamp);
+          const prevDateKey = prevMsg ? getDateKey(prevMsg.timestamp) : '';
+          const showDateSep = index === 0 || curDateKey !== prevDateKey;
+          const isGrouped = !showDateSep && shouldGroupWithPrevious(msg, prevMsg, curDateKey, prevDateKey);
+
+          // Tên hiển thị: Tin của mình thì hiện tên thật thay vì 'Bạn'
+          const authorName = isMe 
+            ? (currentUser?.displayName || msg.senderName || 'Tôi')
+            : (msg.senderName || targetUser.displayName);
+
+          // Trạng thái gửi
+          const isPending = msg.id < 0 || msg.status === 'sending';
+          const isFailed = msg.status === 'failed';
 
           return (
-            <div 
-              key={msg.id || index} 
-              className={`message-item dm-message-item ${isSameSender ? 'grouped' : ''} ${isMe ? 'mine' : ''}`}
-            >
-              {!isSameSender && (
-                <div className="user-avatar-wrap">
-                  <div className={`user-avatar-circle ${isMe ? 'avatar-me' : ''}`}>
-                    {msg.senderName ? msg.senderName.charAt(0).toUpperCase() : 'U'}
-                  </div>
+            <React.Fragment key={msg.id || index}>
+              {showDateSep && (
+                <div className="date-separator">
+                  <span className="date-separator-label">
+                    {getDateSeparatorLabel(msg.timestamp)}
+                  </span>
                 </div>
               )}
 
-              <div className="msg-content-wrapper">
-                {!isSameSender && (
-                  <div className="msg-header">
-                    <span className="msg-author" style={{ color: isMe ? 'var(--accent)' : 'var(--text-1)' }}>
-                      {isMe ? 'Bạn' : msg.senderName}
-                    </span>
-                    <span className="msg-timestamp">
-                      {msg.timestamp || 'Vừa xong'}
-                    </span>
+              <div 
+                className={`message-item dm-message-item ${isGrouped ? 'grouped' : ''} ${isMe ? 'mine' : ''} ${isPending ? 'pending' : ''} ${isFailed ? 'failed' : ''}`}
+              >
+                {!isGrouped ? (
+                  <div className="user-avatar-wrap">
+                    <div className={`user-avatar-circle ${isMe ? 'avatar-me' : ''}`} style={{ width: '36px', height: '36px', fontSize: '14px' }}>
+                      {Array.from(authorName.trim())[0]?.toUpperCase() || 'U'}
+                    </div>
                   </div>
+                ) : (
+                  <div className="msg-gutter-spacer" />
                 )}
-                <div className="msg-body">
-                  {msg.content}
+
+                <div className="msg-content-wrapper">
+                  {!isGrouped && (
+                    <div className="msg-header">
+                      <span className="msg-author" style={{ color: isMe ? 'var(--accent)' : 'var(--text-1)' }}>
+                        {authorName}
+                      </span>
+                      <span className="msg-timestamp">
+                        {msg.timestamp || 'Vừa xong'}
+                      </span>
+                      {isPending && <span className="msg-sending-tag">(đang gửi...)</span>}
+                    </div>
+                  )}
+
+                  <div className="msg-body">
+                    {msg.content}
+                    {msg.isEdited && <span className="edited-badge">(đã chỉnh sửa)</span>}
+                  </div>
+
+                  {isFailed && (
+                    <div className="msg-error-row">
+                      <span className="msg-error-text">Không thể gửi tin nhắn.</span>
+                      <button
+                        type="button"
+                        className="msg-retry-btn"
+                        onClick={() => onSendMessage(targetUser.id, msg.content)}
+                      >
+                        <RotateCw size={12} /> Thử lại
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            </React.Fragment>
           );
         })}
       </div>
 
-      {/* 3. Bottom Input Box */}
-      <div className="chat-input-container">
-        <div className="chat-input-pill">
+      {/* 3. Bottom Input Box bám đáy và rộng hết cột */}
+      <div className="chat-input-container dm-input-container">
+        <div className="chat-input-pill dm-input-pill">
           <button 
             type="button" 
             className="input-attach-btn" 
@@ -206,3 +311,5 @@ export const DirectMessageChat: React.FC<Props> = ({
     </div>
   );
 };
+
+export default DirectMessageChat;
