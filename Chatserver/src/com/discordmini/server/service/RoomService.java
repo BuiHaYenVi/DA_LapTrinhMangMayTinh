@@ -197,4 +197,40 @@ public class RoomService {
             return false;
         }
     }
+
+    public boolean renameChannel(int roomId, int channelId, String newName, int requestedByUserId) {
+        if (roomId <= 0 || channelId <= 0 || newName == null || newName.isBlank()) return false;
+        String role = getMemberRole(roomId, requestedByUserId);
+        if (role == null || (!"OWNER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role))) {
+            return false;
+        }
+        com.discordmini.server.model.Channel ch = channelDAO.findById(channelId);
+        if (ch == null || ch.getRoomId() != roomId) return false;
+
+        String trimmed = newName.trim();
+        if (trimmed.equalsIgnoreCase(ch.getName())) return true;
+        if (channelDAO.existsByName(roomId, trimmed)) return false;
+
+        return channelDAO.renameChannel(channelId, trimmed);
+    }
+
+    public boolean deleteChannel(int roomId, int channelId, int requestedByUserId) {
+        if (roomId <= 0 || channelId <= 0) return false;
+        String role = getMemberRole(roomId, requestedByUserId);
+        if (role == null || (!"OWNER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role))) {
+            return false;
+        }
+        com.discordmini.server.model.Channel ch = channelDAO.findById(channelId);
+        if (ch == null || ch.getRoomId() != roomId) return false;
+
+        // BẢO VỆ KÊNH MẶC ĐỊNH: Không cho phép xóa kênh 'chung' hoặc kênh duy nhất còn lại
+        if ("chung".equalsIgnoreCase(ch.getName().trim())) {
+            return false;
+        }
+        if (channelDAO.countChannelsInRoom(roomId) <= 1) {
+            return false;
+        }
+
+        return channelDAO.deleteChannel(channelId);
+    }
 }

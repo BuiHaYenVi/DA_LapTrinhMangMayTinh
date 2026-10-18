@@ -295,6 +295,28 @@ class ChatBridgeService {
     });
   }
 
+  public async renameChannel(roomId: number, channelId: number, name: string): Promise<void> {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/channels/rename`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, channelId, name })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  }
+
+  public async deleteChannel(roomId: number, channelId: number): Promise<void> {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/channels/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, channelId })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  }
+
   public async sendMessage(content: string, channelId?: number): Promise<void> {
     await this.fetchWithAuth(`${this.baseUrl}/messages/send`, {
       method: 'POST',

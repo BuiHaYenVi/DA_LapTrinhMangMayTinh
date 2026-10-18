@@ -24,6 +24,8 @@ interface Props {
   onRenameRoom?: (roomId: number, name: string) => void;
   onDeleteRoom?: (roomId: number) => void;
   onSetRoomDesc?: (roomId: number, description: string) => void;
+  onRenameChannel?: (channelId: number, name: string) => void;
+  onDeleteChannel?: (channelId: number) => void;
   onLogout?: () => void;
   onOpenSettings?: () => void;
   onInvite?: () => void;
@@ -51,6 +53,8 @@ export const RoomSidebar: React.FC<Props> = ({
   onRenameRoom,
   onDeleteRoom,
   onSetRoomDesc,
+  onRenameChannel,
+  onDeleteChannel,
   onLogout: _onLogout,
   onOpenSettings,
   onInvite,
@@ -62,6 +66,8 @@ export const RoomSidebar: React.FC<Props> = ({
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
+  const [channelNewName, setChannelNewName] = useState('');
   const [hiddenFriendMap, setHiddenFriendMap] = useState<Record<number, number>>({});
   const [localServerMenuOpen, setLocalServerMenuOpen] = useState(false);
   const isServerMenuOpen = propIsServerMenuOpen !== undefined ? propIsServerMenuOpen : localServerMenuOpen;
@@ -124,6 +130,28 @@ export const RoomSidebar: React.FC<Props> = ({
       onDeleteRoom(editingRoom.id);
     }
     setEditingRoom(null);
+  };
+
+  const openChannelSettings = (channel: Channel, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingChannel(channel);
+    setChannelNewName(channel.name);
+  };
+
+  const handleSaveChannelSettings = () => {
+    if (!editingChannel) return;
+    if (channelNewName.trim() && channelNewName.trim() !== editingChannel.name && onRenameChannel) {
+      onRenameChannel(editingChannel.id, channelNewName.trim());
+    }
+    setEditingChannel(null);
+  };
+
+  const handleDeleteChannel = () => {
+    if (!editingChannel) return;
+    if (onDeleteChannel) {
+      onDeleteChannel(editingChannel.id);
+    }
+    setEditingChannel(null);
   };
 
   const isManager = currentRoom?.role === 'OWNER' || currentRoom?.role === 'ADMIN';
@@ -413,6 +441,17 @@ export const RoomSidebar: React.FC<Props> = ({
                   <span className="channel-name" title={channel.name}>
                     {channel.name}
                   </span>
+                  {isManager && (
+                    <button
+                      type="button"
+                      className="channel-settings-btn"
+                      title={`Cài đặt kênh #${channel.name}`}
+                      onClick={(e) => openChannelSettings(channel, e)}
+                      aria-label={`Cài đặt kênh #${channel.name}`}
+                    >
+                      <Settings size={14} />
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -504,6 +543,54 @@ export const RoomSidebar: React.FC<Props> = ({
                   Hủy
                 </button>
                 <button type="button" className="btn-primary" onClick={handleSaveSettings}>
+                  Lưu thay đổi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cài đặt Kênh (Đổi tên, xóa kênh) */}
+      {editingChannel && (
+        <div className="modal-backdrop" onClick={() => setEditingChannel(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <h3 style={{ marginTop: 0 }}>Cài đặt kênh: #{editingChannel.name}</h3>
+
+            <div className="modal-field">
+              <label>Tên kênh chat</label>
+              <input
+                type="text"
+                value={channelNewName}
+                onChange={e => setChannelNewName(e.target.value)}
+                maxLength={50}
+                placeholder="Nhập tên kênh mới..."
+                autoFocus
+              />
+            </div>
+
+            {editingChannel.name.toLowerCase() === 'chung' && (
+              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 12 }}>
+                ℹ️ Kênh <strong>#chung</strong> là kênh chính của phòng và không thể xóa.
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+              {isManager && editingChannel.name.toLowerCase() !== 'chung' && channels.length > 1 && (
+                <button
+                  type="button"
+                  className="btn-danger-outline"
+                  onClick={handleDeleteChannel}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  Xóa kênh
+                </button>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                <button type="button" className="btn-cancel" onClick={() => setEditingChannel(null)}>
+                  Hủy
+                </button>
+                <button type="button" className="btn-primary" onClick={handleSaveChannelSettings}>
                   Lưu thay đổi
                 </button>
               </div>

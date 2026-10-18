@@ -143,6 +143,8 @@ public class UiBridgeServer {
         server.createContext("/api/channels", new ChannelsHandler());
         server.createContext("/api/channels/create", new CreateChannelHandler());
         server.createContext("/api/channels/join", new JoinChannelHandler());
+        server.createContext("/api/channels/rename", new RenameChannelHandler());
+        server.createContext("/api/channels/delete", new DeleteChannelHandler());
         server.createContext("/api/rooms/invite", new InviteRoomHandler());
         server.createContext("/api/rooms/kick", new KickRoomHandler());
         server.createContext("/api/rooms/rename", new RenameRoomHandler());
@@ -387,6 +389,21 @@ public class UiBridgeServer {
                             roomService.listChannels(rId);
                         }
                         broadcastSse("CHANNEL_CREATED", Map.of("roomId", rId, "channel", ch));
+                    } else if (p.length > 1 && "RENAME_CHANNEL".equals(p[1])) {
+                        int rId = p.length > 2 ? parseSafeInt(p[2], 0) : 0;
+                        int cId = p.length > 3 ? parseSafeInt(p[3], 0) : 0;
+                        String newName = p.length > 4 ? ProtocolHandler.decode(p[4]) : "";
+                        CompletableFuture<Map<String, Object>> cf = pendingRequests.remove("RENAME_CHANNEL");
+                        if (cf != null) {
+                            cf.complete(Map.of("success", true, "roomId", rId, "channelId", cId, "name", newName));
+                        }
+                    } else if (p.length > 1 && "DELETE_CHANNEL".equals(p[1])) {
+                        int rId = p.length > 2 ? parseSafeInt(p[2], 0) : 0;
+                        int cId = p.length > 3 ? parseSafeInt(p[3], 0) : 0;
+                        CompletableFuture<Map<String, Object>> cf = pendingRequests.remove("DELETE_CHANNEL");
+                        if (cf != null) {
+                            cf.complete(Map.of("success", true, "roomId", rId, "channelId", cId));
+                        }
                     } else if (p.length > 1 && "ROOM_CREATED".equals(p[1])) {
                         int rId = p.length > 2 ? Integer.parseInt(p[2]) : 0;
                         String rName = p.length > 3 ? ProtocolHandler.decode(p[3]) : "";
@@ -716,6 +733,62 @@ public class UiBridgeServer {
                         memberCache.clear();
                     }
                     broadcastSse("ROOM_DELETED", Map.of("roomId", rId));
+                }
+                case "CHANNEL_RENAMED" -> {
+                    int rId = parseSafeInt(p[1], 0);
+                    int cId = parseSafeInt(p[2], 0);
+                    String newName = ProtocolHandler.decode(p[3]);
+
+                    if (currentRoomId != null && currentRoomId == rId && currentChannelId != null && currentChannelId == cId) {
+                        currentChannelName = newName;
+                    }
+                    List<Map<String, Object>> chList = channelCacheByRoom.get(rId);
+                    if (chList != null) {
+                        for (Map<String, Object> ch : chList) {
+                            if (Objects.equals(ch.get("id"), cId)) {
+                                ch.put("name", newName);
+                                break;
+                            }
+                        }
+                    }
+                    for (Map<String, Object> ch : channelCache) {
+                        if (Objects.equals(ch.get("id"), cId)) {
+                            ch.put("name", newName);
+                            break;
+                        }
+                    }
+                    broadcastSse("CHANNEL_RENAMED", Map.of("roomId", rId, "channelId", cId, "name", newName));
+                }
+                case "CHANNEL_DELETED" -> {
+                    int rId = parseSafeInt(p[1], 0);
+                    int cId = parseSafeInt(p[2], 0);
+                    int fallbackId = p.length > 3 ? parseSafeInt(p[3], 0) : 0;
+
+                    List<Map<String, Object>> chList = channelCacheByRoom.get(rId);
+                    if (chList != null) {
+                        chList.removeIf(ch -> Objects.equals(ch.get("id"), cId));
+                    }
+                    channelCache.removeIf(ch -> Objects.equals(ch.get("id"), cId));
+
+                    if (currentRoomId != null && currentRoomId == rId && currentChannelId != null && currentChannelId == cId) {
+                        if (fallbackId > 0) {
+                            currentChannelId = fallbackId;
+                            currentChannelName = "chung";
+                            if (chList != null) {
+                                for (Map<String, Object> ch : chList) {
+                                    if (Objects.equals(ch.get("id"), fallbackId)) {
+                                        currentChannelName = (String) ch.get("name");
+                                        break;
+                                    }
+                                }
+                            }
+                        } else {
+                            currentChannelId = null;
+                            currentChannelName = "";
+                        }
+                        messageCache.clear();
+                    }
+                    broadcastSse("CHANNEL_DELETED", Map.of("roomId", rId, "channelId", cId, "fallbackChannelId", fallbackId));
                 }
                 case "ROOM_DESC_UPDATED" -> {
                     int rId = Integer.parseInt(p[1]);
@@ -1628,6 +1701,100 @@ public class UiBridgeServer {
 
                 session.roomService.joinChannel(roomId, channelId);
                 sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class RenameChannelHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int defaultRoomId = (session.currentRoomId != null) ? session.currentRoomId : 0;
+                int roomId = parseJsonInt(body, "roomId", defaultRoomId);
+                int channelId = parseJsonInt(body, "channelId", 0);
+                String name = (String) body.get("name");
+
+                if (roomId <= 0 || channelId <= 0) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "ID phòng hoặc kênh không hợp lệ."));
+                    return;
+                }
+                if (name == null || name.isBlank()) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "Tên kênh không được để trống."));
+                    return;
+                }
+                String trimmedName = name.trim();
+                if (trimmedName.length() > 50) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "Tên kênh không được vượt quá 50 ký tự."));
+                    return;
+                }
+
+                CompletableFuture<Map<String, Object>> cf = new CompletableFuture<>();
+                session.pendingRequests.put("RENAME_CHANNEL", cf);
+                session.roomService.renameChannel(roomId, channelId, trimmedName);
+                try {
+                    Map<String, Object> res = cf.get(10, TimeUnit.SECONDS);
+                    boolean success = Boolean.TRUE.equals(res.get("success"));
+                    if (success) {
+                        sendJson(exchange, 200, res);
+                    } else {
+                        String errMsg = (String) res.getOrDefault("message", "Không thể đổi tên kênh.");
+                        sendJson(exchange, 400, Map.of("success", false, "message", errMsg));
+                    }
+                } catch (Exception e) {
+                    session.pendingRequests.remove("RENAME_CHANNEL");
+                    sendJson(exchange, 500, Map.of("success", false, "message", "Quá thời gian phản hồi từ máy chủ."));
+                }
+            }
+        }
+    }
+
+    private class DeleteChannelHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int defaultRoomId = (session.currentRoomId != null) ? session.currentRoomId : 0;
+                int roomId = parseJsonInt(body, "roomId", defaultRoomId);
+                int channelId = parseJsonInt(body, "channelId", 0);
+
+                if (roomId <= 0 || channelId <= 0) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "ID phòng hoặc kênh không hợp lệ."));
+                    return;
+                }
+
+                CompletableFuture<Map<String, Object>> cf = new CompletableFuture<>();
+                session.pendingRequests.put("DELETE_CHANNEL", cf);
+                session.roomService.deleteChannel(roomId, channelId);
+                try {
+                    Map<String, Object> res = cf.get(10, TimeUnit.SECONDS);
+                    boolean success = Boolean.TRUE.equals(res.get("success"));
+                    if (success) {
+                        sendJson(exchange, 200, res);
+                    } else {
+                        String errMsg = (String) res.getOrDefault("message", "Không thể xóa kênh.");
+                        sendJson(exchange, 400, Map.of("success", false, "message", errMsg));
+                    }
+                } catch (Exception e) {
+                    session.pendingRequests.remove("DELETE_CHANNEL");
+                    sendJson(exchange, 500, Map.of("success", false, "message", "Quá thời gian phản hồi từ máy chủ."));
+                }
             }
         }
     }

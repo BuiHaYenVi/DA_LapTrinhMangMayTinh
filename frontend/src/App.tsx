@@ -327,6 +327,40 @@ export const App: React.FC = () => {
           }
           break;
         }
+        case 'CHANNEL_RENAMED': {
+          if (currentRoomRef.current?.id === payload.roomId) {
+            setChannels((prev) =>
+              prev.map((c) => (c.id === payload.channelId ? { ...c, name: payload.name } : c))
+            );
+            setCurrentChannel((prev) =>
+              prev && prev.id === payload.channelId ? { ...prev, name: payload.name } : prev
+            );
+            showToast(`Kênh đã đổi tên thành '#${payload.name}'`);
+          }
+          break;
+        }
+        case 'CHANNEL_DELETED': {
+          if (currentRoomRef.current?.id === payload.roomId) {
+            setChannels((prev) => prev.filter((c) => c.id !== payload.channelId));
+            if (currentChannelRef.current?.id === payload.channelId) {
+              showToast('Kênh bạn đang xem đã bị xóa.');
+              chatBridge.getChannels(payload.roomId).then((chList) => {
+                if (currentRoomRef.current?.id === payload.roomId) {
+                  setChannels(chList);
+                  const fallback = chList.find((c) => c.id === payload.fallbackChannelId) || chList[0];
+                  if (fallback) {
+                    handleSelectChannel(fallback);
+                  } else {
+                    setCurrentChannel(null);
+                    currentChannelRef.current = null;
+                    setMessages([]);
+                  }
+                }
+              }).catch(() => {});
+            }
+          }
+          break;
+        }
         case 'ROOM_LEFT':
           setCurrentRoom(null);
           currentRoomRef.current = null;
@@ -1057,6 +1091,35 @@ export const App: React.FC = () => {
     });
   };
 
+  const handleRenameChannel = (channelId: number, name: string) => {
+    if (!currentRoom) return;
+    chatBridge.renameChannel(currentRoom.id, channelId, name)
+      .catch((err) => {
+        showToast(err?.message || 'Không thể đổi tên kênh.');
+      });
+  };
+
+  const handleDeleteChannel = (channelId: number) => {
+    if (!currentRoom) return;
+    const ch = channels.find(c => c.id === channelId);
+    const chName = ch ? ch.name : `#${channelId}`;
+    setActionModal({
+      isOpen: true,
+      title: 'Xóa Kênh Chat',
+      message: `Bạn có chắc chắn muốn xóa vĩnh viễn kênh "#${chName}" không? Toàn bộ lịch sử tin nhắn trong kênh này sẽ bị xóa vĩnh viễn.`,
+      confirmText: 'Xóa Kênh',
+      cancelText: 'Hủy bỏ',
+      isDanger: true,
+      onConfirm: () => {
+        setActionModal(prev => ({ ...prev, isOpen: false }));
+        chatBridge.deleteChannel(currentRoom.id, channelId)
+          .catch((err) => {
+            showToast(err?.message || 'Không thể xóa kênh.');
+          });
+      }
+    });
+  };
+
   const handleSetRoomDesc = (roomId: number, description: string) => {
     chatBridge.setRoomDesc(roomId, description);
   };
@@ -1364,6 +1427,8 @@ export const App: React.FC = () => {
           onRenameRoom={handleRenameRoom}
           onDeleteRoom={handleDeleteRoom}
           onSetRoomDesc={handleSetRoomDesc}
+          onRenameChannel={handleRenameChannel}
+          onDeleteChannel={handleDeleteChannel}
           onLogout={handleLogout}
           onOpenSettings={() => setIsUserSettingsOpen(true)}
           onInvite={handleInvite}

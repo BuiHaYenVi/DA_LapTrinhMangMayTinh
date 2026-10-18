@@ -131,6 +131,22 @@ public class RoomService {
         return client.sendCommandWithId("JOIN_CHANNEL", String.valueOf(roomId), String.valueOf(channelId));
     }
 
+    public String renameChannel(int roomId, int channelId, String newName) {
+        if (newName == null || newName.isBlank() || !client.isConnected() || roomId <= 0 || channelId <= 0) {
+            notifyListeners(l -> l.onRoomError("Tên kênh không hợp lệ."));
+            return null;
+        }
+        return client.sendCommandWithId("RENAME_CHANNEL", String.valueOf(roomId), String.valueOf(channelId), newName.trim());
+    }
+
+    public String deleteChannel(int roomId, int channelId) {
+        if (!client.isConnected() || roomId <= 0 || channelId <= 0) {
+            notifyListeners(l -> l.onRoomError("Kênh không hợp lệ."));
+            return null;
+        }
+        return client.sendCommandWithId("DELETE_CHANNEL", String.valueOf(roomId), String.valueOf(channelId));
+    }
+
     public int getRoomEpoch() {
         return roomEpoch.get();
     }

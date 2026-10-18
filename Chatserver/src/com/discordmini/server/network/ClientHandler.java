@@ -110,6 +110,8 @@ public class ClientHandler implements Runnable {
                 case CREATE_CHANNEL -> handleCreateChannel(parts);
                 case LIST_CHANNELS -> handleListChannels(parts);
                 case JOIN_CHANNEL -> handleJoinChannel(parts);
+                case RENAME_CHANNEL -> handleRenameChannel(parts);
+                case DELETE_CHANNEL -> handleDeleteChannel(parts);
                 case UPDATE_PROFILE -> handleUpdateProfile(parts);
                 case CHANGE_PASSWORD -> handleChangePassword(parts);
                 case FRIEND_REMOVE -> handleFriendRemove(parts);
@@ -768,6 +770,107 @@ public class ClientHandler implements Runnable {
         );
 
         handleHistory(channelId);
+    }
+
+    private void handleRenameChannel(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 4);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        int channelId = parseId(parts[2], "ID kênh");
+        String newName = ProtocolHandler.decode(parts[3]).trim();
+
+        if (newName.isBlank()) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tên kênh không được để trống.");
+            return;
+        }
+
+        if (newName.length() > 50) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tên kênh không được vượt quá 50 ký tự.");
+            return;
+        }
+
+        String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
+        if (!"OWNER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Quản trị viên mới được đổi tên kênh.");
+            return;
+        }
+
+        com.discordmini.server.model.Channel ch = server.getRoomService().findChannel(channelId);
+        if (ch == null || ch.getRoomId() != roomId) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Kênh không tồn tại trong phòng này.");
+            return;
+        }
+
+        if (!newName.equalsIgnoreCase(ch.getName()) && server.getRoomService().getChannelDAO().existsByName(roomId, newName)) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tên kênh '" + newName + "' đã tồn tại trong phòng này.");
+            return;
+        }
+
+        boolean ok = server.getRoomService().renameChannel(roomId, channelId, newName, user.getId());
+        if (ok) {
+            connection.send("OK|RENAME_CHANNEL|" + roomId + "|" + channelId + "|" + ProtocolHandler.encode(newName));
+            String packet = "CHANNEL_RENAMED|" + roomId + "|" + channelId + "|" + ProtocolHandler.encode(newName);
+            for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
+                c.connection.send(packet);
+                c.sendChannels(roomId);
+            }
+        } else {
+            sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể đổi tên kênh.");
+        }
+    }
+
+    private void handleDeleteChannel(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        int channelId = parseId(parts[2], "ID kênh");
+
+        String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
+        if (!"OWNER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Quản trị viên mới được xóa kênh.");
+            return;
+        }
+
+        com.discordmini.server.model.Channel ch = server.getRoomService().findChannel(channelId);
+        if (ch == null || ch.getRoomId() != roomId) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Kênh không tồn tại trong phòng này.");
+            return;
+        }
+
+        if ("chung".equalsIgnoreCase(ch.getName().trim())) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Không thể xóa kênh mặc định '#chung'.");
+            return;
+        }
+
+        if (server.getRoomService().getChannelDAO().countChannelsInRoom(roomId) <= 1) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Phòng chat phải có tối thiểu một kênh hoạt động.");
+            return;
+        }
+
+        boolean ok = server.getRoomService().deleteChannel(roomId, channelId, user.getId());
+        if (ok) {
+            connection.send("OK|DELETE_CHANNEL|" + roomId + "|" + channelId);
+            com.discordmini.server.model.Channel defCh = server.getRoomService().getDefaultChannel(roomId);
+            int fallbackChannelId = (defCh != null) ? defCh.getId() : 0;
+            String fallbackChannelName = (defCh != null) ? defCh.getName() : "chung";
+
+            String packet = "CHANNEL_DELETED|" + roomId + "|" + channelId + "|" + fallbackChannelId;
+
+            for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
+                c.connection.send(packet);
+                // Nếu client đang ở kênh vừa bị xóa -> tự động chuyển về kênh mặc định
+                if (c.currentChannelId != null && c.currentChannelId == channelId) {
+                    c.currentChannelId = fallbackChannelId;
+                    c.connection.send("OK|JOIN_CHANNEL|" + roomId + "|" + fallbackChannelId + "|" + ProtocolHandler.encode(fallbackChannelName));
+                    c.handleHistory(fallbackChannelId);
+                }
+                c.sendChannels(roomId);
+            }
+        } else {
+            sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể xóa kênh.");
+        }
     }
 
     private void sendRooms() {

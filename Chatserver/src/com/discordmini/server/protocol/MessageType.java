@@ -36,6 +36,8 @@ public enum MessageType {
     CREATE_CHANNEL,
     LIST_CHANNELS,
     JOIN_CHANNEL,
+    RENAME_CHANNEL,
+    DELETE_CHANNEL,
     // Cài đặt người dùng & Hồ sơ
     UPDATE_PROFILE,
     CHANGE_PASSWORD,
