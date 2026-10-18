@@ -160,15 +160,17 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </div>
 
         <div className="discord-modal-footer">
-          <button
-            ref={cancelBtnRef}
-            type="button"
-            className="discord-modal-btn-cancel"
-            onClick={onCancel}
-            disabled={isLoading}
-          >
-            {cancelText}
-          </button>
+          {cancelText && (
+            <button
+              ref={cancelBtnRef}
+              type="button"
+              className="discord-modal-btn-cancel"
+              onClick={onCancel}
+              disabled={isLoading}
+            >
+              {cancelText}
+            </button>
+          )}
 
           <button
             ref={confirmBtnRef}

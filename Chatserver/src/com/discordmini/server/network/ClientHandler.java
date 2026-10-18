@@ -478,6 +478,16 @@ public class ClientHandler implements Runnable {
             if (def != null) {
                 targetChannelId = def.getId();
             }
+        } else {
+            // BẢO MẬT: Đảm bảo kênh phải thuộc về phòng hiện tại
+            com.discordmini.server.model.Channel ch = server.getRoomService().findChannel(targetChannelId);
+            if (ch == null || ch.getRoomId() != currentRoomId) {
+                sendError(
+                        ProtocolErrorCode.BAD_REQUEST,
+                        "Kênh không tồn tại trong phòng này."
+                );
+                return;
+            }
         }
 
         Message message = server.getChatService().save(
@@ -586,6 +596,15 @@ public class ClientHandler implements Runnable {
             sendError(
                     ProtocolErrorCode.NOT_IN_ROOM,
                     "Bạn chưa vào phòng."
+            );
+            return;
+        }
+
+        // BẢO MẬT: Kiểm tra tư cách thành viên của phòng
+        if (!server.getRoomService().isMember(currentRoomId, user.getId())) {
+            sendError(
+                    ProtocolErrorCode.PERMISSION_DENIED,
+                    "Bạn không phải thành viên của phòng này."
             );
             return;
         }
@@ -1035,14 +1054,29 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        // Kiểm tra quyền: CHỈ TRƯỞNG NHÓM (OWNER) mới có quyền kick/xóa thành viên
-        if (!server.getRoomService().isRoomOwner(roomId, user.getId())) {
-            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Trưởng nhóm (OWNER) mới có quyền xóa thành viên khỏi phòng.");
+        // Kiểm tra quyền: OWNER hoặc ADMIN mới có quyền kick/xóa thành viên
+        String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
+        boolean isOwner = "OWNER".equalsIgnoreCase(userRole);
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(userRole);
+
+        if (!isOwner && !isAdmin) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Trưởng nhóm (OWNER) hoặc Quản trị viên (ADMIN) mới có quyền xóa thành viên.");
             return;
         }
 
         if (targetUserId == user.getId()) {
-            sendError(ProtocolErrorCode.BAD_REQUEST, "Trưởng nhóm không thể tự kick chính mình. Hãy dùng tính năng rời phòng hoặc chuyển quyền.");
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Bạn không thể tự kick chính mình. Hãy dùng tính năng rời phòng.");
+            return;
+        }
+
+        String targetRole = server.getRoomService().getMemberRole(roomId, targetUserId);
+        if ("OWNER".equalsIgnoreCase(targetRole)) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Không thể xóa Trưởng nhóm (OWNER) khỏi phòng.");
+            return;
+        }
+
+        if (isAdmin && "ADMIN".equalsIgnoreCase(targetRole)) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Quản trị viên không được phép xóa Quản trị viên khác.");
             return;
         }
 
@@ -1057,10 +1091,11 @@ public class ClientHandler implements Runnable {
 
         User targetUser = server.getUserDAO().findById(targetUserId);
         String targetName = (targetUser != null) ? targetUser.getDisplayName() : ("User#" + targetUserId);
+        String kickerTitle = isOwner ? "Trưởng nhóm" : "Quản trị viên";
 
         connection.send("OK|KICK_ROOM|" + roomId + "|" + targetUserId);
 
-        broadcastRoom("SYSTEM|" + ProtocolHandler.encode(targetName + " đã bị Trưởng nhóm xóa khỏi phòng."), true);
+        broadcastRoom("SYSTEM|" + ProtocolHandler.encode(targetName + " đã bị " + kickerTitle + " xóa khỏi phòng."), true);
 
         // Xử lý client bị kick nếu đang ở trong phòng này
         var targetHandler = server.getClientManager().get(targetUserId);
@@ -1068,7 +1103,8 @@ public class ClientHandler implements Runnable {
             if (targetHandler.currentRoomId != null && targetHandler.currentRoomId == roomId) {
                 targetHandler.server.getRoomManager().leave(roomId, targetHandler);
                 targetHandler.currentRoomId = null;
-                targetHandler.connection.send("SYSTEM|" + ProtocolHandler.encode("Bạn đã bị Trưởng nhóm mời ra khỏi phòng " + room.getName() + "."));
+                targetHandler.currentChannelId = null;
+                targetHandler.connection.send("SYSTEM|" + ProtocolHandler.encode("Bạn đã bị " + kickerTitle + " mời ra khỏi phòng " + room.getName() + "."));
                 targetHandler.connection.send("OK|LEAVE_ROOM|" + roomId);
             }
             targetHandler.sendRooms();
@@ -1416,8 +1452,8 @@ public class ClientHandler implements Runnable {
 
         int roomId = parseId(parts[1], "ID phòng");
         String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
-        if (!"OWNER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
-            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Quản trị viên mới được xóa phòng.");
+        if (!"OWNER".equalsIgnoreCase(userRole)) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng (OWNER) mới có quyền xóa/giải tán phòng.");
             return;
         }
 
@@ -1426,9 +1462,10 @@ public class ClientHandler implements Runnable {
             connection.send("OK|DELETE_ROOM|" + roomId);
             String packet = "ROOM_DELETED|" + roomId;
             for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
-                c.connection.send("SYSTEM|" + ProtocolHandler.encode("Phòng chat đã bị giải tán bởi Quản trị viên."));
+                c.connection.send("SYSTEM|" + ProtocolHandler.encode("Phòng chat đã bị giải tán bởi Chủ phòng."));
                 c.connection.send(packet);
                 c.currentRoomId = null;
+                c.currentChannelId = null;
             }
             broadcastGlobal(packet);
             sendRooms();
@@ -1511,6 +1548,11 @@ public class ClientHandler implements Runnable {
             return;
         }
 
+        if (targetUserId == user.getId()) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Chủ phòng không thể tự thay đổi vai trò của chính mình. Hãy chuyển quyền Chủ phòng.");
+            return;
+        }
+
         if (!"ADMIN".equals(role) && !"MEMBER".equals(role)) {
             sendError(ProtocolErrorCode.BAD_REQUEST, "Vai trò chỉ có thể là ADMIN hoặc MEMBER.");
             return;
@@ -1541,6 +1583,15 @@ public class ClientHandler implements Runnable {
         int roomId = parseId(parts[1], "ID phòng");
         int beforeId = parseId(parts[2], "ID tin nhắn trước đó");
         int limit = parseId(parts[3], "Số lượng tin nhắn");
+
+        // BẢO MẬT: Kiểm tra tư cách thành viên của phòng
+        if (!server.getRoomService().isMember(roomId, user.getId())) {
+            sendError(
+                    ProtocolErrorCode.PERMISSION_DENIED,
+                    "Bạn không phải là thành viên của phòng này."
+            );
+            return;
+        }
 
         int targetChannelId = (currentChannelId != null && currentChannelId > 0) ? currentChannelId : 0;
         List<Message> history = (targetChannelId > 0)

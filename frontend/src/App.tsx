@@ -1164,6 +1164,23 @@ export const App: React.FC = () => {
 
   const handleLeave = () => {
     if (!currentRoom) return;
+
+    const isOwner = currentRoom.role === 'OWNER' || rooms.find(r => r.id === currentRoom.id)?.role === 'OWNER';
+    if (isOwner) {
+      setActionModal({
+        isOpen: true,
+        title: 'Không Thể Rời Phòng',
+        message: `Bạn đang là Trưởng nhóm (Chủ phòng) của "${currentRoom.name}". Bạn không thể rời phòng khi chưa chuyển quyền Trưởng nhóm cho thành viên khác. Vui lòng chuyển quyền hoặc chọn "Xóa phòng" nếu muốn giải tán phòng.`,
+        confirmText: 'Đã Hiểu',
+        cancelText: '',
+        isDanger: false,
+        onConfirm: () => {
+          setActionModal(prev => ({ ...prev, isOpen: false }));
+        }
+      });
+      return;
+    }
+
     setActionModal({
       isOpen: true,
       title: 'Rời Khỏi Phòng',
