@@ -17,6 +17,7 @@ import { CreateChannelModal } from './components/CreateChannelModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { AppTitlebar } from './components/AppTitlebar';
 import { UserSettingsModal, type SettingsTabId, loadStoredSettings } from './components/UserSettingsModal';
+import { RoomSettingsModal } from './components/RoomSettingsModal';
 import { Toast } from './components/Toast';
 import { useRoomUnread } from './components/rail/useRoomUnread';
 import './styles/discord.css';
@@ -211,9 +212,21 @@ export const App: React.FC = () => {
   // Modals
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useState<boolean>(false);
   const [userSettingsInitialTab, setUserSettingsInitialTab] = useState<SettingsTabId>('account');
+  const [roomSettingsTarget, setRoomSettingsTarget] = useState<Room | null>(null);
+
   const handleOpenSettings = (initialTab: SettingsTabId = 'account') => {
     setUserSettingsInitialTab(initialTab);
     setIsUserSettingsOpen(true);
+  };
+
+  const handleOpenRoomSettings = (targetRoom?: Room) => {
+    const r = targetRoom || currentRoom;
+    if (r) {
+      if (!currentRoom || currentRoom.id !== r.id) {
+        handleSelectRoom(r);
+      }
+      setRoomSettingsTarget(r);
+    }
   };
 
   // Phím tắt toàn cục: Ctrl + , -> Mở cài đặt
@@ -1736,7 +1749,7 @@ export const App: React.FC = () => {
           onMarkAsRead={clearRoomUnread}
           onToggleMute={toggleMuteRoom}
           onInvite={handleInvite}
-          onOpenSettings={() => setIsServerMenuOpen(true)}
+          onOpenSettings={handleOpenRoomSettings}
           onCreateChannel={handleOpenCreateChannel}
           onLeaveRoom={handleLeave}
           onDeleteRoom={(room) => handleDeleteRoom(room.id)}
@@ -1748,6 +1761,7 @@ export const App: React.FC = () => {
           channels={channels}
           currentChannel={currentChannel}
           currentUser={currentUser}
+          currentUserRole={currentUserRole}
           isDirectMessageMode={isDirectMessageMode}
           friends={friends}
           pendingCount={pendingRequests.length}
@@ -1768,6 +1782,8 @@ export const App: React.FC = () => {
           onDeleteChannel={handleDeleteChannel}
           onLogout={handleLogout}
           onOpenSettings={() => handleOpenSettings('account')}
+          onOpenUserSettings={() => handleOpenSettings('account')}
+          onOpenRoomSettings={handleOpenRoomSettings}
           onInvite={handleInvite}
           onLeaveRoom={handleLeave}
           isServerMenuOpen={isServerMenuOpen}
@@ -1959,6 +1975,93 @@ export const App: React.FC = () => {
         }}
         initialTab={userSettingsInitialTab}
       />
+
+      {/* Modal Cài đặt Máy chủ / Phòng (Chuẩn giao diện 2 cột phong cách Discord) */}
+      {roomSettingsTarget && (
+        <RoomSettingsModal
+          isOpen={Boolean(roomSettingsTarget)}
+          onClose={() => setRoomSettingsTarget(null)}
+          room={roomSettingsTarget}
+          currentUser={currentUser}
+          currentUserRole={
+            roomSettingsTarget.id === currentRoom?.id
+              ? currentUserRole
+              : (rooms.find(r => r.id === roomSettingsTarget.id)?.role || (roomSettingsTarget as any)?.role || 'MEMBER')
+          }
+          members={roomSettingsTarget.id === currentRoom?.id ? members : (currentUser ? [{ ...currentUser, role: roomSettingsTarget.role || 'MEMBER' }] : [])}
+          onRenameRoom={handleRenameRoom}
+          onSetRoomDesc={handleSetRoomDesc}
+          onDeleteRoom={async (roomId) => {
+            setRoomSettingsTarget(null);
+            try {
+              await chatBridge.deleteRoom(roomId);
+              setRooms(prev => prev.filter(r => r.id !== roomId));
+              if (currentRoomRef.current?.id === roomId) {
+                setCurrentRoom(null);
+                currentRoomRef.current = null;
+                setChannels([]);
+                setCurrentChannel(null);
+                setMessages([]);
+              }
+              showToast('Đã xóa máy chủ thành công');
+            } catch (err: any) {
+              showToast(err?.message || 'Không thể xóa phòng');
+            }
+          }}
+          onLeaveRoom={async (roomId) => {
+            setRoomSettingsTarget(null);
+            try {
+              await chatBridge.leaveRoom(roomId);
+              setRooms(prev => prev.filter(r => r.id !== roomId));
+              if (currentRoomRef.current?.id === roomId) {
+                setCurrentRoom(null);
+                currentRoomRef.current = null;
+                setChannels([]);
+                setCurrentChannel(null);
+                setMessages([]);
+              }
+              showToast('Đã rời khỏi máy chủ');
+            } catch (err: any) {
+              showToast(err?.message || 'Không thể rời phòng');
+            }
+          }}
+          onKickMember={async (roomId, userId) => {
+            try {
+              await chatBridge.kickMember(roomId, userId);
+              setMembers(prev => prev.filter(m => m.id !== userId));
+              showToast('Đã đuổi thành viên khỏi máy chủ');
+            } catch (err: any) {
+              showToast(err?.message || 'Không thể kick thành viên');
+            }
+          }}
+          onSetMemberRole={async (roomId, userId, role) => {
+            try {
+              await chatBridge.setMemberRole(roomId, userId, role);
+              setMembers(prev => prev.map(m => m.id === userId ? { ...m, role } : m));
+              showToast(`Đã cập nhật vai trò thành ${role === 'ADMIN' ? 'Phó phòng (Admin)' : 'Thành viên'}`);
+            } catch (err: any) {
+              showToast(err?.message || 'Không thể cập nhật vai trò');
+            }
+          }}
+          onTransferOwner={async (roomId, userId) => {
+            try {
+              await chatBridge.transferOwner(roomId, userId);
+              setMembers(prev => prev.map(m => {
+                if (m.id === userId) return { ...m, role: 'OWNER' };
+                if (m.id === currentUser?.id) return { ...m, role: 'ADMIN' };
+                return m;
+              }));
+              setRooms(prev => prev.map(r => r.id === roomId ? { ...r, role: 'ADMIN' } : r));
+              if (currentRoom?.id === roomId) {
+                setCurrentRoom(prev => prev ? { ...prev, role: 'ADMIN' } : prev);
+              }
+              showToast('Đã chuyển giao toàn quyền Chủ phòng');
+            } catch (err: any) {
+              showToast(err?.message || 'Không thể chuyển giao quyền Chủ phòng');
+            }
+          }}
+        />
+      )}
 
       {/* Toast thông báo nhanh nổi giữa màn hình phía dưới */}
       <Toast message={toastMessage} onClose={() => setToastMessage('')} />

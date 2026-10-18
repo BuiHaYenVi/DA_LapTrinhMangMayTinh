@@ -36,6 +36,8 @@ interface Props {
   onDeleteChannel?: (channelId: number) => void;
   onLogout?: () => void;
   onOpenSettings?: () => void;
+  onOpenUserSettings?: () => void;
+  onOpenRoomSettings?: (room: Room) => void;
   onInvite?: () => void;
   onLeaveRoom?: () => void;
   isServerMenuOpen?: boolean;
@@ -105,6 +107,8 @@ export const RoomSidebar: React.FC<Props> = ({
   onDeleteChannel,
   onLogout: _onLogout,
   onOpenSettings,
+  onOpenUserSettings,
+  onOpenRoomSettings,
   onInvite,
   onLeaveRoom,
   isServerMenuOpen: propIsServerMenuOpen,
@@ -193,13 +197,21 @@ export const RoomSidebar: React.FC<Props> = ({
 
   const openSettings = (room: Room, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    closeServerMenu();
+    if (onOpenRoomSettings) {
+      onOpenRoomSettings(room);
+      return;
+    }
+    if (onOpenSettings) {
+      onOpenSettings();
+      return;
+    }
     const style = getRoomCustomStyle(room.id, room.name);
     setEditingRoom(room);
     setNewName(room.name);
     setNewDesc(room.description || '');
     setRoomIcon(style.icon || '');
     setRoomColor(style.color || '');
-    closeServerMenu();
   };
 
   const handleSaveSettings = () => {
@@ -309,7 +321,7 @@ export const RoomSidebar: React.FC<Props> = ({
           type="button"
           className="user-action-btn"
           title="Cài đặt người dùng"
-          onClick={onOpenSettings}
+          onClick={onOpenUserSettings || onOpenSettings}
           aria-label="Cài đặt người dùng"
         >
           <Settings size={18} />
@@ -516,15 +528,13 @@ export const RoomSidebar: React.FC<Props> = ({
               <UserPlus size={16} color="var(--accent)" />
             </div>
 
-            {isManager && (
-              <div 
-                className="dropdown-item" 
-                onClick={(e) => openSettings(currentRoom, e)}
-              >
-                <span>Cài đặt phòng</span>
-                <Settings size={16} />
-              </div>
-            )}
+            <div 
+              className="dropdown-item" 
+              onClick={(e) => openSettings(currentRoom, e)}
+            >
+              <span>Cài đặt phòng</span>
+              <Settings size={16} />
+            </div>
 
             {isManager && (
               <div 

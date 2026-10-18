@@ -9058,6 +9058,675 @@ html[data-density="compact"] .dm-message-row {
   transform: scale(1.2);
 }
 
+/* ==========================================================================
+   ROOM / SERVER SETTINGS MODAL (DISCORD STYLE)
+   ========================================================================== */
+
+.room-settings-window {
+  width: 1040px;
+  height: 720px;
+  max-width: 96vw;
+  max-height: 94vh;
+}
+
+.room-profile-tab-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  padding-bottom: 50px;
+}
+
+.room-profile-header-text {
+  margin-bottom: 4px;
+}
+
+.role-restriction-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #f2f3f5;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.room-profile-columns-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 32px;
+  align-items: start;
+}
+
+.room-profile-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.settings-field-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-field-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #b5bac1;
+  letter-spacing: 0.04em;
+}
+
+.settings-field-hint {
+  font-size: 12px;
+  color: #949ba4;
+  margin: 0 0 6px 0;
+}
+
+.settings-input-control {
+  width: 100%;
+  background-color: #1e1f22;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #f2f3f5;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.settings-input-control:focus {
+  border-color: #5865f2;
+}
+
+.settings-input-control:disabled,
+.settings-textarea-control:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #16171a;
+}
+
+.settings-textarea-control {
+  width: 100%;
+  background-color: #1e1f22;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #f2f3f5;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.settings-textarea-control:focus {
+  border-color: #5865f2;
+}
+
+/* Chọn Icon & Màu nền */
+.room-icon-selector-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.room-icon-choice-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #2b2d31;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f2f3f5;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.room-icon-choice-btn:hover:not(:disabled) {
+  background: #35373c;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.room-icon-choice-btn.active {
+  background: rgba(88, 101, 242, 0.2);
+  border-color: #5865f2;
+  color: #5865f2;
+  font-weight: 600;
+}
+
+.room-avatar-color-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.room-color-choice-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+
+.room-color-choice-dot:hover:not(:disabled) {
+  transform: scale(1.15);
+}
+
+.room-color-choice-dot.active {
+  border-color: #ffffff;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px #5865f2;
+}
+
+/* Lưới chọn màu Biểu ngữ (Banner) chuẩn Discord */
+.room-banner-palette-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  max-width: 380px;
+}
+
+.room-banner-color-tile {
+  height: 48px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.room-banner-color-tile:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.room-banner-color-tile.active {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px #5865f2;
+}
+
+/* Thẻ Live Preview Card (Thẻ xem trước máy chủ chuẩn Discord) */
+.room-profile-preview-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preview-heading-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #b5bac1;
+  letter-spacing: 0.04em;
+}
+
+.discord-server-preview-card {
+  background: #1e1f22;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.server-preview-banner {
+  height: 90px;
+  width: 100%;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
+
+.server-preview-body {
+  padding: 0 16px 16px 16px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.server-preview-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  border: 4px solid #1e1f22;
+  margin-top: -28px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.2s ease;
+}
+
+.server-preview-avatar-icon {
+  font-size: 24px;
+}
+
+.server-preview-avatar-text {
+  font-size: 20px;
+}
+
+.server-preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.server-preview-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f2f3f5;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.server-preview-desc {
+  font-size: 12.5px;
+  color: #dbdee1;
+  line-height: 1.4;
+  margin: 4px 0 0 0;
+  word-break: break-word;
+}
+
+.server-preview-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #949ba4;
+  margin-top: 8px;
+}
+
+.stat-online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #23a55a;
+  display: inline-block;
+}
+
+.stat-sep {
+  color: #4e5058;
+}
+
+.server-preview-established {
+  font-size: 11px;
+  color: #949ba4;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Thanh thông báo nổi lưu thay đổi */
+.settings-floating-save-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #111214;
+  border-radius: 8px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  animation: slideUpSaveBar 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 20;
+}
+
+@keyframes slideUpSaveBar {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.floating-save-text {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #f2f3f5;
+}
+
+.floating-save-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-reset {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 4px;
+  transition: text-decoration 0.15s ease;
+}
+
+.btn-reset:hover {
+  text-decoration: underline;
+}
+
+.btn-save {
+  background: #23a55a;
+  color: #ffffff;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-save:hover {
+  background: #1f9450;
+}
+
+/* ==========================================================================
+   TAB THÀNH VIÊN (MEMBERS MANAGEMENT)
+   ========================================================================== */
+
+.room-members-tab-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.members-tab-search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 360px;
+}
+
+.members-tab-search-bar .search-icon {
+  position: absolute;
+  left: 10px;
+  color: #949ba4;
+  pointer-events: none;
+}
+
+.members-tab-search-bar input {
+  width: 100%;
+  background: #1e1f22;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 8px 12px 8px 32px;
+  font-size: 13.5px;
+  color: #f2f3f5;
+  outline: none;
+}
+
+.members-tab-search-bar input:focus {
+  border-color: #5865f2;
+}
+
+.members-management-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.member-management-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #2b2d31;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background-color 0.15s ease;
+}
+
+.member-management-item:hover {
+  background: #313338;
+}
+
+.member-info-col {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.member-name-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.member-display-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f2f3f5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.member-you-tag {
+  font-size: 11px;
+  color: #5865f2;
+  font-weight: 600;
+}
+
+.member-username {
+  font-size: 12px;
+  color: #949ba4;
+}
+
+.member-role-col {
+  margin: 0 16px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.role-badge.owner {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.role-badge.admin {
+  background: rgba(88, 101, 242, 0.15);
+  color: #5865f2;
+  border: 1px solid rgba(88, 101, 242, 0.3);
+}
+
+.role-badge.member {
+  background: rgba(148, 155, 164, 0.12);
+  color: #949ba4;
+  border: 1px solid rgba(148, 155, 164, 0.2);
+}
+
+.member-actions-col {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.member-action-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.12s ease;
+}
+
+.member-action-btn.primary {
+  background: #5865f2;
+  color: #ffffff;
+}
+
+.member-action-btn.primary:hover {
+  background: #4752c4;
+}
+
+.member-action-btn.secondary {
+  background: #35373c;
+  color: #f2f3f5;
+}
+
+.member-action-btn.secondary:hover {
+  background: #3f4147;
+}
+
+.member-action-btn.outline {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #dbdee1;
+}
+
+.member-action-btn.outline:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.member-action-btn.danger {
+  background: rgba(242, 63, 67, 0.12);
+  color: #f23f43;
+  border: 1px solid rgba(242, 63, 67, 0.25);
+}
+
+.member-action-btn.danger:hover {
+  background: #f23f43;
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   TAB VAI TRÒ & PHÂN QUYỀN (ROLES)
+   ========================================================================== */
+
+.room-roles-tab-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.roles-detail-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.role-detail-card {
+  background: #2b2d31;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.role-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.role-card-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.role-card-icon-wrap.owner {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.role-card-icon-wrap.admin {
+  background: rgba(88, 101, 242, 0.15);
+  color: #5865f2;
+}
+
+.role-card-icon-wrap.member {
+  background: rgba(148, 155, 164, 0.15);
+  color: #949ba4;
+}
+
+.role-card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f2f3f5;
+  margin: 0;
+}
+
+.role-card-level {
+  font-size: 12px;
+  color: #949ba4;
+}
+
+.role-permission-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.role-permission-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #dbdee1;
+}
+
+/* Nút hành động nguy hiểm ở sidebar footer */
+.settings-danger-action-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #f23f43;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.settings-danger-action-btn:hover {
+  background: rgba(242, 63, 67, 0.12);
+  border-color: rgba(242, 63, 67, 0.3);
+}
+
+
 
 
 

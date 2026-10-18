@@ -114,29 +114,28 @@ export const RoomContextMenu: React.FC<Props> = ({
       }
     ];
 
-    if (isManager) {
-      if (onOpenSettings) {
-        items.push({
-          id: 'settings',
-          label: 'Cài đặt phòng',
-          icon: <Settings size={16} />,
-          onClick: () => {
-            onOpenSettings(room);
-            onClose();
-          }
-        });
-      }
-      if (onCreateChannel) {
-        items.push({
-          id: 'create_channel',
-          label: 'Tạo kênh',
-          icon: <Hash size={16} />,
-          onClick: () => {
-            onCreateChannel(room);
-            onClose();
-          }
-        });
-      }
+    if (onOpenSettings) {
+      items.push({
+        id: 'settings',
+        label: 'Cài đặt phòng',
+        icon: <Settings size={16} />,
+        onClick: () => {
+          onOpenSettings(room);
+          onClose();
+        }
+      });
+    }
+
+    if (isManager && onCreateChannel) {
+      items.push({
+        id: 'create_channel',
+        label: 'Tạo kênh',
+        icon: <Hash size={16} />,
+        onClick: () => {
+          onCreateChannel(room);
+          onClose();
+        }
+      });
     }
 
     if (isRoomOwner && onDeleteRoom) {

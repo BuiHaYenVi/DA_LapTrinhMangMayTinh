@@ -115,6 +115,14 @@ export const RoomRailItem: React.FC<Props> = ({
   onContextMenu
 }) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const [, setCustomTick] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleUpdate = () => setCustomTick(t => t + 1);
+    window.addEventListener('room_custom_updated', handleUpdate);
+    return () => window.removeEventListener('room_custom_updated', handleUpdate);
+  }, []);
+
   const hasUnread = unreadCount > 0 && !isMuted;
   const customStyle = getRoomCustomStyle(room.id, room.name);
   const acronym = customStyle.icon || getRoomAcronym(room.name);
