@@ -16,7 +16,7 @@ import { CreateRoomModal } from './components/CreateServerModal';
 import { CreateChannelModal } from './components/CreateChannelModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { AppTitlebar } from './components/AppTitlebar';
-import { UserSettingsModal } from './components/UserSettingsModal';
+import { UserSettingsModal, type SettingsTabId } from './components/UserSettingsModal';
 import { Toast } from './components/Toast';
 import { useRoomUnread } from './components/rail/useRoomUnread';
 import './styles/discord.css';
@@ -211,6 +211,11 @@ export const App: React.FC = () => {
 
   // Modals
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useState<boolean>(false);
+  const [userSettingsInitialTab, setUserSettingsInitialTab] = useState<SettingsTabId>('account');
+  const handleOpenSettings = (initialTab: SettingsTabId = 'account') => {
+    setUserSettingsInitialTab(initialTab);
+    setIsUserSettingsOpen(true);
+  };
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState<boolean>(false);
   const [isCreateChannelOpen, setIsCreateChannelOpen] = useState<boolean>(false);
   const [isMemberListOpen, setIsMemberListOpen] = useState<boolean>(true);
@@ -1751,7 +1756,7 @@ export const App: React.FC = () => {
           onRenameChannel={handleRenameChannel}
           onDeleteChannel={handleDeleteChannel}
           onLogout={handleLogout}
-          onOpenSettings={() => setIsUserSettingsOpen(true)}
+          onOpenSettings={() => handleOpenSettings('account')}
           onInvite={handleInvite}
           onLeaveRoom={handleLeave}
           isServerMenuOpen={isServerMenuOpen}
@@ -1843,7 +1848,7 @@ export const App: React.FC = () => {
             friends={friends}
             onDirectMessage={handleMemberDirectMessage}
             onSendFriendRequest={handleSendFriendRequest}
-            onOpenSettings={() => setIsUserSettingsOpen(true)}
+            onOpenSettings={handleOpenSettings}
             onSetMemberRole={handleSetMemberRole}
             onTransferOwner={handleTransferOwner}
             onKickMember={handleKickMember}
@@ -1940,6 +1945,7 @@ export const App: React.FC = () => {
           setMembers(prev => prev.map(m => (m.id === currentUser?.id || m.username === currentUser?.username) ? { ...m, displayName: newDisplayName } : m));
           showToast(`Đã cập nhật tên hiển thị: ${newDisplayName}`);
         }}
+        initialTab={userSettingsInitialTab}
       />
 
       {/* Toast thông báo nhanh nổi giữa màn hình phía dưới */}

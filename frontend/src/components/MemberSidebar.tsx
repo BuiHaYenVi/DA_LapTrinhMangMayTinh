@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { User, Room, Friend } from '../types/chat';
 import { Crown, Shield, MoreVertical } from 'lucide-react';
 import { UserProfileCard } from './UserProfileCard';
+import type { SettingsTabId } from './UserSettingsModal';
 
 interface Props {
   members: User[];
@@ -12,7 +13,7 @@ interface Props {
   friends?: Friend[];
   onDirectMessage: (userId: number, name: string, initialMessage?: string) => void;
   onSendFriendRequest?: (userId: number) => void;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (initialTab?: SettingsTabId) => void;
   onSetMemberRole?: (userId: number, role: string) => void;
   onTransferOwner?: (userId: number) => void;
   onKickMember?: (userId: number) => void;

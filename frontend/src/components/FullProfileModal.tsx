@@ -3,9 +3,9 @@ import type { User, Room, Friend, PresenceStatus } from '../types/chat';
 import { 
   X, MessageSquare, UserPlus, UserCheck, MoreVertical, 
   Calendar, Clock, FileText, Crown, Shield, User as UserIcon,
-  Check, ShieldAlert
+  Check, ShieldAlert, Edit2
 } from 'lucide-react';
-import { loadStoredSettings } from './UserSettingsModal';
+import { loadStoredSettings, type SettingsTabId } from './UserSettingsModal';
 
 interface Props {
   isOpen: boolean;
@@ -19,6 +19,7 @@ interface Props {
   friends?: Friend[];
   onDirectMessage: (userId: number, name: string) => void;
   onSendFriendRequest?: (userId: number) => void;
+  onOpenSettings?: (initialTab?: SettingsTabId) => void;
 }
 
 export function getUserNote(targetUserId: number): string {
@@ -75,7 +76,8 @@ export const FullProfileModal: React.FC<Props> = ({
   rooms = [],
   friends = [],
   onDirectMessage,
-  onSendFriendRequest
+  onSendFriendRequest,
+  onOpenSettings
 }) => {
   const isMe = user.id === currentUserId;
   const isFriend = Boolean(friends.some(f => f.id === user.id));
@@ -228,8 +230,21 @@ export const FullProfileModal: React.FC<Props> = ({
                 </div>
               )}
 
-              {/* Hàng nút hành động: Tin nhắn, Kết bạn, Dấu 3 chấm */}
-              {!isMe && (
+              {/* Hàng nút hành động: Sửa hồ sơ (nếu là bạn) hoặc Tin nhắn / Kết bạn (nếu là người khác) */}
+              {isMe ? (
+                <div className="full-profile-actions-row">
+                  <button
+                    type="button"
+                    className="full-profile-btn-primary"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenSettings) onOpenSettings('profile');
+                    }}
+                  >
+                    <Edit2 size={15} /> Sửa Hồ Sơ
+                  </button>
+                </div>
+              ) : (
                 <div className="full-profile-actions-row">
                   <button
                     type="button"

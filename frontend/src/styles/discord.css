@@ -3262,10 +3262,10 @@ body {
 }
 
 .settings-window-card {
-  width: 960px;
-  height: 640px;
-  max-width: 94vw;
-  max-height: 90vh;
+  width: 1000px;
+  height: 680px;
+  max-width: 95vw;
+  max-height: 92vh;
   display: flex;
   background-color: var(--bg-1);
   border-radius: 12px;
@@ -4251,6 +4251,586 @@ body {
   }
 
   .settings-network-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   DISCORD USER SETTINGS: SIDEBAR MINI CARD, ACCOUNT TAB & PROFILE TAB
+   ============================================================ */
+
+/* Mini Card góc trên Sidebar Cài Đặt (chuẩn Discord) */
+.settings-sidebar-user-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.settings-sidebar-user-mini:hover {
+  background-color: var(--bg-hover);
+  border-color: rgba(88, 101, 242, 0.4);
+  transform: translateY(-1px);
+}
+
+.settings-sidebar-mini-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.settings-sidebar-mini-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  line-height: 1.25;
+}
+
+.settings-sidebar-mini-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-header);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-sidebar-mini-sublink {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.settings-section-caption {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+
+.settings-input-helper {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.35;
+  margin-top: 3px;
+}
+
+/* ================= TAB TÀI KHOẢN (ACCOUNT TAB) ================= */
+.settings-account-hero-card {
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: var(--bg-1);
+  border: 1px solid var(--border-color);
+  margin-bottom: 16px;
+}
+
+.settings-account-hero-banner {
+  height: 64px;
+  width: 100%;
+}
+
+.settings-account-hero-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 14px 16px;
+  margin-top: -24px;
+}
+
+.settings-account-hero-left {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.settings-account-hero-avatar-wrap {
+  position: relative;
+}
+
+.settings-account-hero-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 4px solid var(--bg-1);
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.settings-account-hero-meta {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 4px;
+}
+
+.settings-account-hero-name {
+  font-size: 16.5px;
+  font-weight: 700;
+  color: var(--text-header);
+}
+
+.settings-account-hero-username {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.settings-btn-profile-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 4px;
+  background-color: var(--accent);
+  color: var(--on-accent);
+  border: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.settings-btn-profile-jump:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* Danh sách hàng chi tiết thông tin tài khoản */
+.settings-account-rows-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-account-row-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background-color: var(--bg-input);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.settings-account-row-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.settings-account-row-val {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-header);
+  margin-top: 2px;
+}
+
+.settings-row-action-btn {
+  padding: 6px 14px;
+  border-radius: 4px;
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-header);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.settings-row-action-btn:hover {
+  background-color: var(--bg-active);
+  border-color: var(--accent);
+}
+
+.settings-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-green);
+  background-color: rgba(35, 165, 90, 0.15);
+  border: 1px solid rgba(35, 165, 90, 0.35);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* Chọn trạng thái hiện diện (Presence Selector Grid) */
+.settings-presence-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.settings-presence-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-input);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.settings-presence-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: rgba(88, 101, 242, 0.4);
+}
+
+.settings-presence-btn.active {
+  border-color: var(--accent);
+  background-color: rgba(88, 101, 242, 0.12);
+}
+
+.presence-dot-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.presence-btn-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.presence-btn-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-header);
+}
+
+.presence-btn-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Security Checklist */
+.settings-security-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.security-check-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+}
+
+.security-check-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background-color: rgba(35, 165, 90, 0.12);
+  flex-shrink: 0;
+}
+
+.security-check-meta {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.security-check-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-header);
+}
+
+.security-check-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.security-badge-active {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-green);
+  background-color: rgba(35, 165, 90, 0.15);
+  border: 1px solid rgba(35, 165, 90, 0.35);
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+/* ================= TAB HỒ SƠ NGƯỜI DÙNG (PROFILE TAB - 2 COLUMNS) ================= */
+.settings-profile-editor-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 22px;
+  align-items: start;
+}
+
+.settings-profile-editor-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-profile-preview-right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+}
+
+.settings-preview-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Thẻ xem trước Live Preview chuẩn Discord */
+.settings-discord-live-card {
+  background-color: #111214;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
+}
+
+.settings-live-banner {
+  height: 96px;
+  width: 100%;
+  transition: background-color 0.2s ease;
+}
+
+.settings-live-avatar-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 16px;
+  margin-top: -44px;
+  position: relative;
+}
+
+.settings-live-avatar-box {
+  position: relative;
+}
+
+.settings-live-avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 5px solid #111214;
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.settings-live-status-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 3px solid #111214;
+}
+
+/* Bong bóng trạng thái có đuôi nhọn trỏ vào avatar như Discord */
+.settings-live-status-bubble {
+  position: absolute;
+  left: 92px;
+  bottom: 6px;
+  background-color: #232428;
+  border: 1px solid #35373c;
+  border-radius: 16px;
+  padding: 5px 11px;
+  font-size: 11.5px;
+  color: #dbdee1;
+  max-width: 195px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.settings-live-status-bubble::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-right: 6px solid #232428;
+}
+
+.settings-live-card-body {
+  padding: 14px 16px 18px 16px;
+  background-color: #232428;
+  border-radius: 8px;
+  margin: 12px;
+}
+
+.settings-live-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: #f2f3f5;
+  line-height: 1.25;
+}
+
+.settings-live-username {
+  font-size: 12.5px;
+  color: #949ba4;
+  margin-top: 1px;
+}
+
+.settings-live-dummy-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.settings-live-btn-primary {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 4px;
+  background-color: #5865f2;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: default;
+}
+
+.settings-live-btn-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background-color: #3b3e45;
+  color: #dbdee1;
+  border: none;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.settings-live-divider {
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.07);
+  margin: 12px 0;
+}
+
+.settings-live-section-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #b5bac1;
+  margin-bottom: 5px;
+}
+
+.settings-live-bio {
+  font-size: 12px;
+  color: #dbdee1;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.settings-live-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #949ba4;
+}
+
+.settings-live-note-box {
+  font-size: 11px;
+  color: #949ba4;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+.custom-status-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.custom-status-suggest-chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-input);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.custom-status-suggest-chip:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-header);
+  border-color: var(--accent);
+}
+
+@media (max-width: 850px) {
+  .settings-profile-editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-profile-preview-right {
+    position: static;
+  }
+
+  .settings-presence-selector-grid {
     grid-template-columns: 1fr;
   }
 }

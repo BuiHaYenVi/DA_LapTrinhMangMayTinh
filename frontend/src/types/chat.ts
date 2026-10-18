@@ -12,6 +12,7 @@ export interface User {
   avatarColor?: string;
   avatarIcon?: string;
   bannerColor?: string;
+  email?: string;
 }
 
 export interface Room {

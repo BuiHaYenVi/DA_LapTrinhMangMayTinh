@@ -4,11 +4,13 @@ import { chatBridge } from '../services/chatBridge';
 import { 
   X, User as UserIcon, Palette, Bell, MessageSquare, 
   Activity, Keyboard, Info, LogOut, Check, Volume2, 
-  ArrowDown, Lock, RefreshCw
+  ArrowDown, Lock, RefreshCw, UserCheck, Edit2, ShieldCheck
 } from 'lucide-react';
+import { getJoinedDate } from './FullProfileModal';
 
 export type SettingsTabId = 
   | 'account' 
+  | 'profile'
   | 'appearance' 
   | 'notifications' 
   | 'chat' 
@@ -16,7 +18,7 @@ export type SettingsTabId =
   | 'shortcuts' 
   | 'about';
 
-interface UserSettingsModalProps {
+export interface UserSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: User | null;
@@ -25,6 +27,7 @@ interface UserSettingsModalProps {
   onThemeChange: (theme: 'dark' | 'light') => void;
   onLogout: () => void;
   onProfileUpdated?: (newDisplayName: string) => void;
+  initialTab?: SettingsTabId;
 }
 
 export const AVATAR_COLORS = [
@@ -142,12 +145,14 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   theme: _theme,
   onThemeChange,
   onLogout,
-  onProfileUpdated
+  onProfileUpdated,
+  initialTab
 }) => {
   // Navigation
   const [activeTab, setActiveTab] = useState<SettingsTabId>('account');
   const tabs: { id: SettingsTabId; label: string; icon: React.ReactNode }[] = [
-    { id: 'account', label: 'Tài khoản của tôi', icon: <UserIcon size={18} /> },
+    { id: 'account', label: 'Tài khoản', icon: <UserCheck size={18} /> },
+    { id: 'profile', label: 'Hồ sơ người dùng', icon: <UserIcon size={18} /> },
     { id: 'appearance', label: 'Giao diện', icon: <Palette size={18} /> },
     { id: 'notifications', label: 'Thông báo & âm thanh', icon: <Bell size={18} /> },
     { id: 'chat', label: 'Trò chuyện', icon: <MessageSquare size={18} /> },
@@ -177,7 +182,6 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const [isChangingPass, setIsChangingPass] = useState(false);
   const [passFeedback, setPassFeedback] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-
   // Network tab state
   const [pingMs, setPingMs] = useState(24);
   const [uptimeSeconds, setUptimeSeconds] = useState(128);
@@ -187,9 +191,12 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const modalCardRef = useRef<HTMLDivElement>(null);
   const navContainerRef = useRef<HTMLDivElement>(null);
 
-  // Khởi tạo form khi mở modal hoặc currentUser đổi
+  // Khởi tạo form khi mở modal hoặc currentUser/initialTab đổi
   useEffect(() => {
     if (isOpen) {
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
       const stored = loadStoredSettings();
       setSettings(stored);
       setDisplayName(currentUser?.displayName || currentUser?.username || '');
@@ -205,7 +212,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
       setNewPassword('');
       setConfirmPassword('');
     }
-  }, [isOpen, currentUser]);
+  }, [isOpen, currentUser, initialTab]);
 
   // Bộ đếm thời gian kết nối (Uptime)
   useEffect(() => {
@@ -382,6 +389,25 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     }
   };
 
+  // Đặt lại các thay đổi hồ sơ về giá trị đã lưu
+  const handleResetProfile = () => {
+    const stored = loadStoredSettings();
+    setDisplayName(currentUser?.displayName || currentUser?.username || '');
+    setBio(stored.bio || '');
+    setAvatarColor(stored.avatarColor || '#5865F2');
+    setAvatarIcon(stored.avatarIcon || '');
+    setBannerColor(stored.bannerColor || '#23A55A');
+    setPresenceStatus(stored.presenceStatus || 'online');
+    setCustomStatus(stored.customStatus || '');
+    setProfileFeedback(null);
+  };
+
+  // Cập nhật trạng thái hiện diện ngay lập tức từ tab Tài khoản
+  const handleSelectPresenceStatus = (status: PresenceStatus) => {
+    setPresenceStatus(status);
+    updateUserPresence(status);
+  };
+
   // Xử lý Đổi mật khẩu
   const handleChangePassword = async () => {
     if (isChangingPass) return;
@@ -463,6 +489,29 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
             <span className="settings-sidebar-brand" id="settings-window-title">CÀI ĐẶT</span>
           </div>
 
+          {/* Mini User Card góc trên Sidebar (chuẩn Discord) */}
+          <div 
+            className="settings-sidebar-user-mini" 
+            onClick={() => setActiveTab('profile')}
+            title="Nhấp để tùy chỉnh hồ sơ người dùng"
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter') setActiveTab('profile'); }}
+          >
+            <div 
+              className="settings-sidebar-mini-avatar" 
+              style={{ backgroundColor: avatarColor }}
+            >
+              {avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')}
+            </div>
+            <div className="settings-sidebar-mini-info">
+              <span className="settings-sidebar-mini-name">{currentUser?.username || 'user'}</span>
+              <span className="settings-sidebar-mini-sublink">
+                Sửa Hồ Sơ <Edit2 size={11} style={{ marginLeft: 3 }} />
+              </span>
+            </div>
+          </div>
+
           <nav className="settings-nav-list" ref={navContainerRef} role="tablist" aria-label="Menu cài đặt">
             {tabs.map(tab => {
               const isActive = activeTab === tab.id;
@@ -512,284 +561,170 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
             <X size={18} />
           </button>
 
-          {/* 1. MỤC: TÀI KHOẢN CỦA TÔI */}
+          {/* 1. MỤC: TÀI KHOẢN (Thông tin tài khoản & Mật khẩu/Bảo mật) */}
           {activeTab === 'account' && (
             <div className="settings-tab-panel">
-              <h2 className="settings-panel-title">Tài khoản của tôi</h2>
+              <h2 className="settings-panel-title">Tài Khoản</h2>
 
-              {/* Thẻ Hồ Sơ */}
+              {/* KHỐI 1: THÔNG TIN TÀI KHOẢN */}
               <div className="settings-card-box">
-                {/* Xem trước biểu ngữ và ảnh đại diện phong cách Discord */}
-                <div 
-                  className="settings-banner-preview"
-                  style={{
-                    backgroundColor: bannerColor,
-                    borderRadius: '8px',
-                    height: '80px',
-                    marginBottom: '16px',
-                    position: 'relative'
-                  }}
-                />
+                <h3 className="settings-card-heading">Thông Tin Tài Khoản</h3>
+                <p className="settings-section-caption">
+                  Quản lý thông tin đăng nhập, danh tính và trạng thái hiện diện của bạn trên hệ thống.
+                </p>
 
-                <div className="settings-profile-preview-row" style={{ marginTop: '-44px', position: 'relative', zIndex: 2 }}>
-                  <div style={{ position: 'relative' }}>
-                    <div 
-                      className="settings-avatar-large" 
-                      style={{ 
-                        backgroundColor: avatarColor, 
-                        fontSize: avatarIcon ? '28px' : undefined,
-                        border: '4px solid var(--bg-card, #2b2d31)'
-                      }}
-                    >
-                      {avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')}
-                    </div>
-                    {/* Chấm trạng thái trên avatar */}
-                    <div 
-                      className={`status-dot ${presenceStatus}`} 
-                      style={{ 
-                        position: 'absolute', 
-                        bottom: 0, 
-                        right: 0, 
-                        width: 14, 
-                        height: 14, 
-                        borderRadius: '50%',
-                        border: '3px solid var(--bg-card, #2b2d31)',
-                        backgroundColor: 
-                          presenceStatus === 'online' ? '#23a55a' :
-                          presenceStatus === 'idle' ? '#f0b232' :
-                          presenceStatus === 'dnd' ? '#f23f43' : '#80848e'
-                      }} 
-                    />
-                  </div>
-                  <div className="settings-profile-preview-meta">
-                    <h3 className="settings-profile-preview-name">{displayName || 'Chưa đặt tên'}</h3>
-                    <span className="settings-profile-preview-user">@{currentUser?.username || 'user'}</span>
-                    {customStatus && (
-                      <div 
-                        style={{
-                          fontSize: '12px',
-                          color: 'var(--text-muted, #949ba4)',
-                          marginTop: '4px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        💬 {customStatus}
+                {/* Hero profile card */}
+                <div className="settings-account-hero-card">
+                  <div 
+                    className="settings-account-hero-banner"
+                    style={{ backgroundColor: bannerColor }}
+                  />
+                  <div className="settings-account-hero-body">
+                    <div className="settings-account-hero-left">
+                      <div className="settings-account-hero-avatar-wrap">
+                        <div 
+                          className="settings-account-hero-avatar"
+                          style={{ backgroundColor: avatarColor, fontSize: avatarIcon ? '26px' : undefined }}
+                        >
+                          {avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')}
+                        </div>
+                        <div 
+                          className={`status-dot ${presenceStatus}`} 
+                          style={{ 
+                            position: 'absolute', 
+                            bottom: 2, 
+                            right: 2, 
+                            width: 14, 
+                            height: 14, 
+                            borderRadius: '50%',
+                            border: '3px solid var(--bg-1)',
+                            backgroundColor: 
+                              presenceStatus === 'online' ? '#23a55a' :
+                              presenceStatus === 'idle' ? '#f0b232' :
+                              presenceStatus === 'dnd' ? '#f23f43' : '#80848e'
+                          }} 
+                        />
                       </div>
-                    )}
+                      <div className="settings-account-hero-meta">
+                        <div className="settings-account-hero-name">
+                          {displayName || currentUser?.username}
+                        </div>
+                        <div className="settings-account-hero-username">
+                          @{currentUser?.username || 'user'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="settings-btn-profile-jump"
+                      onClick={() => setActiveTab('profile')}
+                      title="Chuyển sang tab Hồ sơ để chỉnh sửa diện mạo"
+                    >
+                      <Edit2 size={13} />
+                      <span>Sửa Hồ Sơ</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Chọn trạng thái hiện diện (Presence Status) */}
-                <div className="settings-form-group">
-                  <label className="settings-form-label">Trạng thái hiện diện</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                {/* Danh sách các trường tài khoản */}
+                <div className="settings-account-rows-list">
+                  {/* Tên đăng nhập */}
+                  <div className="settings-account-row-item">
+                    <div>
+                      <div className="settings-account-row-label">Tên đăng nhập</div>
+                      <div className="settings-account-row-val">{currentUser?.username || 'user'}</div>
+                    </div>
+                    <span className="settings-readonly-badge">
+                      <Lock size={12} /> Định danh duy nhất
+                    </span>
+                  </div>
+
+                  {/* Tên hiển thị */}
+                  <div className="settings-account-row-item">
+                    <div>
+                      <div className="settings-account-row-label">Tên hiển thị</div>
+                      <div className="settings-account-row-val">{displayName || currentUser?.displayName || currentUser?.username}</div>
+                    </div>
+                    <button
+                      type="button"
+                      className="settings-row-action-btn"
+                      onClick={() => setActiveTab('profile')}
+                    >
+                      Đổi trong Hồ sơ
+                    </button>
+                  </div>
+
+                  {/* Email */}
+                  <div className="settings-account-row-item">
+                    <div>
+                      <div className="settings-account-row-label">Email tài khoản</div>
+                      <div className="settings-account-row-val">
+                        {currentUser?.email || (currentUser?.username ? `user_${currentUser.username.toLowerCase()}@huddle.chat` : 'user@huddle.chat')}
+                      </div>
+                    </div>
+                    <span className="settings-verified-badge">
+                      <Check size={13} /> Đã liên kết
+                    </span>
+                  </div>
+
+                  {/* Số điện thoại */}
+                  <div className="settings-account-row-item">
+                    <div>
+                      <div className="settings-account-row-label">Số điện thoại</div>
+                      <div className="settings-account-row-val" style={{ color: 'var(--text-muted)' }}>
+                        Bạn chưa thêm số điện thoại nào cả.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="settings-row-action-btn"
+                      onClick={() => setProfileFeedback({ text: 'Tính năng liên kết SMS đang được nâng cấp ở bản tiếp theo.', type: 'notice' })}
+                    >
+                      Thêm
+                    </button>
+                  </div>
+                </div>
+
+                <div className="settings-toggle-divider" style={{ margin: '14px 0' }} />
+
+                {/* Chọn trạng thái hiện diện */}
+                <div>
+                  <div className="settings-label-row" style={{ marginBottom: '8px' }}>
+                    <label className="settings-form-label">Trạng thái hiện diện</label>
+                    <span className="settings-char-counter">Cập nhật ngay</span>
+                  </div>
+                  <div className="settings-presence-selector-grid">
                     {[
                       { id: 'online', label: 'Trực tuyến', color: '#23a55a', desc: 'Sẵn sàng trò chuyện' },
                       { id: 'idle', label: 'Chờ', color: '#f0b232', desc: 'Tạm vắng mặt' },
-                      { id: 'dnd', label: 'Không làm phiền', color: '#f23f43', desc: 'Đang bận việc' },
-                      { id: 'invisible', label: 'Ẩn danh', color: '#80848e', desc: 'Xuất hiện như ngoại tuyến' }
+                      { id: 'dnd', label: 'Không làm phiền', color: '#f23f43', desc: 'Tắt chuông thông báo' },
+                      { id: 'invisible', label: 'Ẩn danh', color: '#80848e', desc: 'Hiện như ngoại tuyến' }
                     ].map(st => (
                       <button
                         key={st.id}
                         type="button"
-                        onClick={() => setPresenceStatus(st.id as PresenceStatus)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '8px 10px',
-                          borderRadius: '6px',
-                          border: presenceStatus === st.id ? '1px solid var(--accent, #5865F2)' : '1px solid var(--border, #3f4147)',
-                          backgroundColor: presenceStatus === st.id ? 'rgba(88, 101, 242, 0.15)' : 'var(--bg-secondary, #2b2d31)',
-                          cursor: 'pointer',
-                          color: '#fff',
-                          textAlign: 'left'
-                        }}
+                        onClick={() => handleSelectPresenceStatus(st.id as PresenceStatus)}
+                        className={`settings-presence-btn ${presenceStatus === st.id ? 'active' : ''}`}
                       >
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: st.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: '13px', fontWeight: presenceStatus === st.id ? 600 : 400 }}>{st.label}</span>
+                        <span className="presence-dot-indicator" style={{ backgroundColor: st.color }} />
+                        <div className="presence-btn-text">
+                          <span className="presence-btn-title">{st.label}</span>
+                          <span className="presence-btn-desc">{st.desc}</span>
+                        </div>
                       </button>
                     ))}
                   </div>
-                </div>
-
-                {/* Trạng thái tùy chỉnh (Custom Status) */}
-                <div className="settings-form-group">
-                  <div className="settings-label-row">
-                    <label className="settings-form-label" htmlFor="input-custom-status">Trạng thái tùy chỉnh (Custom Status)</label>
-                    <span className="settings-char-counter">{customStatus.length}/80</span>
-                  </div>
-                  <input
-                    id="input-custom-status"
-                    type="text"
-                    maxLength={80}
-                    className="settings-text-input"
-                    value={customStatus}
-                    onChange={e => setCustomStatus(e.target.value)}
-                    placeholder="Ví dụ: Vừa đọc xong..., Đang bận học bài..."
-                  />
-                  {/* Gợi ý trạng thái nhanh */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                    {[
-                      'Vừa đọc xong...',
-                      '🎮 Đang chơi game',
-                      '💻 Đang code Lập trình mạng',
-                      '📚 Đang học bài',
-                      '☕ Đi cà phê'
-                    ].map(sug => (
-                      <button
-                        key={sug}
-                        type="button"
-                        onClick={() => setCustomStatus(sug)}
-                        style={{
-                          fontSize: '11px',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          border: '1px solid var(--border, #3f4147)',
-                          backgroundColor: 'var(--bg-secondary, #2b2d31)',
-                          color: 'var(--text-muted, #949ba4)',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {sug}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Chọn biểu tượng đại diện (Icon / Emoji) */}
-                <div className="settings-form-group">
-                  <label className="settings-form-label">Biểu tượng đại diện (Icon)</label>
-                  <div className="custom-icon-picker-row">
-                    {AVATAR_ICONS.map((ic, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        className={`custom-icon-chip ${avatarIcon === ic ? 'active' : ''}`}
-                        onClick={() => setAvatarIcon(ic)}
-                        title={ic ? `Biểu tượng ${ic}` : 'Chữ cái đầu mặc định'}
-                      >
-                        {ic || 'Chữ'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Chọn màu avatar */}
-                <div className="settings-form-group">
-                  <label className="settings-form-label">Màu ảnh đại diện</label>
-                  <div className="settings-color-swatches">
-                    {AVATAR_COLORS.map(c => (
-                      <button
-                        key={c}
-                        type="button"
-                        className={`settings-color-dot ${avatarColor === c ? 'selected' : ''}`}
-                        style={{ backgroundColor: c }}
-                        onClick={() => setAvatarColor(c)}
-                        title={c}
-                        aria-label={`Chọn màu ${c}`}
-                      >
-                        {avatarColor === c && <Check size={14} color="#fff" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Chọn màu biểu ngữ (Banner) */}
-                <div className="settings-form-group">
-                  <label className="settings-form-label">Màu biểu ngữ hồ sơ (Banner)</label>
-                  <div className="settings-color-swatches">
-                    {BANNER_COLORS.map(c => (
-                      <button
-                        key={c}
-                        type="button"
-                        className={`settings-color-dot ${bannerColor === c ? 'selected' : ''}`}
-                        style={{ backgroundColor: c }}
-                        onClick={() => setBannerColor(c)}
-                        title={c}
-                        aria-label={`Chọn màu biểu ngữ ${c}`}
-                      >
-                        {bannerColor === c && <Check size={14} color="#fff" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Ô Tên hiển thị (Tối đa 32 ký tự) */}
-                <div className="settings-form-group">
-                  <div className="settings-label-row">
-                    <label className="settings-form-label" htmlFor="input-display-name">Tên hiển thị</label>
-                    <span className="settings-char-counter">{displayName.length}/32</span>
-                  </div>
-                  <input
-                    id="input-display-name"
-                    type="text"
-                    maxLength={32}
-                    className="settings-text-input"
-                    value={displayName}
-                    onChange={e => setDisplayName(e.target.value)}
-                    placeholder="Nhập tên hiển thị của bạn..."
-                  />
-                </div>
-
-                {/* Ô Tiểu sử (Tối đa 120 ký tự, có bộ đếm) */}
-                <div className="settings-form-group">
-                  <div className="settings-label-row">
-                    <label className="settings-form-label" htmlFor="input-bio">Tiểu sử</label>
-                    <span className="settings-char-counter">{bio.length}/120</span>
-                  </div>
-                  <textarea
-                    id="input-bio"
-                    maxLength={120}
-                    rows={3}
-                    className="settings-textarea-input"
-                    value={bio}
-                    onChange={e => setBio(e.target.value)}
-                    placeholder="Giới thiệu đôi nét về bản thân bạn..."
-                  />
-                </div>
-
-                {/* Username chỉ đọc */}
-                <div className="settings-form-group">
-                  <div className="settings-label-row">
-                    <label className="settings-form-label">Tên người dùng (Username)</label>
-                    <span className="settings-readonly-badge"><Lock size={11} /> Chỉ đọc</span>
-                  </div>
-                  <input
-                    type="text"
-                    className="settings-text-input readonly"
-                    value={currentUser?.username || ''}
-                    readOnly
-                    disabled
-                  />
-                </div>
-
-                {/* Feedback Lưu hồ sơ */}
-                {profileFeedback && (
-                  <div className={`settings-feedback-banner ${profileFeedback.type}`}>
-                    {profileFeedback.text}
-                  </div>
-                )}
-
-                {/* Nút Lưu thay đổi (Chỉ bật khi có thay đổi) */}
-                <div className="settings-form-actions">
-                  <button
-                    type="button"
-                    className="settings-btn-primary"
-                    disabled={!hasProfileChanges || isSavingProfile}
-                    onClick={handleSaveProfile}
-                  >
-                    {isSavingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
-                  </button>
                 </div>
               </div>
 
-              {/* Khối Đổi Mật Khẩu */}
+              {/* KHỐI 2: MẬT KHẨU & BẢO MẬT */}
               <div className="settings-card-box">
-                <h3 className="settings-card-heading">Đổi mật khẩu</h3>
-                
+                <h3 className="settings-card-heading">Mật Khẩu & Bảo Mật</h3>
+                <p className="settings-section-caption">
+                  Thay đổi mật khẩu đăng nhập để bảo vệ an toàn cho tài khoản và nội dung trò chuyện.
+                </p>
+
                 <div className="settings-form-group">
                   <label className="settings-form-label" htmlFor="old-pass">Mật khẩu hiện tại</label>
                   <input
@@ -841,8 +776,311 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                     disabled={isChangingPass || !oldPassword || !newPassword}
                     onClick={handleChangePassword}
                   >
-                    {isChangingPass ? 'Đang xử lý...' : 'Cập nhật mật khẩu'}
+                    {isChangingPass ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
                   </button>
+                </div>
+
+                <div className="settings-toggle-divider" style={{ margin: '14px 0' }} />
+
+                {/* Thông tin bảo vệ mạng */}
+                <div className="settings-security-checklist">
+                  <div className="security-check-item">
+                    <div className="security-check-icon"><ShieldCheck size={16} color="#23a55a" /></div>
+                    <div className="security-check-meta">
+                      <span className="security-check-title">Mã hóa đường truyền Socket TCP & SSE</span>
+                      <span className="security-check-desc">Toàn bộ gói tin phân cách | được mã hóa và bảo vệ tính toàn vẹn.</span>
+                    </div>
+                    <span className="security-badge-active">Hoạt động</span>
+                  </div>
+
+                  <div className="security-check-item">
+                    <div className="security-check-icon"><Lock size={16} color="#23a55a" /></div>
+                    <div className="security-check-meta">
+                      <span className="security-check-title">Xác thực phiên làm việc độc quyền</span>
+                      <span className="security-check-desc">Tự động thu hồi token nếu phát hiện đăng nhập trùng lặp từ thiết bị khác.</span>
+                    </div>
+                    <span className="security-badge-active">Bảo vệ</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 2. MỤC: HỒ SƠ NGƯỜI DÙNG (Tùy chỉnh diện mạo & Live Preview Discord 2 cột) */}
+          {activeTab === 'profile' && (
+            <div className="settings-tab-panel">
+              <div className="settings-panel-header-row">
+                <h2 className="settings-panel-title" style={{ marginBottom: 4 }}>Hồ Sơ Người Dùng</h2>
+                <p className="settings-section-caption" style={{ marginBottom: 20 }}>
+                  Tùy chỉnh diện mạo hiển thị của bạn trong phòng chat, danh sách thành viên và thẻ hồ sơ.
+                </p>
+              </div>
+
+              {/* Giao diện 2 cột chuẩn Discord */}
+              <div className="settings-profile-editor-layout">
+                {/* ================= CỘT TRÁI: FORM TÙY CHỈNH ================= */}
+                <div className="settings-profile-editor-left">
+                  {/* BẢNG TÊN (DISPLAY NAME) */}
+                  <div className="settings-card-box">
+                    <div className="settings-label-row">
+                      <label className="settings-form-label" htmlFor="input-display-name">
+                        Bảng tên (Tên hiển thị)
+                      </label>
+                      <span className="settings-char-counter">{displayName.length}/32</span>
+                    </div>
+                    <input
+                      id="input-display-name"
+                      type="text"
+                      maxLength={32}
+                      className="settings-text-input"
+                      value={displayName}
+                      onChange={e => setDisplayName(e.target.value)}
+                      placeholder="Nhập tên hiển thị của bạn..."
+                    />
+                    <span className="settings-input-helper">
+                      Tên này sẽ hiển thị với mọi người trong phòng chat thay cho tên đăng nhập mặc định.
+                    </span>
+                  </div>
+
+                  {/* ẢNH ĐẠI DIỆN & BIỂU TƯỢNG */}
+                  <div className="settings-card-box">
+                    <label className="settings-form-label">Biểu tượng đại diện (Icon / Emoji)</label>
+                    <div className="custom-icon-picker-row">
+                      {AVATAR_ICONS.map((ic, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className={`custom-icon-chip ${avatarIcon === ic ? 'active' : ''}`}
+                          onClick={() => setAvatarIcon(ic)}
+                          title={ic ? `Biểu tượng ${ic}` : 'Chữ cái đầu mặc định'}
+                        >
+                          {ic || 'Chữ'}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="settings-toggle-divider" style={{ margin: '12px 0 8px 0' }} />
+
+                    <label className="settings-form-label">Màu ảnh đại diện</label>
+                    <div className="settings-color-swatches">
+                      {AVATAR_COLORS.map(c => (
+                        <button
+                          key={c}
+                          type="button"
+                          className={`settings-color-dot ${avatarColor === c ? 'selected' : ''}`}
+                          style={{ backgroundColor: c }}
+                          onClick={() => setAvatarColor(c)}
+                          title={c}
+                          aria-label={`Chọn màu ${c}`}
+                        >
+                          {avatarColor === c && <Check size={14} color="#fff" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* MÀU BIỂU NGỮ (BANNER) */}
+                  <div className="settings-card-box">
+                    <div className="settings-label-row">
+                      <label className="settings-form-label">Màu biểu ngữ (Banner)</label>
+                      <div 
+                        style={{ 
+                          width: 24, 
+                          height: 14, 
+                          borderRadius: 3, 
+                          backgroundColor: bannerColor, 
+                          border: '1px solid rgba(255,255,255,0.2)' 
+                        }} 
+                      />
+                    </div>
+                    <div className="settings-color-swatches">
+                      {BANNER_COLORS.map(c => (
+                        <button
+                          key={c}
+                          type="button"
+                          className={`settings-color-dot ${bannerColor === c ? 'selected' : ''}`}
+                          style={{ backgroundColor: c }}
+                          onClick={() => setBannerColor(c)}
+                          title={c}
+                          aria-label={`Chọn màu biểu ngữ ${c}`}
+                        >
+                          {bannerColor === c && <Check size={14} color="#fff" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* TRẠNG THÁI TÙY CHỈNH (CUSTOM STATUS) */}
+                  <div className="settings-card-box">
+                    <div className="settings-label-row">
+                      <label className="settings-form-label" htmlFor="input-custom-status">
+                        Trạng thái tùy chỉnh (Custom Status)
+                      </label>
+                      <span className="settings-char-counter">{customStatus.length}/80</span>
+                    </div>
+                    <input
+                      id="input-custom-status"
+                      type="text"
+                      maxLength={80}
+                      className="settings-text-input"
+                      value={customStatus}
+                      onChange={e => setCustomStatus(e.target.value)}
+                      placeholder="Ví dụ: Vừa đọc xong..., Đang bận học bài..."
+                    />
+                    {/* Gợi ý trạng thái nhanh */}
+                    <div className="custom-status-chips-wrap">
+                      {[
+                        'Vừa đọc xong...',
+                        '🎮 Đang chơi game',
+                        '💻 Đang code Lập trình mạng',
+                        '📚 Đang học bài',
+                        '☕ Đi cà phê'
+                      ].map(sug => (
+                        <button
+                          key={sug}
+                          type="button"
+                          className="custom-status-suggest-chip"
+                          onClick={() => setCustomStatus(sug)}
+                        >
+                          {sug}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* TIỂU SỬ (BIO) */}
+                  <div className="settings-card-box">
+                    <div className="settings-label-row">
+                      <label className="settings-form-label" htmlFor="input-bio">Tiểu sử</label>
+                      <span className="settings-char-counter">{bio.length}/120</span>
+                    </div>
+                    <textarea
+                      id="input-bio"
+                      maxLength={120}
+                      rows={3}
+                      className="settings-textarea-input"
+                      value={bio}
+                      onChange={e => setBio(e.target.value)}
+                      placeholder="Cuộc sống của bạn gói gọn trong một câu..."
+                    />
+                  </div>
+
+                  {/* Phản hồi kết quả lưu */}
+                  {profileFeedback && (
+                    <div className={`settings-feedback-banner ${profileFeedback.type}`}>
+                      {profileFeedback.text}
+                    </div>
+                  )}
+
+                  {/* Hàng nút bấm Lưu thay đổi & Đặt lại */}
+                  <div className="settings-form-actions" style={{ gap: 10 }}>
+                    {hasProfileChanges && (
+                      <button
+                        type="button"
+                        className="settings-btn-secondary"
+                        onClick={handleResetProfile}
+                        disabled={isSavingProfile}
+                      >
+                        Đặt lại
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="settings-btn-primary"
+                      disabled={!hasProfileChanges || isSavingProfile}
+                      onClick={handleSaveProfile}
+                    >
+                      {isSavingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* ================= CỘT PHẢI: LIVE PREVIEW DISCORD ================= */}
+                <div className="settings-profile-preview-right">
+                  <div className="settings-preview-label">XEM TRƯỚC (PREVIEW)</div>
+
+                  {/* Thẻ xem trước thời gian thực chuẩn Discord */}
+                  <div className="settings-discord-live-card">
+                    {/* Banner màu */}
+                    <div 
+                      className="settings-live-banner"
+                      style={{ backgroundColor: bannerColor }}
+                    />
+
+                    {/* Hàng Avatar + Bong bóng trạng thái có đuôi nhọn trỏ vào */}
+                    <div className="settings-live-avatar-row">
+                      <div className="settings-live-avatar-box">
+                        <div 
+                          className="settings-live-avatar"
+                          style={{ 
+                            backgroundColor: avatarColor,
+                            fontSize: avatarIcon ? '30px' : undefined
+                          }}
+                        >
+                          {avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')}
+                        </div>
+                        {/* Chấm trạng thái hiện diện */}
+                        <div 
+                          className={`settings-live-status-dot ${presenceStatus}`}
+                          style={{
+                            backgroundColor: 
+                              presenceStatus === 'online' ? '#23a55a' :
+                              presenceStatus === 'idle' ? '#f0b232' :
+                              presenceStatus === 'dnd' ? '#f23f43' : '#80848e'
+                          }}
+                        />
+                      </div>
+
+                      {/* Bong bóng trạng thái có đuôi nhọn như Discord */}
+                      {customStatus && (
+                        <div className="settings-live-status-bubble" title={customStatus}>
+                          <span>💬</span>
+                          <span>{customStatus}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Thân thẻ hồ sơ */}
+                    <div className="settings-live-card-body">
+                      <div className="settings-live-name">{displayName || currentUser?.username || 'Chưa đặt tên'}</div>
+                      <div className="settings-live-username">@{currentUser?.username || 'user'}</div>
+
+                      {/* Nút hành động mô phỏng */}
+                      <div className="settings-live-dummy-buttons">
+                        <button type="button" className="settings-live-btn-primary" disabled>
+                          <MessageSquare size={13} />
+                          <span>Tin nhắn</span>
+                        </button>
+                        <button type="button" className="settings-live-btn-icon" disabled title="Tùy chọn khác">
+                          •••
+                        </button>
+                      </div>
+
+                      <div className="settings-live-divider" />
+
+                      {/* Tiểu sử */}
+                      <div className="settings-live-section-title">TIỂU SỬ</div>
+                      <div className="settings-live-bio">
+                        {bio || 'Cuộc sống của bạn gói gọn trong một câu.'}
+                      </div>
+
+                      <div className="settings-live-divider" />
+
+                      {/* Gia nhập từ */}
+                      <div className="settings-live-section-title">GIA NHẬP TỪ</div>
+                      <div className="settings-live-meta-row">
+                        <span>{getJoinedDate(currentUser?.id || 1)}</span>
+                      </div>
+
+                      <div className="settings-live-divider" />
+
+                      {/* Ghi chú mô phỏng */}
+                      <div className="settings-live-section-title">GHI CHÚ (CHỈ HIỂN THỊ CHO BẠN)</div>
+                      <div className="settings-live-note-box">
+                        Nhấp để thêm ghi chú...
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -8,7 +8,8 @@ import {
 import { 
   loadStoredSettings, 
   updateUserPresence, 
-  updateCustomStatus 
+  updateCustomStatus,
+  type SettingsTabId
 } from './UserSettingsModal';
 import { 
   FullProfileModal, 
@@ -29,7 +30,7 @@ interface Props {
   anchorRect?: DOMRect | null;
   onClose: () => void;
   onDirectMessage: (userId: number, name: string, initialMessage?: string) => void;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (initialTab?: SettingsTabId) => void;
   onSetMemberRole?: (userId: number, role: string) => void;
   onTransferOwner?: (userId: number) => void;
   onKickMember?: (userId: number) => void;
@@ -546,7 +547,7 @@ export const UserProfileCard: React.FC<Props> = ({
                     className="profile-primary-btn"
                     onClick={() => {
                       onClose();
-                      if (onOpenSettings) onOpenSettings();
+                      if (onOpenSettings) onOpenSettings('profile');
                     }}
                   >
                     <Settings size={15} /> Sửa Hồ Sơ
@@ -627,6 +628,7 @@ export const UserProfileCard: React.FC<Props> = ({
           friends={friends}
           onDirectMessage={onDirectMessage}
           onSendFriendRequest={onSendFriendRequest}
+          onOpenSettings={onOpenSettings}
         />
       )}
     </>
