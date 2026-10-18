@@ -89,8 +89,15 @@ export const RailTooltip: React.FC<Props> = ({ text, children }) => {
   // Khi cuộn danh sách phòng hoặc thay đổi kích thước cửa sổ -> ẩn tooltip để tránh lệch vị trí
   useEffect(() => {
     if (!isVisible) return;
-    const handleScrollOrResize = () => {
-      hideTooltip();
+    const handleScrollOrResize = (e: Event) => {
+      // Chỉ ẩn khi thực sự cuộn container danh sách phòng hoặc thay đổi kích thước cửa sổ
+      if (
+        e.type === 'resize' ||
+        (e.target as HTMLElement)?.classList?.contains('rail-rooms-scroll') ||
+        (e.target as HTMLElement)?.closest?.('.rail-rooms-scroll')
+      ) {
+        hideTooltip();
+      }
     };
     window.addEventListener('scroll', handleScrollOrResize, true);
     window.addEventListener('resize', handleScrollOrResize);

@@ -204,8 +204,9 @@
 
 .rail-portal-tooltip {
   position: fixed;
-  animation: railTooltipFadeIn 0.14s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform: translateY(-50%);
   transform-origin: left center;
+  animation: railTooltipFadeIn 0.14s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   background: var(--tooltip-bg, #111214);
   color: var(--tooltip-text, #f2f3f5);
   padding: 8px 12px;
