@@ -328,16 +328,58 @@ Khi sửa đổi dự án:
 
 Dự án được xây dựng phục vụ mục đích học tập và thực hành lập trình mạng. Các thư viện bên ngoài, nếu có, tuân theo giấy phép tương ứng của từng thư viện.
 
-## 15. Bảng ma trận đóng góp của thành viên (Quy định bắt buộc)
+## 15. Bảng ma trận đóng góp & Nghiệm thu Review chéo (Quy định bắt buộc)
 
-> Bảng thống kê chi tiết sự đóng góp của các thành viên trong nhóm theo quy định thực hiện dự án trên Git/GitHub của giảng viên, dùng để đối chiếu khi chấm điểm và bảo vệ đồ án cuối kỳ.
+> Bảng thống kê chi tiết sự phân công và đóng góp của các thành viên trong nhóm theo quy định thực hiện dự án trên Git/GitHub của giảng viên, dùng để đối chiếu khi chấm điểm và bảo vệ đồ án cuối kỳ.
 
-| MSSV | Họ và Tên | Vai trò chính | Công việc đã thực hiện | Merge Requests (PR) |
-|---|---|---|---|---|
-| **2380602519** | **Bùi Hà Yến Vi** | Trưởng nhóm, Core Protocol & Integration | - Xây dựng Giao thức Ứng dụng & Cơ chế Độ tin cậy (Request ID UUID, Application ACK, Heartbeat PING/PONG, Timeouts, mã lỗi ổn định `ProtocolErrorCode`).<br>- Tích hợp mã nguồn Server Core với PostgreSQL Data Layer.<br>- Hoàn thiện luồng Chat nhóm đa người dùng, đồng bộ phòng chat và tích hợp toàn hệ thống. | [!6](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/6), [!7](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/7), [!10](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/10) |
-| **2380600023** | **Tống Nhật Bảo An** | Thành viên, Client UI & Network Monitor | - Hoàn thiện kết nối TCP Socket Client và cơ chế tự động khôi phục kết nối (Auto-reconnection).<br>- Xây dựng giao diện Chat Swing chính (MainFrame, MessagePanel, RoomPanel, UserPanel).<br>- Tích hợp Network Status Monitor Panel đo RTT (Round Trip Time) và giám sát trạng thái mạng. | [!9](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/9), [!11](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/11), [!12](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/12) |
-| **2380602574** | **Vũ Anh Vinh** | Thành viên, Server Concurrency & Client Handler | - Khởi tạo kiến trúc kết nối TCP Socket Client - Server cơ bản và giao diện chat ban đầu.<br>- Tái cấu trúc bộ quản lý kết nối đa luồng `ClientHandler` và `ClientManager` cho ChatServer.<br>- Xử lý đồng bộ phiên kết nối người dùng online và định tuyến gói tin ban đầu. | [!2](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/2), [!4](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/4) |
-| **2380600575** | **Nguyễn Thanh Hải** | Thành viên, Database & Data Access Layer | - Thiết kế cấu trúc CSDL PostgreSQL (`schema.sql`, migration `V002__chat_features.sql`).<br>- Triển khai Data Access Layer (DAOs: UserDAO, RoomDAO, MessageDAO) và Connection Pool JDBC.<br>- Xử lý truy vấn dữ liệu đồng thời, đảm bảo toàn vẹn dữ liệu phiên và lịch sử tin nhắn. | [!5](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/5) |
+### 15.1. Bảng ma trận phân công & Đóng góp của từng thành viên
+
+| STT | MSSV | Họ và Tên | Vai trò & Chuyên môn phụ trách | Công việc đã thực hiện (Chi tiết theo đồ án) | Merge Request (PR) |
+|:---:|:---:|---|---|---|:---:|
+| 1 | **2380602519** | **Bùi Hà Yến Vi** *(Trưởng nhóm)* | **Application Protocol & Network Reliability**<br>*(Custom Protocol, Application ACK, Heartbeat PING/PONG, Timeout, Error Protocol)* | • Thiết kế chuẩn hóa bộ lệnh `MessageType`, `Request`, `Response`.<br>• Đóng gói Request ID (`@RID` UUID), Sequence Number, Timestamp, Base64 UTF-8.<br>• Xử lý Application ACK (`ACK\|id\|OK`) & tối ưu `TCP_NODELAY`.<br>• Cấu hình Heartbeat PING/PONG (chu kỳ 15s/40s) & Quản lý Timeout (Connect 5s, Request 10s, Server 45s).<br>• Định nghĩa mã lỗi chuẩn (`ProtocolErrorCode`), viết `docs/PROTOCOL.md` & Tích hợp toàn hệ thống. | [!6](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/6)<br>[!7](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/7)<br>[!10](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/10)<br>[!20](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/20)<br>[!21](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/21)<br>[!23](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/23) |
+| 2 | **2380600023** | **Tống Nhật Bảo An** | **Client Application & Connection Recovery**<br>*(TCP Socket Client, Asynchronous Listener Thread, Connection Lifecycle, Reconnect, Swing UI)* | • Quản lý kết nối TCP Socket Client & trạng thái mạng.<br>• Tách luồng nhận tin bất đồng bộ `ServerListener` (tránh treo giao diện Swing EDT).<br>• Xử lý Automatic Reconnection (tự động thử kết nối lại tối đa 5 lần).<br>• Xây dựng GUI Chat (`MainFrame`, `RoomPanel`, `MessagePanel`), hiển thị trạng thái `✓ Sent`.<br>• Tạo bảng Network Status Monitor trên GUI (Server Status, đo Ping RTT ms). | [!9](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/9)<br>[!11](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/11)<br>[!12](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/12) |
+| 3 | **2380602574** | **Vũ Anh Vinh** | **Server Core & Multithreading**<br>*(TCP ServerSocket, Multithreading, Thread Pool, Broadcast, Concurrency & Synchronization)* | • Quản lý `ServerSocket.accept()` đón nhận kết nối Client.<br>• Nâng cấp kiến trúc xử lý đa luồng dùng Thread Pool (`Executors.newCachedThreadPool`).<br>• Đồng bộ hóa dữ liệu phiên kết nối (`ConcurrentHashMap`, `synchronized`).<br>• Lọc cách ly phòng chat (Room Isolation) & Broadcast tin nhắn theo phòng.<br>• Xử lý Stress Test khi kết nối đồng thời nhiều Client kiểm tra tính ổn định. | [!2](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/2)<br>[!4](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/4) |
+| 4 | **2380600575** | **Nguyễn Thanh Hải** | **Data Layer & Message Persistence**<br>*(PostgreSQL, JDBC, DAO, Message Persistence, Chat History, Data Integrity)* | • Thiết kế & Kết nối DB PostgreSQL bằng JDBC Connection Pool (`schema.sql`).<br>• Quản lý toàn bộ thao tác CRUD với `UserDAO`, `RoomDAO`, `MessageDAO`.<br>• Xử lý Message Persistence (Lưu DB xong mới báo ACK / Broadcast).<br>• Truy xuất Lịch sử tin nhắn (Chat History) khi người dùng tham gia phòng (`Join Room`).<br>• Xử lý ngoại lệ DB (`SQLException`) trả về mã lỗi chuẩn `MESSAGE_ERROR`. | [!5](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/5) |
+
+### 15.2. Chú giải chi tiết các Merge Request (PR) & Ký hiệu `!`
+
+> **Ký hiệu `!`:** Trong quy chuẩn quản lý mã nguồn Git/GitLab/GitHub của đồ án:
+> - Dấu `#` (ví dụ `#3`, `#8`): Đại diện cho **Issue** (Nhiệm vụ được giao).
+> - Dấu `!` (ví dụ `!7`, `!10`): Đại diện cho **Merge Request (MR)** hoặc **Pull Request (PR)** tương ứng trên GitHub.
+> 
+> Bảng dưới đây giải thích chi tiết toàn bộ các mã `[!X]` trong dự án:
+
+| Ký hiệu `!` | Đường dẫn Pull Request | Tên tính năng & Nội dung giải quyết | Thành viên phụ trách chính |
+|:---:|---|---|:---:|
+| **[!2]** | [PR #2](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/2) | Khởi tạo tầng mạng TCP Socket Client - Server cơ bản (:5000) | Vũ Anh Vinh |
+| **[!4]** | [PR #4](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/4) | Xử lý đa luồng với `ClientHandler` & Quản lý phiên `ClientManager` | Vũ Anh Vinh |
+| **[!5]** | [PR #5](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/5) | Tầng CSDL PostgreSQL, JDBC Connection Pool & các lớp DAOs | Nguyễn Thanh Hải |
+| **[!6]** | [PR #6](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/6) | Tích hợp Server Core của Vinh với CSDL PostgreSQL của Hải (Tuần 5) | Bùi Hà Yến Vi |
+| **[!7]** | [PR #7](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/7) | Giao thức tin cậy: Framing, Base64, Request ID `@RID`, ACK & Timeouts | Bùi Hà Yến Vi |
+| **[!9]** | [PR #9](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/9) | Giao diện Swing Đăng nhập, Đăng ký tài khoản & Quản lý phòng | Tống Nhật Bảo An |
+| **[!10]** | [PR #10](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/10) | Hoàn thiện Chat nhóm đa người dùng & Đồng bộ danh sách phòng | Bùi Hà Yến Vi |
+| **[!11]** | [PR #11](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/11) | Bảng Network Status Monitor đo độ trễ RTT (Round Trip Time ms) | Tống Nhật Bảo An |
+| **[!12]** | [PR #12](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/12) | Hoàn thiện Main Chat UI & Cơ chế tự động kết nối lại (Auto-reconnect) | Tống Nhật Bảo An |
+| **[!20]** | [PR #20](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/20) | Nâng cấp giao thức tin cậy & Kiểm thử hồi quy tự động (PASS 100%) | Bùi Hà Yến Vi |
+| **[!21]** | [PR #21](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/21) | Kiểm toán vệ sinh repo, hoàn thiện `.gitignore` và bảng ma trận đóng góp | Bùi Hà Yến Vi |
+| **[!23]** | [PR #23](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/23) | Tích hợp toàn hệ thống (Client + Server + DB) & Giải quyết xung đột | Bùi Hà Yến Vi |
+
+### 15.3. Bảng ma trận nghiệm thu & Review chéo (Peer Review Matrix)
+
+> **Tuân thủ nghiêm ngặt Quy định 5:** Mỗi Pull Request bắt buộc phải có ít nhất 1 thành viên khác trong nhóm kiểm tra, chạy thử nghiệm và để lại nhận xét xác nhận (Approve). Nghiêm cấm tự Approve cho chính mình.
+
+| Mã PR | Nhánh tính năng | Người phụ trách (Author) | Người kiểm tra (Peer Reviewer) | Nội dung nghiệm thu & Bằng chứng kiểm thử |
+|:---:|---|:---:|:---:|---|
+| [**#2**](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/2) | `feature/2380602574-issue-1-chat-client-server` | **Vũ Anh Vinh** | **Tống Nhật Bảo An** | Kiểm tra kết nối Socket TCP :5000, Client gửi/nhận lệnh ban đầu ổn định, đính kèm ảnh Client kết nối thành công. |
+| [**#4**](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/4) | `feature/2380602574-issue-4-client-handler-manager` | **Vũ Anh Vinh** | **Nguyễn Thanh Hải** | Kiểm tra quản lý phiên `ClientManager` đa luồng, ngắt kết nối dọn sạch session, đính kèm log console server. |
+| [**#5**](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/5) | `feature/2380600575-issue-8-database-connection` | **Nguyễn Thanh Hải** | **Vũ Anh Vinh** | Kiểm tra kết nối PostgreSQL, nạp schema và thực thi DAO an toàn qua `PreparedStatement`, đính kèm ảnh pgAdmin/test. |
+| [**#7**](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/7) | `feature/2380602519-issue-3-protocol-reliability` | **Bùi Hà Yến Vi** | **Tống Nhật Bảo An** | Kiểm tra Request ID `@RID`, phản hồi `ACK|id|OK`, chu kỳ Heartbeat `PING`/`PONG` 15s, đính kèm log đo RTT. |
+| [**#10**](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/10) | `feature/2380602519-issue-5-group-chat-completion` | **Bùi Hà Yến Vi** | **Vũ Anh Vinh** | Kiểm tra Server broadcast tin nhắn đồng thời tới nhiều client trong cùng phòng, đính kèm ảnh 2 client chat nhóm. |
+| [**#12**](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/12) | `feature/2380600023-issue-9-chat-ui` | **Tống Nhật Bảo An** | **Nguyễn Thanh Hải** | Kiểm tra giao diện Swing MainFrame, hiển thị đúng phòng và người dùng từ DB, đính kèm ảnh giao diện đăng nhập/chat. |
+| [**#20**](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/20) | `feature/2380602519-issue-3-protocol-reliability` | **Bùi Hà Yến Vi** | **Nguyễn Thanh Hải** | Chạy regression test `ProtocolHandlerTest` và `SocketClientReliabilityTest` (PASS 100%), đối soát `docs/PROTOCOL.md`. |
+| [**#23**](https://github.com/BuiHaYenVi/DA_LapTrinhMangMayTinh/pull/23) | `feature/2380602519-issue-6-team-integration` | **Bùi Hà Yến Vi** | **Tống Nhật Bảo An** | Kiểm tra giải quyết toàn bộ xung đột (conflicts), đồng bộ toàn hệ thống giữa Client, Server và Database trước khi gộp `main`. |
+
+---
 
 ## 16. Quy định chuẩn hóa quy trình Git & GitHub (Bắt buộc cho nhóm)
 
