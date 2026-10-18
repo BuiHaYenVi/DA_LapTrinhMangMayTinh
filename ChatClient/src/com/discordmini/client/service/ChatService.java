@@ -98,17 +98,27 @@ public class ChatService {
     }
 
     public String sendMessage(String content) {
+        return sendMessage(0, content);
+    }
+
+    public String sendMessage(int channelId, String content) {
         if (content == null || content.isBlank() || !client.isConnected()) {
             return null;
         }
 
         String requestId = java.util.UUID.randomUUID().toString();
-        ChatMessage outgoing = ChatMessage.createOutgoing(requestId, currentUserName, content);
+        ChatMessage outgoing = ChatMessage.createOutgoing(requestId, channelId, currentUserName, content);
         pendingMessages.put(requestId, outgoing);
 
         notifyListeners(l -> l.onMessageStatusChanged(requestId, MessageStatus.PENDING, null));
 
-        boolean sent = client.sendCommandWithExplicitId("SEND_MESSAGE", requestId, content);
+        boolean sent;
+        if (channelId > 0) {
+            sent = client.sendCommandWithExplicitId("SEND_MESSAGE", requestId, String.valueOf(channelId), content);
+        } else {
+            sent = client.sendCommandWithExplicitId("SEND_MESSAGE", requestId, content);
+        }
+
         if (!sent) {
             pendingMessages.remove(requestId);
             outgoing.setStatus(MessageStatus.FAILED);
@@ -132,12 +142,20 @@ public class ChatService {
     }
 
     /**
-     * Gửi yêu cầu lấy lịch sử tin nhắn của phòng hiện tại.
+     * Gửi yêu cầu lấy lịch sử tin nhắn của kênh chỉ định hoặc kênh hiện tại.
      */
-    public void getHistory() {
+    public void getHistory(int channelId) {
         if (client.isConnected()) {
-            client.sendCommand("GET_HISTORY");
+            if (channelId > 0) {
+                client.sendCommand("GET_HISTORY", String.valueOf(channelId));
+            } else {
+                client.sendCommand("GET_HISTORY");
+            }
         }
+    }
+
+    public void getHistory() {
+        getHistory(0);
     }
 
     private void handleServerPacket(String packet) {
@@ -201,15 +219,28 @@ public class ChatService {
     }
 
     /**
-     * Xử lý tin nhắn realtime broadcast: NEW_MESSAGE|id|roomId|sender|content|timestamp.
-     * Deduplicate nếu tin nhắn này đã tồn tại trong lịch sử.
+     * Xử lý tin nhắn realtime broadcast:
+     * Dạng mới: NEW_MESSAGE|id|roomId|channelId|sender|content|timestamp
+     * Dạng cũ:  NEW_MESSAGE|id|roomId|sender|content|timestamp
      */
     private void handleNewMessage(String[] parts) {
         if (parts.length < 6) return;
         int messageId = Integer.parseInt(parts[1]);
-        String sender = ProtocolHandler.decode(parts[3]);
-        String content = ProtocolHandler.decode(parts[4]);
-        String timestamp = ProtocolHandler.decode(parts[5]);
+        int channelId = 0;
+        String sender;
+        String content;
+        String timestamp;
+
+        if (parts.length >= 7) {
+            channelId = Integer.parseInt(parts[3]);
+            sender = ProtocolHandler.decode(parts[4]);
+            content = ProtocolHandler.decode(parts[5]);
+            timestamp = ProtocolHandler.decode(parts[6]);
+        } else {
+            sender = ProtocolHandler.decode(parts[3]);
+            content = ProtocolHandler.decode(parts[4]);
+            timestamp = ProtocolHandler.decode(parts[5]);
+        }
 
         // Kiểm tra deduplication: nếu ID đã có thì không phát lại
         if (!receivedServerMessageIds.add(messageId)) {
@@ -217,7 +248,7 @@ public class ChatService {
         }
 
         boolean isMine = (currentUserName != null && currentUserName.equalsIgnoreCase(sender));
-        ChatMessage incoming = ChatMessage.createIncoming(messageId, sender, content, timestamp, isMine);
+        ChatMessage incoming = ChatMessage.createIncoming(messageId, channelId, sender, content, timestamp, isMine);
 
         notifyListeners(l -> l.onNewMessage(incoming));
     }
@@ -232,12 +263,24 @@ public class ChatService {
     private void handleHistoryItem(String[] parts) {
         if (parts.length < 5) return;
         int messageId = Integer.parseInt(parts[1]);
-        String sender = ProtocolHandler.decode(parts[2]);
-        String content = ProtocolHandler.decode(parts[3]);
-        String timestamp = ProtocolHandler.decode(parts[4]);
+        int channelId = 0;
+        String sender;
+        String content;
+        String timestamp;
+
+        if (parts.length >= 6) {
+            channelId = Integer.parseInt(parts[2]);
+            sender = ProtocolHandler.decode(parts[3]);
+            content = ProtocolHandler.decode(parts[4]);
+            timestamp = ProtocolHandler.decode(parts[5]);
+        } else {
+            sender = ProtocolHandler.decode(parts[2]);
+            content = ProtocolHandler.decode(parts[3]);
+            timestamp = ProtocolHandler.decode(parts[4]);
+        }
 
         boolean isMine = (currentUserName != null && currentUserName.equalsIgnoreCase(sender));
-        ChatMessage item = ChatMessage.createIncoming(messageId, sender, content, timestamp, isMine);
+        ChatMessage item = ChatMessage.createIncoming(messageId, channelId, sender, content, timestamp, isMine);
 
         synchronized (historyBuffer) {
             if (isReceivingHistory) {

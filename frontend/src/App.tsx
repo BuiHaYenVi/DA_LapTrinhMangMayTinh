@@ -1,15 +1,22 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import type { User, Room, MessageItem, Friend, PendingFriendRequest } from './types/chat';
+import type { User, Room, Channel, MessageItem, Friend, PendingFriendRequest, SearchUserResult } from './types/chat';
 import { chatBridge } from './services/chatBridge';
 import { WorkspaceSidebar } from './components/WorkspaceSidebar';
 import { RoomSidebar } from './components/RoomSidebar';
 import { ChatCenter } from './components/ChatCenter';
 import { MemberSidebar } from './components/MemberSidebar';
+import { FriendsView, type FriendsTab } from './components/FriendsView';
+import { DirectMessageChat } from './components/DirectMessageChat';
+import { InviteFriendModal } from './components/InviteFriendModal';
 import { LoginView } from './components/LoginView';
 import { RegisterView } from './components/RegisterView';
 import { Logo } from './components/Logo';
-import { CreateServerModal } from './components/CreateServerModal';
+import { CreateRoomModal } from './components/CreateServerModal';
+import { CreateChannelModal } from './components/CreateChannelModal';
 import { ConfirmModal } from './components/ConfirmModal';
+import { AppTitlebar } from './components/AppTitlebar';
+import { UserSettingsModal } from './components/UserSettingsModal';
+import { Toast } from './components/Toast';
 import './styles/discord.css';
 
 type AuthStatus = 'checking' | 'login' | 'register' | 'authenticated';
@@ -20,23 +27,125 @@ export const App: React.FC = () => {
   const [prefilledSuccessMsg, setPrefilledSuccessMsg] = useState<string>('');
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Quản lý Phòng (Rooms)
   const [rooms, setRooms] = useState<Room[]>([]);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const currentRoomRef = useRef<Room | null>(null);
+
+  // Quản lý Kênh (Channels) của phòng hiện tại
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
+  const currentChannelRef = useRef<Channel | null>(null);
+
+  // Chế độ Tin nhắn trực tiếp (khi bấm logo ở đầu WorkspaceSidebar)
+  const [isDirectMessageMode, setIsDirectMessageMode] = useState<boolean>(false);
+  const isDirectMessageModeRef = useRef<boolean>(false);
+
+  // Quản lý Tin nhắn trực tiếp 1-1 (Direct Messages)
+  const [currentDirectUser, setCurrentDirectUser] = useState<Friend | null>(null);
+  const currentDirectUserRef = useRef<Friend | null>(null);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingFriendRequest[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchUserResult[]>([]);
+  const [directMessagesMap, setDirectMessagesMap] = useState<Record<number, MessageItem[]>>({});
+  const [directUnreadMap, setDirectUnreadMap] = useState<Record<number, number>>({});
+  const [friendsTab, setFriendsTab] = useState<FriendsTab>('online');
+
+  // Modal Mời bạn bè vào phòng
+  const [selectedFriendForInvite, setSelectedFriendForInvite] = useState<Friend | null>(null);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState<boolean>(false);
+  const [invitedRoomIds, setInvitedRoomIds] = useState<number[]>([]);
+
+  // Trạng thái đang tải tin nhắn kênh (Loading state chống race condition)
+  const [isLoadingChannelMessages, setIsLoadingChannelMessages] = useState<boolean>(false);
 
   useEffect(() => {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
+  useEffect(() => {
+    currentChannelRef.current = currentChannel;
+  }, [currentChannel]);
+
+  useEffect(() => {
+    isDirectMessageModeRef.current = isDirectMessageMode;
+  }, [isDirectMessageMode]);
+
+  useEffect(() => {
+    currentDirectUserRef.current = currentDirectUser;
+  }, [currentDirectUser]);
+
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [members, setMembers] = useState<User[]>([]);
-  const [_friends, setFriends] = useState<Friend[]>([]);
-  const [_pendingRequests, setPendingRequests] = useState<PendingFriendRequest[]>([]);
   const [isTcpConnected, setIsTcpConnected] = useState<boolean>(true);
   const [isStreamConnected, setIsStreamConnected] = useState<boolean>(true);
-  const [unreadMap, setUnreadMap] = useState<Record<number, number>>({});
-  const [isCreateServerOpen, setIsCreateServerOpen] = useState<boolean>(false);
+  const [pingMs, setPingMs] = useState<number>(24);
+  const [isServerMenuOpen, setIsServerMenuOpen] = useState<boolean>(false);
+  const [_unreadMap, setUnreadMap] = useState<Record<number, number>>({});
+
+  // Đo độ trễ ping ms thực tế định kỳ tới Web Bridge
+  useEffect(() => {
+    let isMounted = true;
+    const measurePing = async () => {
+      if (!isTcpConnected) return;
+      try {
+        const start = performance.now();
+        await chatBridge.getStatus();
+        const latency = Math.max(1, Math.round(performance.now() - start));
+        if (isMounted) setPingMs(latency);
+      } catch {
+        // bỏ qua khi có gián đoạn tạm thời
+      }
+    };
+    measurePing();
+    const interval = window.setInterval(measurePing, 15000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [isTcpConnected]);
+  
+  // Quản lý Chế độ Giao diện Sáng / Tối (Theme Mode)
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('ltmang_theme');
+      return saved === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('ltmang_theme', theme);
+    } catch {
+      // ignore
+    }
+  }, [theme]);
+
+  // Modals
+  const [isUserSettingsOpen, setIsUserSettingsOpen] = useState<boolean>(false);
+  const [isCreateRoomOpen, setIsCreateRoomOpen] = useState<boolean>(false);
+  const [isCreateChannelOpen, setIsCreateChannelOpen] = useState<boolean>(false);
   const [isMemberListOpen, setIsMemberListOpen] = useState<boolean>(true);
+  
+  const [toastMessage, setToastMessage] = useState<string>('');
+  const toastTimerRef = useRef<number | null>(null);
+  const pendingCreateRoomRef = useRef<boolean>(false);
+  const pendingCreateChannelRef = useRef<boolean>(false);
+
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMessage('');
+    }, 3000);
+  }, []);
+
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState<boolean>(false);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
   const [logoutError, setLogoutError] = useState<string>('');
@@ -90,8 +199,24 @@ export const App: React.FC = () => {
     chatBridge.getInitialState().then((data) => {
       if (data) {
         if (data.user) setCurrentUser(data.user);
-        if (data.rooms) setRooms(data.rooms);
-        if (data.currentRoom && !currentRoomRef.current) setCurrentRoom(data.currentRoom);
+        if (data.rooms) {
+          setRooms(data.rooms);
+          // Nếu có danh sách phòng và chưa chọn phòng nào -> tự động chọn phòng đầu tiên
+          if (data.rooms.length > 0 && !currentRoomRef.current && !data.currentRoom) {
+            handleSelectRoom(data.rooms[0]);
+          }
+        }
+        if (data.currentRoom && !currentRoomRef.current) {
+          setCurrentRoom(data.currentRoom);
+          currentRoomRef.current = data.currentRoom;
+        }
+        if (data.channels) {
+          setChannels(data.channels);
+        }
+        if (data.currentChannel) {
+          setCurrentChannel(data.currentChannel);
+          currentChannelRef.current = data.currentChannel;
+        }
         if (data.messages) setMessages(data.messages);
         if (data.members) setMembers(data.members);
         if (data.friends) setFriends(data.friends);
@@ -110,25 +235,112 @@ export const App: React.FC = () => {
         case 'STREAM_STATUS':
           setIsStreamConnected(payload.streamConnected === true);
           break;
-        case 'ROOMS':
-          setRooms(payload.rooms || []);
+        case 'ROOMS': {
+          const updatedRooms: Room[] = payload.rooms || [];
+          setRooms(updatedRooms);
+          setCurrentRoom((prev) => {
+            if (!prev) return prev;
+            const matched = updatedRooms.find((r) => r.id === prev.id);
+            return matched ? { ...prev, ...matched } : prev;
+          });
           break;
-        case 'ROOM_JOINED':
-          setCurrentRoom(payload.room);
+        }
+        case 'ROOM_JOINED': {
+          const newRoom: Room = payload.room;
+          setCurrentRoom((prev) => {
+            if (prev && prev.id === newRoom?.id) {
+              return { ...prev, ...newRoom };
+            }
+            return newRoom;
+          });
+          currentRoomRef.current = newRoom;
+
+          if (payload.channel) {
+            setCurrentChannel(payload.channel);
+            currentChannelRef.current = payload.channel;
+          } else {
+            setCurrentChannel(null);
+            currentChannelRef.current = null;
+          }
+
           setMessages([]);
+          setIsLoadingChannelMessages(true);
+
+          // Tải danh sách kênh của phòng vừa tham gia
+          if (newRoom?.id) {
+            chatBridge.getChannels(newRoom.id).then(chList => {
+              if (currentRoomRef.current?.id === newRoom.id) {
+                setChannels(chList);
+                // Nếu chưa có currentChannel mà danh sách có kênh -> chọn kênh đầu tiên
+                if (!currentChannelRef.current && chList.length > 0) {
+                  handleSelectChannel(chList[0]);
+                }
+              }
+            }).catch(e => console.warn('Lỗi lấy danh sách kênh:', e));
+          }
           break;
+        }
+        case 'CHANNELS': {
+          if (currentRoomRef.current?.id === payload.roomId) {
+            const chList: Channel[] = payload.channels || [];
+            setChannels(chList);
+            // Nếu chưa có channel đang chọn hoặc channel không còn tồn tại -> chọn kênh đầu
+            if (!currentChannelRef.current || !chList.some(c => c.id === currentChannelRef.current?.id)) {
+              if (chList.length > 0) {
+                handleSelectChannel(chList[0]);
+              }
+            }
+          }
+          break;
+        }
+        case 'CHANNEL_JOINED': {
+          if (currentRoomRef.current?.id === payload.roomId) {
+            setCurrentChannel(payload.channel);
+            currentChannelRef.current = payload.channel;
+            setIsLoadingChannelMessages(false);
+          }
+          break;
+        }
+        case 'CHANNEL_CREATED': {
+          if (currentRoomRef.current?.id === payload.roomId) {
+            // Nạp lại danh sách kênh
+            chatBridge.getChannels(payload.roomId).then(chList => {
+              if (currentRoomRef.current?.id === payload.roomId) {
+                setChannels(chList);
+              }
+            });
+            showToast(`Đã tạo kênh '#${payload.channel?.name}'`);
+          }
+          break;
+        }
         case 'ROOM_LEFT':
           setCurrentRoom(null);
+          currentRoomRef.current = null;
+          setChannels([]);
+          setCurrentChannel(null);
+          currentChannelRef.current = null;
           setMessages([]);
           setMembers([]);
           break;
-        case 'NEW_MESSAGE':
-          if (payload.roomId && currentRoomRef.current && payload.roomId !== currentRoomRef.current.id) {
+        case 'NEW_MESSAGE': {
+          const targetChannelId = payload.channelId || payload.message?.channelId;
+          const targetRoomId = payload.roomId || payload.message?.roomId;
+
+          // Nếu tin nhắn thuộc phòng khác -> tăng unread
+          if (targetRoomId && currentRoomRef.current && targetRoomId !== currentRoomRef.current.id) {
             setUnreadMap((prev) => ({
               ...prev,
-              [payload.roomId]: (prev[payload.roomId] || 0) + 1
+              [targetRoomId]: (prev[targetRoomId] || 0) + 1
             }));
+            break;
           }
+
+          // Kiểm tra cách ly tin nhắn: chỉ hiển thị nếu thuộc kênh đang chọn
+          if (currentChannelRef.current && targetChannelId && targetChannelId !== currentChannelRef.current.id) {
+            // Tin nhắn của kênh khác trong cùng phòng -> không hiển thị ở màn hình kênh này
+            break;
+          }
+
           setMessages((prev) => {
             if (payload.message && payload.message.id) {
               if (prev.some((m) => m.id === payload.message.id)) {
@@ -138,6 +350,7 @@ export const App: React.FC = () => {
             return [...prev, payload.message];
           });
           break;
+        }
         case 'MESSAGE_EDITED':
           setMessages((prev) =>
             prev.map((m) =>
@@ -152,6 +365,7 @@ export const App: React.FC = () => {
           break;
         case 'HISTORY':
           setMessages(payload.messages || []);
+          setIsLoadingChannelMessages(false);
           break;
         case 'HISTORY_PAGE':
           if (payload.messages && payload.messages.length > 0) {
@@ -172,7 +386,15 @@ export const App: React.FC = () => {
           break;
         case 'ROOM_DELETED':
           setRooms((prev) => prev.filter((r) => r.id !== payload.roomId));
-          setCurrentRoom((prev) => (prev && prev.id === payload.roomId ? null : prev));
+          if (currentRoomRef.current?.id === payload.roomId) {
+            setCurrentRoom(null);
+            currentRoomRef.current = null;
+            setChannels([]);
+            setCurrentChannel(null);
+            currentChannelRef.current = null;
+            setMessages([]);
+            setMembers([]);
+          }
           break;
         case 'ROOM_DESC_UPDATED':
           setRooms((prev) =>
@@ -196,20 +418,70 @@ export const App: React.FC = () => {
           setPendingRequests(payload.requests || []);
           break;
         case 'FRIEND_SEARCH_RESULT':
-          if (payload.results && payload.results.length > 0) {
-            const first = payload.results[0];
-            if (confirm(`Tìm thấy người dùng "${first.displayName}" (@${first.username}). Bạn có muốn gửi lời mời kết bạn không?`)) {
-              chatBridge.sendFriendRequest(first.id);
+          setSearchResults(payload.results || []);
+          break;
+        case 'NEW_PRIVATE_MESSAGE':
+        case 'PRIVATE_MESSAGE': {
+          const sId = payload.senderId || payload.message?.senderId;
+          const sName = payload.senderName || payload.message?.senderName || 'Bạn bè';
+          const content = payload.content || payload.message?.content || '';
+          const time = payload.time || payload.message?.timestamp || '';
+          const pm: MessageItem = payload.message || {
+            id: Date.now(),
+            senderId: sId,
+            senderName: sName,
+            content: content,
+            timestamp: time,
+            isDirect: true
+          };
+
+          if (sId) {
+            setDirectMessagesMap((prev) => {
+              const currentList = prev[sId] || [];
+              if (currentList.some(m => m.id === pm.id && pm.id !== 0)) return prev;
+              return {
+                ...prev,
+                [sId]: [...currentList, pm]
+              };
+            });
+
+            const isViewingThisDM = isDirectMessageModeRef.current && currentDirectUserRef.current?.id === sId;
+            if (!isViewingThisDM) {
+              setDirectUnreadMap((prev) => ({
+                ...prev,
+                [sId]: (prev[sId] || 0) + 1
+              }));
+              showToast(`💬 Tin nhắn riêng từ ${sName}: ${content}`);
             }
-          } else {
-            alert('Không tìm thấy người dùng phù hợp.');
           }
+          break;
+        }
+        case 'INCOMING_FRIEND_REQUEST':
+          showToast('🔔 Bạn nhận được một lời mời kết bạn mới!');
+          chatBridge.refreshFriends().catch(() => {});
+          break;
+        case 'FRIEND_ACCEPTED':
+          showToast('🎉 Lời mời kết bạn đã được chấp nhận!');
+          chatBridge.refreshFriends().catch(() => {});
+          break;
+        case 'ROOM_INVITATION':
+          showToast('📨 Bạn vừa được mời vào một phòng mới!');
+          chatBridge.getInitialState().then((data) => {
+            if (data?.rooms) setRooms(data.rooms);
+          }).catch(() => {});
           break;
         case 'UNAUTHORIZED':
           handleSessionExpired();
           break;
         case 'ERROR':
-          alert(payload.message || 'Đã xảy ra lỗi.');
+          if (!pendingCreateRoomRef.current && !pendingCreateChannelRef.current) {
+            const errorMsg = payload.message || '';
+            // Bỏ qua lỗi 'Bạn đang ở trong phòng này', không hiện bất kỳ thông báo nào khi chuyển phòng
+            if (errorMsg.includes('Bạn đang ở trong phòng này') || errorMsg.includes('ở trong phòng này')) {
+              return;
+            }
+            showToast(errorMsg || 'Đã xảy ra lỗi.');
+          }
           break;
       }
     });
@@ -218,18 +490,29 @@ export const App: React.FC = () => {
       unsubscribe();
       chatBridge.stopEventStream();
     };
-  }, [authStatus]);
+  }, [authStatus, showToast]);
 
   const handleSessionExpired = useCallback(() => {
     chatBridge.stopEventStream();
     setCurrentUser(null);
     setRooms([]);
     setCurrentRoom(null);
+    currentRoomRef.current = null;
+    setChannels([]);
+    setCurrentChannel(null);
+    currentChannelRef.current = null;
     setMessages([]);
     setMembers([]);
     setFriends([]);
     setPendingRequests([]);
-    setPrefilledSuccessMsg('Phiên đăng nhập đã hết hạn hoặc máy chủ đã khởi động lại. Vui lòng đăng nhập lại.');
+    setCurrentDirectUser(null);
+    currentDirectUserRef.current = null;
+    setDirectMessagesMap({});
+    setDirectUnreadMap({});
+    setSearchResults([]);
+    setSelectedFriendForInvite(null);
+    setIsInviteModalOpen(false);
+    setPrefilledSuccessMsg('Phiên đăng nhập đã hết hạn hoặc kết nối đã ngắt. Vui lòng đăng nhập lại.');
     setAuthStatus('login');
   }, []);
 
@@ -262,6 +545,10 @@ export const App: React.FC = () => {
         setCurrentUser(null);
         setRooms([]);
         setCurrentRoom(null);
+        currentRoomRef.current = null;
+        setChannels([]);
+        setCurrentChannel(null);
+        currentChannelRef.current = null;
         setMessages([]);
         setMembers([]);
         setFriends([]);
@@ -269,27 +556,22 @@ export const App: React.FC = () => {
         setPrefilledSuccessMsg('Bạn đã đăng xuất an toàn.');
         setAuthStatus('login');
       } else if (result.networkError) {
-        // Lỗi mạng: Không tự tiện kết luận là đã đăng xuất hay vẫn đăng nhập
-        // Gọi getSession() để xác thực lại trạng thái thực tế
         try {
           const session = await chatBridge.getSession();
           if (!session.authenticated) {
-            // Thực tế máy chủ đã hủy phiên trước khi mạng gặp sự cố
             setIsLogoutModalOpen(false);
             setCurrentUser(null);
             setPrefilledSuccessMsg('Phiên đăng nhập đã kết thúc.');
             setAuthStatus('login');
           } else {
-            // Phiên vẫn còn hiệu lực trên máy chủ -> Giữ nguyên trạng thái và báo lỗi
             setLogoutError('Mất kết nối mạng khi gửi yêu cầu đăng xuất. Phiên làm việc vẫn còn hiệu lực. Vui lòng thử lại.');
-            // Đảm bảo SSE vẫn hoạt động để tiếp tục nhận tin
             chatBridge.startEventStream();
           }
         } catch {
           setLogoutError('Mất kết nối mạng. Chưa thể xác nhận trạng thái đăng xuất. Vui lòng kiểm tra lại kết nối.');
         }
       } else {
-        setLogoutError(result.message || 'Đăng xuất thất bại do lỗi kết nối đến máy chủ. Vui lòng thử lại.');
+        setLogoutError(result.message || 'Đăng xuất thất bại do lỗi kết nối. Vui lòng thử lại.');
       }
     } catch (e: any) {
       setLogoutError('Không thể hoàn tất đăng xuất: ' + (e?.message || 'Lỗi không xác định'));
@@ -298,41 +580,332 @@ export const App: React.FC = () => {
     }
   };
 
+  // Chọn phòng ở Cột 1 (WorkspaceSidebar)
   const handleSelectRoom = (room: Room) => {
-    if (currentRoomRef.current?.id === room.id) return;
+    if (!room) return;
+    const currentId = currentRoom?.id ?? currentRoomRef.current?.id;
+    // Bấm lại đúng phòng đang mở thì không làm gì và không hiện gì
+    if (!isDirectMessageMode && currentId !== undefined && Number(currentId) === Number(room.id)) {
+      return;
+    }
+    setIsDirectMessageMode(false);
     setUnreadMap((prev) => ({ ...prev, [room.id]: 0 }));
+    setCurrentRoom(room);
+    currentRoomRef.current = room;
+    setChannels([]);
+    setCurrentChannel(null);
+    currentChannelRef.current = null;
+    setMessages([]);
+    setIsLoadingChannelMessages(true);
     chatBridge.joinRoom(room.id);
   };
 
-  const handleCreateRoom = () => {
-    setIsCreateServerOpen(true);
+  // Chọn kênh ở Cột 2 (RoomSidebar)
+  const handleSelectChannel = (channel: Channel) => {
+    if (currentChannelRef.current?.id === channel.id) return;
+    if (!currentRoomRef.current) return;
+
+    setCurrentChannel(channel);
+    currentChannelRef.current = channel;
+    setMessages([]);
+    setIsLoadingChannelMessages(true);
+    chatBridge.joinChannel(currentRoomRef.current.id, channel.id);
   };
 
-  const handleModalCreateRoom = (name: string, description?: string) => {
-    chatBridge.createRoom(name).then(() => {
-      if (description) {
-        setTimeout(() => {
-          const created = rooms.find(r => r.name === name);
-          if (created) {
-            chatBridge.setRoomDesc(created.id, description);
-          }
-        }, 500);
-      }
+  // Bấm vào Logo ở đầu Cột 1: chuyển sang chế độ Tin nhắn trực tiếp
+  const handleDirectMessageClick = () => {
+    setIsDirectMessageMode(true);
+    setCurrentRoom(null);
+    currentRoomRef.current = null;
+    setChannels([]);
+    setCurrentChannel(null);
+    currentChannelRef.current = null;
+    setMessages([]);
+    setCurrentDirectUser(null);
+    chatBridge.refreshFriends().catch(() => {});
+  };
+
+  // Chọn người bạn để chat 1-1
+  const handleSelectDirectUser = (friend: Friend | null) => {
+    setCurrentDirectUser(friend);
+    if (friend) {
+      setDirectUnreadMap((prev) => ({ ...prev, [friend.id]: 0 }));
+    }
+  };
+
+  // Gửi tin nhắn riêng 1-1
+  const handleSendPrivateMessage = async (targetUserId: number, content: string) => {
+    if (!currentUser) return;
+    try {
+      await chatBridge.sendPrivateMessage(targetUserId, content);
+      const myMessage: MessageItem = {
+        id: Date.now(),
+        senderId: currentUser.id,
+        senderName: currentUser.displayName,
+        content,
+        timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        isMe: true,
+        isDirect: true
+      };
+      setDirectMessagesMap((prev) => ({
+        ...prev,
+        [targetUserId]: [...(prev[targetUserId] || []), myMessage]
+      }));
+    } catch (e: any) {
+      showToast('Không thể gửi tin nhắn riêng: ' + (e?.message || 'Lỗi mạng'));
+    }
+  };
+
+  // Tìm kiếm bạn bè / người dùng
+  const handleSearchUsers = (query: string) => {
+    chatBridge.searchFriends(query).catch((e: any) => {
+      showToast('Lỗi tìm kiếm: ' + (e?.message || 'Lỗi mạng'));
     });
   };
 
-  const handleModalJoinRoom = (input: string) => {
-    const clean = input.trim();
-    if (!isNaN(Number(clean))) {
-      chatBridge.joinRoom(Number(clean));
-    } else {
-      const found = rooms.find(r => r.inviteCode === clean || r.name.toLowerCase().includes(clean.toLowerCase()));
-      if (found) {
-        chatBridge.joinRoom(found.id);
-      } else {
-        alert(`Không tìm thấy phòng phù hợp với "${clean}". Vui lòng kiểm tra lại ID phòng hoặc mã mời.`);
-      }
+  // Gửi yêu cầu kết bạn
+  const handleSendFriendRequest = (targetUserId: number) => {
+    chatBridge.sendFriendRequest(targetUserId).then(() => {
+      showToast('Đã gửi lời mời kết bạn thành công!');
+    }).catch((e: any) => {
+      showToast('Không thể gửi lời mời: ' + (e?.message || 'Lỗi'));
+    });
+  };
+
+  // Chấp nhận lời mời kết bạn
+  const handleAcceptFriendRequest = (requestId: number) => {
+    chatBridge.acceptFriendRequest(requestId).then(() => {
+      showToast('Đã chấp nhận lời mời kết bạn!');
+      chatBridge.refreshFriends().catch(() => {});
+    }).catch((e: any) => {
+      showToast('Không thể chấp nhận: ' + (e?.message || 'Lỗi'));
+    });
+  };
+
+  // Từ chối lời mời kết bạn
+  const handleRejectFriendRequest = (requestId: number) => {
+    chatBridge.rejectFriendRequest(requestId).then(() => {
+      showToast('Đã từ chối lời mời kết bạn.');
+      chatBridge.refreshFriends().catch(() => {});
+    }).catch((e: any) => {
+      showToast('Không thể từ chối: ' + (e?.message || 'Lỗi'));
+    });
+  };
+
+  // Mở modal mời bạn bè vào phòng
+  const handleOpenInviteModal = (friend: Friend) => {
+    setSelectedFriendForInvite(friend);
+    setIsInviteModalOpen(true);
+  };
+
+  // Xác nhận mời bạn bè vào 1 phòng
+  const handleInviteFriendToRoom = (roomId: number, friendId: number) => {
+    const room = rooms.find(r => r.id === roomId);
+    chatBridge.inviteMember(roomId, friendId).then(() => {
+      setInvitedRoomIds(prev => [...prev, roomId]);
+      showToast(`Đã gửi lời mời vào phòng "${room?.name || `#${roomId}`}"!`);
+    }).catch((e: any) => {
+      showToast('Không thể mời vào phòng: ' + (e?.message || 'Lỗi'));
+    });
+  };
+
+  // Khi bấm vào thành viên trong MemberSidebar -> chuyển sang chat riêng 1-1
+  const handleMemberDirectMessage = (userId: number, name: string) => {
+    const matchedFriend = friends.find(f => f.id === userId);
+    const directUser: Friend = matchedFriend || {
+      id: userId,
+      username: name,
+      displayName: name,
+      online: true
+    };
+    setCurrentDirectUser(directUser);
+    setIsDirectMessageMode(true);
+    setCurrentRoom(null);
+    currentRoomRef.current = null;
+    setChannels([]);
+    setCurrentChannel(null);
+    currentChannelRef.current = null;
+    setMessages([]);
+    setDirectUnreadMap(prev => ({ ...prev, [userId]: 0 }));
+  };
+
+  const handleOpenCreateRoom = () => {
+    setIsCreateRoomOpen(true);
+  };
+
+  const handleOpenCreateChannel = () => {
+    if (!currentRoom) {
+      showToast('Vui lòng chọn một phòng trước khi tạo kênh.');
+      return;
     }
+    setIsCreateChannelOpen(true);
+  };
+
+  // Tạo Phòng mới (kèm kênh "chung" mặc định do Server tự động tạo)
+  const handleModalCreateRoom = async (
+    name: string,
+    description?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const trimmedName = name.trim();
+    const trimmedDesc = (description || '').trim();
+
+    if (!trimmedName) {
+      return { success: false, error: 'Vui lòng nhập tên phòng chat.' };
+    }
+    if (trimmedName.length > 50) {
+      return { success: false, error: 'Tên phòng không được vượt quá 50 ký tự.' };
+    }
+    if (trimmedDesc.length > 120) {
+      return { success: false, error: 'Mô tả phòng không được vượt quá 120 ký tự.' };
+    }
+    if (rooms.some((r) => r.name.trim().toLowerCase() === trimmedName.toLowerCase())) {
+      return { success: false, error: 'Tên phòng đã tồn tại. Vui lòng chọn tên khác.' };
+    }
+    if (!isTcpConnected) {
+      return { success: false, error: 'Mất kết nối mạng. Vui lòng kiểm tra kết nối và thử lại.' };
+    }
+
+    pendingCreateRoomRef.current = true;
+
+    return new Promise<{ success: boolean; error?: string }>((resolve) => {
+      let settled = false;
+      const cleanup = () => {
+        settled = true;
+        pendingCreateRoomRef.current = false;
+        window.clearTimeout(timer);
+        unsubscribe();
+      };
+
+      const timer = window.setTimeout(() => {
+        if (!settled) {
+          cleanup();
+          resolve({
+            success: false,
+            error: 'Không nhận được phản hồi tạo phòng. Vui lòng kiểm tra kết nối mạng.'
+          });
+        }
+      }, 8000);
+
+      const unsubscribe = chatBridge.subscribe((event, payload) => {
+        if (settled) return;
+
+        if (event === 'ERROR') {
+          cleanup();
+          resolve({
+            success: false,
+            error: payload?.message || 'Không thể tạo phòng chat.'
+          });
+          return;
+        }
+
+        if (event === 'ROOMS' && Array.isArray(payload?.rooms)) {
+          const created: Room | undefined = payload.rooms.find(
+            (r: Room) => r.name.trim().toLowerCase() === trimmedName.toLowerCase()
+          );
+          if (created) {
+            cleanup();
+            if (trimmedDesc) {
+              chatBridge.setRoomDesc(created.id, trimmedDesc);
+            }
+            const nextRoom: Room = {
+              ...created,
+              description: trimmedDesc || created.description || '',
+              role: 'OWNER'
+            };
+            setIsDirectMessageMode(false);
+            setCurrentRoom(nextRoom);
+            currentRoomRef.current = nextRoom;
+            setUnreadMap((prev) => ({ ...prev, [created.id]: 0 }));
+            chatBridge.joinRoom(created.id);
+            showToast(`Đã tạo phòng '${created.name}'`);
+            resolve({ success: true });
+          }
+        }
+      });
+
+      chatBridge.createRoom(trimmedName).catch((err: any) => {
+        if (!settled) {
+          cleanup();
+          resolve({
+            success: false,
+            error: 'Lỗi mạng khi gửi lệnh tạo phòng: ' + (err?.message || 'Không xác định')
+          });
+        }
+      });
+    });
+  };
+
+  // Tạo Kênh chat mới trong phòng đang chọn
+  const handleModalCreateChannel = async (
+    roomId: number,
+    channelName: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const trimmedName = channelName.trim();
+
+    if (!trimmedName) {
+      return { success: false, error: 'Vui lòng nhập tên kênh chat.' };
+    }
+    if (trimmedName.length > 50) {
+      return { success: false, error: 'Tên kênh không được vượt quá 50 ký tự.' };
+    }
+    if (channels.some(c => c.name.trim().toLowerCase() === trimmedName.toLowerCase())) {
+      return { success: false, error: `Kênh "#${trimmedName}" đã tồn tại trong phòng này.` };
+    }
+
+    pendingCreateChannelRef.current = true;
+
+    return new Promise<{ success: boolean; error?: string }>((resolve) => {
+      let settled = false;
+      const cleanup = () => {
+        settled = true;
+        pendingCreateChannelRef.current = false;
+        window.clearTimeout(timer);
+        unsubscribe();
+      };
+
+      const timer = window.setTimeout(() => {
+        if (!settled) {
+          cleanup();
+          resolve({
+            success: false,
+            error: 'Không nhận được phản hồi tạo kênh từ Server (Timeout).'
+          });
+        }
+      }, 8000);
+
+      const unsubscribe = chatBridge.subscribe((event, payload) => {
+        if (settled) return;
+
+        if (event === 'ERROR') {
+          cleanup();
+          resolve({
+            success: false,
+            error: payload?.message || 'Không thể tạo kênh chat.'
+          });
+          return;
+        }
+
+        if (event === 'CHANNEL_CREATED' && payload.roomId === roomId) {
+          cleanup();
+          const newCh: Channel = payload.channel;
+          // Tự động chuyển vào kênh mới tạo
+          if (newCh) {
+            handleSelectChannel(newCh);
+          }
+          resolve({ success: true });
+        }
+      });
+
+      chatBridge.createChannel(roomId, trimmedName).catch((err: any) => {
+        if (!settled) {
+          cleanup();
+          resolve({
+            success: false,
+            error: 'Lỗi mạng: ' + (err?.message || 'Không thể tạo kênh.')
+          });
+        }
+      });
+    });
   };
 
   const handleRenameRoom = (roomId: number, name: string) => {
@@ -345,7 +918,7 @@ export const App: React.FC = () => {
     setActionModal({
       isOpen: true,
       title: 'Xóa Phòng Chat',
-      message: `Bạn có chắc chắn muốn xóa vĩnh viễn phòng "${roomName}" không? Toàn bộ lịch sử tin nhắn sẽ bị xóa vĩnh viễn.`,
+      message: `Bạn có chắc chắn muốn xóa vĩnh viễn phòng "${roomName}" không? Toàn bộ các kênh và lịch sử tin nhắn trong phòng sẽ bị xóa vĩnh viễn.`,
       confirmText: 'Xóa Phòng',
       cancelText: 'Hủy bỏ',
       isDanger: true,
@@ -361,7 +934,7 @@ export const App: React.FC = () => {
   };
 
   const handleSendMessage = (text: string) => {
-    chatBridge.sendMessage(text);
+    chatBridge.sendMessage(text, currentChannelRef.current?.id);
   };
 
   const handleEditMessage = (messageId: number, content: string) => {
@@ -474,17 +1047,14 @@ export const App: React.FC = () => {
         setActionModal(prev => ({ ...prev, isOpen: false }));
         chatBridge.leaveRoom();
         setCurrentRoom(null);
+        currentRoomRef.current = null;
+        setChannels([]);
+        setCurrentChannel(null);
+        currentChannelRef.current = null;
         setMessages([]);
         setMembers([]);
       }
     });
-  };
-
-  const handleDirectMessage = (userId: number, name: string) => {
-    const text = prompt(`Nhập tin nhắn riêng tới ${name}:`);
-    if (text && text.trim()) {
-      chatBridge.sendPrivateMessage(userId, text.trim());
-    }
   };
 
   // Màn hình 1: Đang kiểm tra phiên (Loading Splash)
@@ -531,14 +1101,24 @@ export const App: React.FC = () => {
   // Màn hình 4: Giao diện Chat chính thức (Đã xác thực)
   return (
     <div className="app-container" style={{ position: 'relative' }}>
-      {/* 1. Mất kết nối TCP tới ChatServer (cổng 5000) */}
+      {/* 1. THANH PHÒNG (APP TITLEBAR) - Chạy suốt chiều ngang trên cùng, cao 36px */}
+      <AppTitlebar
+        currentRoom={currentRoom}
+        isDirectMessageMode={isDirectMessageMode}
+        isTcpConnected={isTcpConnected}
+        isStreamConnected={isStreamConnected}
+        pingMs={pingMs}
+        onToggleRoomMenu={currentRoom && !isDirectMessageMode ? () => setIsServerMenuOpen(prev => !prev) : undefined}
+      />
+
+      {/* 2. Mất kết nối TCP tới ChatServer (cổng 5000) */}
       {!isTcpConnected && (
         <div style={{
           position: 'absolute',
-          top: 0,
+          top: '36px',
           left: 0,
           right: 0,
-          backgroundColor: '#da373c',
+          backgroundColor: 'var(--accent-red)',
           color: '#ffffff',
           padding: '6px 16px',
           textAlign: 'center',
@@ -557,7 +1137,7 @@ export const App: React.FC = () => {
             onClick={() => handleSessionExpired()}
             style={{
               backgroundColor: '#ffffff',
-              color: '#da373c',
+              color: 'var(--accent-red)',
               border: 'none',
               borderRadius: '3px',
               padding: '2px 8px',
@@ -571,15 +1151,15 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* 2. Mất kết nối luồng sự kiện SSE giữa Trình duyệt và Web Bridge (localhost:8080) */}
+      {/* 3. Mất kết nối luồng sự kiện SSE giữa Trình duyệt và Web Bridge (localhost:8080) */}
       {isTcpConnected && !isStreamConnected && (
         <div style={{
           position: 'absolute',
-          top: 0,
+          top: '36px',
           left: 0,
           right: 0,
-          backgroundColor: '#f0b232',
-          color: '#1e1f22',
+          backgroundColor: 'var(--accent-yellow)',
+          color: '#12201F',
           padding: '6px 16px',
           textAlign: 'center',
           fontSize: '13px',
@@ -595,71 +1175,141 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* CỘT 1: Workspace / Guild Strip */}
-      <WorkspaceSidebar
-        onDirectMessage={() => alert('Chức năng tin nhắn trực tiếp đang ở chế độ xem nhanh.')}
-        onOpenExplore={() => alert('Khám phá máy chủ cộng đồng Discord Mini.')}
-        onAddServer={handleCreateRoom}
-      />
-
-      {/* CỘT 2: Room Channels & User Bar */}
-      <RoomSidebar
-        rooms={rooms}
-        currentRoom={currentRoom}
-        currentUser={currentUser}
-        unreadMap={unreadMap}
-        onSelectRoom={handleSelectRoom}
-        onCreateRoom={handleCreateRoom}
-        onRenameRoom={handleRenameRoom}
-        onDeleteRoom={handleDeleteRoom}
-        onSetRoomDesc={handleSetRoomDesc}
-        onLogout={handleLogout}
-        onInvite={handleInvite}
-        onLeaveRoom={handleLeave}
-      />
-
-      {/* CỘT 3: Trung tâm Chat, Tin nhắn & Lịch sử */}
-      <ChatCenter
-        currentRoom={currentRoom}
-        messages={messages}
-        members={members}
-        currentUserId={currentUser ? currentUser.id : 0}
-        currentUserRole={currentUserRole}
-        isMemberListOpen={isMemberListOpen}
-        onToggleMemberList={() => setIsMemberListOpen(prev => !prev)}
-        onSendMessage={handleSendMessage}
-        onEditMessage={handleEditMessage}
-        onDeleteMessage={handleDeleteMessage}
-        onLoadMore={handleLoadMore}
-        onInvite={handleInvite}
-        onKick={handleKick}
-        onLeave={handleLeave}
-        isOwner={isOwner}
-      />
-
-      {/* CỘT 4: Thành viên phòng (Trực tuyến & Ngoại tuyến - Có thể toggle ẩn/hiện bằng nút Users ở header) */}
-      {isMemberListOpen && (
-        <MemberSidebar
-          members={members}
-          currentUserId={currentUser?.id}
-          currentUserRole={currentUserRole}
-          onDirectMessage={handleDirectMessage}
-          onSetMemberRole={handleSetMemberRole}
-          onTransferOwner={handleTransferOwner}
-          onKickMember={handleKickMember}
+      {/* 4. VÙNG ỨNG DỤNG BÊN DƯỚI (Hàng 2 của CSS Grid, 1fr) */}
+      <main className="app-main-layout">
+        {/* CỘT 1: Thanh biểu tượng ngoài cùng bên trái (Logo = DM, các Icon phòng, nút "+" tạo phòng) */}
+        <WorkspaceSidebar
+          rooms={rooms}
+          currentRoom={currentRoom}
+          isDirectMessageMode={isDirectMessageMode}
+          onDirectMessageClick={handleDirectMessageClick}
+          onSelectRoom={handleSelectRoom}
+          onCreateRoom={handleOpenCreateRoom}
         />
-      )}
 
-      {/* Modal Tạo Máy Chủ Chuẩn Discord */}
-      <CreateServerModal
-        isOpen={isCreateServerOpen}
-        onClose={() => setIsCreateServerOpen(false)}
-        onCreateRoom={handleModalCreateRoom}
-        onJoinRoom={handleModalJoinRoom}
-        currentUserName={currentUser?.displayName || currentUser?.username}
+        {/* CỘT 2: Tiêu đề là tên phòng đang chọn hoặc Tin nhắn trực tiếp */}
+        <RoomSidebar
+          currentRoom={currentRoom}
+          channels={channels}
+          currentChannel={currentChannel}
+          currentUser={currentUser}
+          isDirectMessageMode={isDirectMessageMode}
+          friends={friends}
+          pendingCount={pendingRequests.length}
+          currentDirectUser={currentDirectUser}
+          onSelectDirectUser={handleSelectDirectUser}
+          directUnreadMap={directUnreadMap}
+          onOpenAddFriend={() => {
+            setCurrentDirectUser(null);
+            setFriendsTab('add_friend');
+          }}
+          onSelectChannel={handleSelectChannel}
+          onCreateChannel={handleOpenCreateChannel}
+          onRenameRoom={handleRenameRoom}
+          onDeleteRoom={handleDeleteRoom}
+          onSetRoomDesc={handleSetRoomDesc}
+          onLogout={handleLogout}
+          onOpenSettings={() => setIsUserSettingsOpen(true)}
+          onInvite={handleInvite}
+          onLeaveRoom={handleLeave}
+          isServerMenuOpen={isServerMenuOpen}
+          onToggleServerMenu={() => setIsServerMenuOpen(prev => !prev)}
+          onCloseServerMenu={() => setIsServerMenuOpen(false)}
+        />
+
+        {/* CỘT 3: Trung tâm Chat, Tiêu đề kênh, Tin nhắn hoặc Bạn bè / Khung chat riêng 1-1 */}
+        {isDirectMessageMode ? (
+          currentDirectUser ? (
+            <DirectMessageChat
+              targetUser={currentDirectUser}
+              currentUser={currentUser}
+              messages={directMessagesMap[currentDirectUser.id] || []}
+              onSendMessage={handleSendPrivateMessage}
+              onOpenInviteModal={handleOpenInviteModal}
+              onBackToFriends={() => setCurrentDirectUser(null)}
+            />
+          ) : (
+            <FriendsView
+              friends={friends}
+              pendingRequests={pendingRequests}
+              searchResults={searchResults}
+              currentUserId={currentUser ? currentUser.id : 0}
+              initialTab={friendsTab}
+              onSelectDirectUser={handleSelectDirectUser}
+              onOpenInviteModal={handleOpenInviteModal}
+              onAcceptRequest={handleAcceptFriendRequest}
+              onRejectRequest={handleRejectFriendRequest}
+              onSearchUsers={handleSearchUsers}
+              onSendFriendRequest={handleSendFriendRequest}
+            />
+          )
+        ) : (
+          <ChatCenter
+            currentRoom={currentRoom}
+            currentChannel={currentChannel}
+            isDirectMessageMode={isDirectMessageMode}
+            isLoading={isLoadingChannelMessages}
+            messages={messages}
+            currentUserId={currentUser ? currentUser.id : 0}
+            currentUserRole={currentUserRole}
+            isMemberListOpen={isMemberListOpen}
+            onToggleMemberList={() => setIsMemberListOpen(prev => !prev)}
+            onSendMessage={handleSendMessage}
+            onEditMessage={handleEditMessage}
+            onDeleteMessage={handleDeleteMessage}
+            onLoadMore={handleLoadMore}
+            onInvite={handleInvite}
+            onLeave={handleLeave}
+            onKick={handleKick}
+            isOwner={isOwner}
+          />
+        )}
+
+        {/* CỘT 4: Thành viên phòng */}
+        {!isDirectMessageMode && isMemberListOpen && (
+          <MemberSidebar
+            members={members}
+            currentUserId={currentUser?.id}
+            currentUserRole={currentUserRole}
+            onDirectMessage={handleMemberDirectMessage}
+            onSetMemberRole={handleSetMemberRole}
+            onTransferOwner={handleTransferOwner}
+            onKickMember={handleKickMember}
+          />
+        )}
+      </main>
+
+      {/* Hộp thoại Mời bạn bè vào phòng */}
+      <InviteFriendModal
+        isOpen={isInviteModalOpen}
+        onClose={() => {
+          setIsInviteModalOpen(false);
+          setSelectedFriendForInvite(null);
+        }}
+        friend={selectedFriendForInvite}
+        rooms={rooms}
+        onInvite={handleInviteFriendToRoom}
+        invitedRoomIds={invitedRoomIds}
       />
 
-      {/* Modal Xác nhận Thao tác chung (Rời phòng, Xóa tin nhắn, Xóa phòng, Kick, Đổi quyền) */}
+      {/* Hộp thoại 1: Tạo phòng chat (Nút "+" Cột 1) */}
+      <CreateRoomModal
+        isOpen={isCreateRoomOpen}
+        onClose={() => setIsCreateRoomOpen(false)}
+        onCreateRoom={handleModalCreateRoom}
+        existingRooms={rooms}
+      />
+
+      {/* Hộp thoại 2: Tạo kênh chat (Nút "+" Cột 2 cạnh "KÊNH CHAT") */}
+      <CreateChannelModal
+        isOpen={isCreateChannelOpen}
+        onClose={() => setIsCreateChannelOpen(false)}
+        room={currentRoom}
+        existingChannels={channels}
+        onCreateChannel={handleModalCreateChannel}
+      />
+
+      {/* Modal Xác Nhận Hành Động Chung */}
       <ConfirmModal
         isOpen={actionModal.isOpen}
         title={actionModal.title}
@@ -671,22 +1321,46 @@ export const App: React.FC = () => {
         onCancel={() => setActionModal(prev => ({ ...prev, isOpen: false }))}
       />
 
-      {/* Modal Xác nhận Đăng xuất phong cách Discord */}
+      {/* Modal Đăng Xuất An Toàn */}
       <ConfirmModal
         isOpen={isLogoutModalOpen}
-        title="Đăng Xuất"
-        message="Bạn có chắc chắn muốn đăng xuất khỏi Discord Mini không?"
-        confirmText="Đăng Xuất"
-        cancelText="Hủy bỏ"
+        title="Đăng xuất"
+        message="Bạn có chắc chắn muốn đăng xuất khỏi tài khoản của mình trên thiết bị này?"
+        confirmText="Đăng xuất"
+        cancelText="Hủy"
         isDanger={true}
         isLoading={isLoggingOut}
         errorMessage={logoutError}
         onConfirm={handleConfirmLogout}
         onCancel={() => {
-          setIsLogoutModalOpen(false);
-          setLogoutError('');
+          if (!isLoggingOut) {
+            setIsLogoutModalOpen(false);
+            setLogoutError('');
+          }
         }}
       />
+
+      {/* Modal Cài đặt Người dùng (Theme Sáng/Tối, Hồ sơ, Đăng xuất) */}
+      <UserSettingsModal
+        isOpen={isUserSettingsOpen}
+        onClose={() => setIsUserSettingsOpen(false)}
+        currentUser={currentUser}
+        currentUserRole={currentUserRole}
+        theme={theme}
+        onThemeChange={setTheme}
+        onLogout={() => {
+          setIsUserSettingsOpen(false);
+          handleLogout();
+        }}
+        onProfileUpdated={(newDisplayName) => {
+          setCurrentUser(prev => prev ? { ...prev, displayName: newDisplayName } : null);
+          setMembers(prev => prev.map(m => (m.id === currentUser?.id || m.username === currentUser?.username) ? { ...m, displayName: newDisplayName } : m));
+          showToast(`Đã cập nhật tên hiển thị: ${newDisplayName}`);
+        }}
+      />
+
+      {/* Toast thông báo nhanh nổi giữa màn hình phía dưới */}
+      <Toast message={toastMessage} onClose={() => setToastMessage('')} />
     </div>
   );
 };

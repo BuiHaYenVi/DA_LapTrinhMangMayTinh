@@ -1,54 +1,90 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { Room, User } from '../types/chat';
+import type { Room, Channel, User, Friend } from '../types/chat';
 import { 
-  Hash, Plus, Settings, ChevronDown, ChevronUp, LogOut, Copy, Check, Trash2, 
-  UserPlus
+  Hash, Plus, Settings, ChevronDown, ChevronUp, LogOut, 
+  UserPlus, Users, MessageSquare
 } from 'lucide-react';
-import { Logo } from './Logo';
 
 interface Props {
-  rooms: Room[];
   currentRoom: Room | null;
+  channels: Channel[];
+  currentChannel: Channel | null;
   currentUser: User | null;
-  unreadMap?: Record<number, number>;
-  onSelectRoom: (room: Room) => void;
-  onCreateRoom: () => void;
+  isDirectMessageMode: boolean;
+  friends?: Friend[];
+  pendingCount?: number;
+  currentDirectUser?: Friend | null;
+  onSelectDirectUser?: (friend: Friend | null) => void;
+  directUnreadMap?: Record<number, number>;
+  onOpenAddFriend?: () => void;
+  onSelectChannel: (channel: Channel) => void;
+  onCreateChannel: () => void;
   onRenameRoom?: (roomId: number, name: string) => void;
   onDeleteRoom?: (roomId: number) => void;
   onSetRoomDesc?: (roomId: number, description: string) => void;
   onLogout?: () => void;
+  onOpenSettings?: () => void;
   onInvite?: () => void;
   onLeaveRoom?: () => void;
+  isServerMenuOpen?: boolean;
+  onToggleServerMenu?: () => void;
+  onCloseServerMenu?: () => void;
 }
 
 export const RoomSidebar: React.FC<Props> = ({
-  rooms,
   currentRoom,
+  channels,
+  currentChannel,
   currentUser,
-  unreadMap = {},
-  onSelectRoom,
-  onCreateRoom,
+  isDirectMessageMode,
+  friends = [],
+  pendingCount = 0,
+  currentDirectUser = null,
+  onSelectDirectUser,
+  directUnreadMap = {},
+  onOpenAddFriend,
+  onSelectChannel,
+  onCreateChannel,
   onRenameRoom,
   onDeleteRoom,
   onSetRoomDesc,
-  onLogout,
+  onLogout: _onLogout,
+  onOpenSettings,
   onInvite,
-  onLeaveRoom
+  onLeaveRoom,
+  isServerMenuOpen: propIsServerMenuOpen,
+  onToggleServerMenu,
+  onCloseServerMenu
 }) => {
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [localServerMenuOpen, setLocalServerMenuOpen] = useState(false);
+  const isServerMenuOpen = propIsServerMenuOpen !== undefined ? propIsServerMenuOpen : localServerMenuOpen;
 
-  // Trạng thái Server Menu Dropdown
-  const [isServerMenuOpen, setIsServerMenuOpen] = useState(false);
+  const toggleServerMenu = () => {
+    if (onToggleServerMenu) {
+      onToggleServerMenu();
+    } else {
+      setLocalServerMenuOpen(prev => !prev);
+    }
+  };
+
+  const closeServerMenu = () => {
+    if (onCloseServerMenu) {
+      onCloseServerMenu();
+    } else {
+      setLocalServerMenuOpen(false);
+    }
+  };
+
   const serverMenuRef = useRef<HTMLDivElement>(null);
 
   // Đóng Server Menu khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (serverMenuRef.current && !serverMenuRef.current.contains(event.target as Node)) {
-        setIsServerMenuOpen(false);
+        closeServerMenu();
       }
     };
     if (isServerMenuOpen) {
@@ -64,8 +100,7 @@ export const RoomSidebar: React.FC<Props> = ({
     setEditingRoom(room);
     setNewName(room.name);
     setNewDesc(room.description || '');
-    setCopied(false);
-    setIsServerMenuOpen(false);
+    closeServerMenu();
   };
 
   const handleSaveSettings = () => {
@@ -87,86 +122,210 @@ export const RoomSidebar: React.FC<Props> = ({
     setEditingRoom(null);
   };
 
-  const handleCopyInvite = () => {
-    if (!editingRoom) return;
-    const inviteText = `discord-mini://join/${editingRoom.id}`;
-    navigator.clipboard.writeText(inviteText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const serverTitle = currentRoom ? currentRoom.name : 'LTMang Chat';
   const isManager = currentRoom?.role === 'OWNER' || currentRoom?.role === 'ADMIN';
 
+  // 1. GIAO DIỆN CHẾ ĐỘ TIN NHẮN TRỰC TIẾP (Khi click vào logo ứng dụng ở đầu Cột 1)
+  if (isDirectMessageMode) {
+    return (
+      <div className="room-sidebar">
+        <div className="server-header" style={{ cursor: 'default' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+            <MessageSquare size={18} color="var(--accent)" />
+            <span className="server-title-text" title="Tin nhắn trực tiếp">
+              Tin nhắn trực tiếp
+            </span>
+          </div>
+        </div>
+
+        <div className="room-section" style={{ padding: '8px' }}>
+          {/* Mục Bạn bè */}
+          <div 
+            className={`channel-item ${currentDirectUser === null ? 'active' : ''}`} 
+            style={{ marginBottom: '12px', cursor: 'pointer' }}
+            onClick={() => onSelectDirectUser && onSelectDirectUser(null)}
+          >
+            <Users size={18} className="channel-hash-icon" />
+            <span className="channel-name" style={{ fontWeight: 600 }}>Bạn bè</span>
+            {pendingCount > 0 && (
+              <span className="direct-unread-badge" style={{ marginLeft: 'auto' }}>
+                {pendingCount}
+              </span>
+            )}
+          </div>
+
+          {/* Tiêu đề TIN NHẮN TRỰC TIẾP */}
+          <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>▾ TIN NHẮN TRỰC TIẾP</span>
+            {onOpenAddFriend && (
+              <button
+                type="button"
+                className="section-add-btn"
+                title="Thêm bạn bè"
+                aria-label="Thêm bạn bè"
+                onClick={onOpenAddFriend}
+              >
+                <Plus size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Danh sách bạn bè để chat 1-1 */}
+          <div className="direct-message-list" style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+            {friends.length === 0 ? (
+              <div style={{
+                padding: '12px 10px',
+                fontSize: '12px',
+                color: 'var(--text-3)',
+                lineHeight: 1.5,
+                backgroundColor: 'var(--bg-3)',
+                borderRadius: '6px',
+                margin: '4px 0'
+              }}>
+                Chưa có tin nhắn trực tiếp nào. Hãy chọn mục <strong>Bạn bè</strong> để bắt đầu trò chuyện!
+              </div>
+            ) : (
+              friends.map(friend => {
+                const isActive = currentDirectUser?.id === friend.id;
+                const unread = directUnreadMap[friend.id] || 0;
+
+                return (
+                  <div
+                    key={friend.id}
+                    className={`channel-item dm-sidebar-item ${isActive ? 'active' : ''}`}
+                    onClick={() => onSelectDirectUser && onSelectDirectUser(friend)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="user-avatar-wrap" style={{ marginRight: '8px' }}>
+                      <div className="user-avatar-circle" style={{ width: '28px', height: '28px', fontSize: '12px' }}>
+                        {friend.displayName ? friend.displayName.charAt(0).toUpperCase() : 'U'}
+                      </div>
+                      <div className={`status-dot ${friend.online ? '' : 'offline'}`} style={{ width: '8px', height: '8px', bottom: '-1px', right: '-1px' }} />
+                    </div>
+
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                      <div className="channel-name" style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', fontWeight: unread > 0 ? 700 : 500 }}>
+                        {friend.displayName}
+                      </div>
+                    </div>
+
+                    {unread > 0 && (
+                      <span className="direct-unread-badge" style={{ marginLeft: '6px' }}>
+                        {unread}
+                      </span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* User Profile Bar ở đáy */}
+        <div className="user-profile-bar">
+          <div className="user-avatar-wrap">
+            <div className="user-avatar-circle">
+              {currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="status-dot" title="Trực tuyến" />
+          </div>
+
+          <div className="user-info">
+            <div 
+              className="name" 
+              title={currentUser?.displayName || currentUser?.username || 'Người dùng'}
+            >
+              {currentUser?.displayName || currentUser?.username || 'Người dùng'}
+            </div>
+            <div className="status" title="Trực tuyến">Trực tuyến</div>
+          </div>
+
+          <div className="user-profile-actions">
+            <button
+              type="button"
+              className="user-action-btn"
+              title="Cài đặt người dùng"
+              onClick={onOpenSettings}
+              aria-label="Cài đặt người dùng"
+            >
+              <Settings size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. GIAO DIỆN CHẾ ĐỘ PHÒNG (Hiển thị các kênh của phòng đang chọn)
   return (
     <div className="room-sidebar">
-      {/* 1. Server Header Dropdown */}
+      {/* 1. Header: Tiêu đề là tên phòng đang chọn */}
       <div 
         ref={serverMenuRef}
         className={`server-header ${isServerMenuOpen ? 'open' : ''}`} 
-        onClick={() => setIsServerMenuOpen(!isServerMenuOpen)}
-        title="Menu tùy chọn máy chủ"
+        onClick={() => currentRoom && toggleServerMenu()}
+        title={currentRoom ? currentRoom.name : 'Chưa chọn phòng'}
+        style={{ cursor: currentRoom ? 'pointer' : 'default' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-          <Logo size={20} withGlow={false} />
-          <span className="server-title-text" title={serverTitle}>
-            {serverTitle}
+          <span className="server-title-text" title={currentRoom?.name || 'Chưa chọn phòng'}>
+            {currentRoom ? currentRoom.name : 'Chưa chọn phòng'}
           </span>
         </div>
-        {isServerMenuOpen ? (
-          <ChevronUp size={18} className="server-chevron" />
-        ) : (
-          <ChevronDown size={18} className="server-chevron" />
+
+        {currentRoom && (
+          isServerMenuOpen ? (
+            <ChevronUp size={18} className="server-chevron" />
+          ) : (
+            <ChevronDown size={18} className="server-chevron" />
+          )
         )}
 
-        {/* Dropdown Menu Popup nổi lên trên danh sách phòng */}
-        {isServerMenuOpen && (
+        {/* Dropdown Menu của Phòng */}
+        {currentRoom && isServerMenuOpen && (
           <div className="server-dropdown-menu" onClick={e => e.stopPropagation()}>
             <div 
               className="dropdown-item blurple" 
               onClick={() => {
-                setIsServerMenuOpen(false);
+                closeServerMenu();
                 if (onInvite) onInvite();
-                else if (currentRoom) {
-                  navigator.clipboard.writeText(`discord-mini://join/${currentRoom.id}`);
-                  alert(`Đã sao chép liên kết mời vào phòng #${currentRoom.name}!`);
-                }
               }}
             >
-              <span>Mời Vào Phòng</span>
-              <UserPlus size={16} color="var(--accent-blurple)" />
+              <span>Mời vào phòng</span>
+              <UserPlus size={16} color="var(--accent)" />
             </div>
 
-            {isManager && currentRoom && (
+            {isManager && (
               <div 
                 className="dropdown-item" 
                 onClick={(e) => openSettings(currentRoom, e)}
               >
-                <span>Cài đặt phòng chat</span>
+                <span>Cài đặt phòng</span>
                 <Settings size={16} />
               </div>
             )}
 
-            <div 
-              className="dropdown-item" 
-              onClick={() => {
-                setIsServerMenuOpen(false);
-                onCreateRoom();
-              }}
-            >
-              <span>Tạo phòng mới</span>
-              <Plus size={16} />
-            </div>
+            {isManager && (
+              <div 
+                className="dropdown-item" 
+                onClick={() => {
+                  closeServerMenu();
+                  onCreateChannel();
+                }}
+              >
+                <span>Tạo kênh chat mới</span>
+                <Plus size={16} />
+              </div>
+            )}
 
-            {currentRoom && onLeaveRoom && (
+            {onLeaveRoom && (
               <div 
                 className="dropdown-item danger" 
                 onClick={() => {
-                  setIsServerMenuOpen(false);
+                  closeServerMenu();
                   onLeaveRoom();
                 }}
               >
-                <span>Rời Khỏi Phòng</span>
+                <span>Rời khỏi phòng</span>
                 <LogOut size={16} />
               </div>
             )}
@@ -174,56 +333,57 @@ export const RoomSidebar: React.FC<Props> = ({
         )}
       </div>
 
-      {/* 2. Channels Section */}
+      {/* 2. Danh sách Kênh chat của riêng phòng đang chọn */}
       <div className="room-section">
-        <div className="section-title">
-          <span>▾ KÊNH CHAT</span>
-          <button className="add-btn" title="Tạo phòng chat mới" onClick={onCreateRoom}>
-            <Plus size={16} />
-          </button>
-        </div>
-
-        {rooms.map(room => {
-          const unread = unreadMap[room.id] || 0;
-          const isCurrentRoomManager = room.role === 'OWNER' || room.role === 'ADMIN';
-
-          return (
-            <div
-              key={room.id}
-              className={`channel-item ${currentRoom?.id === room.id ? 'active' : ''}`}
-              onClick={() => onSelectRoom(room)}
-              title={`Phòng #${room.name}${room.description ? ` - ${room.description}` : ''}`}
-            >
-              <Hash size={18} className="channel-hash-icon" />
-              <span className="channel-name" title={room.name}>
-                {room.name}
-              </span>
-
-              {unread > 0 && currentRoom?.id !== room.id && (
-                <span className="unread-badge">{unread > 99 ? '99+' : unread}</span>
-              )}
-
-              {isCurrentRoomManager && (
-                <button
-                  className="channel-settings-btn"
-                  title="Quản lý kênh"
-                  onClick={(e) => openSettings(room, e)}
+        {currentRoom ? (
+          <>
+            <div className="section-title">
+              <span>▾ KÊNH CHAT</span>
+              {/* Nút "+" cạnh KÊNH CHAT chỉ cho phép chủ phòng hoặc quản lý */}
+              {isManager && (
+                <button 
+                  className="add-btn" 
+                  title={`Tạo kênh chat trong ${currentRoom.name}`} 
+                  onClick={onCreateChannel}
+                  aria-label="Tạo kênh chat"
                 >
-                  <Settings size={14} />
+                  <Plus size={16} />
                 </button>
               )}
             </div>
-          );
-        })}
 
-        {rooms.length === 0 && (
-          <div style={{ padding: '8px 12px', fontSize: '13px', color: 'var(--text-muted)' }}>
-            Chưa có phòng chat nào.
+            {channels.map(channel => {
+              const isSelected = currentChannel?.id === channel.id;
+
+              return (
+                <div
+                  key={channel.id}
+                  className={`channel-item ${isSelected ? 'active' : ''}`}
+                  onClick={() => onSelectChannel(channel)}
+                  title={`Kênh #${channel.name}`}
+                >
+                  <Hash size={18} className="channel-hash-icon" />
+                  <span className="channel-name" title={channel.name}>
+                    {channel.name}
+                  </span>
+                </div>
+              );
+            })}
+
+            {channels.length === 0 && (
+              <div style={{ padding: '8px 12px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                Chưa có kênh nào trong phòng này.
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ padding: '24px 16px', fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center' }}>
+            👈 Hãy chọn một phòng ở thanh bên trái để xem các kênh chat.
           </div>
         )}
       </div>
 
-      {/* 3. User Profile Bar ở đáy Cột 2 (Avatar, Tên, Trạng thái & Nút Đăng xuất có chức năng thật) */}
+      {/* 3. User Profile Bar ở đáy Cột 2 */}
       <div className="user-profile-bar">
         <div className="user-avatar-wrap">
           <div className="user-avatar-circle">
@@ -242,31 +402,32 @@ export const RoomSidebar: React.FC<Props> = ({
           <div className="status" title="Trực tuyến">Trực tuyến</div>
         </div>
 
-        <div className="user-actions">
-          {onLogout && (
-            <button
-              className="user-control-btn logout"
-              title="Đăng xuất khỏi tài khoản"
-              onClick={onLogout}
-            >
-              <LogOut size={16} />
-            </button>
-          )}
+        <div className="user-profile-actions">
+          <button
+            type="button"
+            className="user-action-btn"
+            title="Cài đặt người dùng"
+            onClick={onOpenSettings}
+            aria-label="Cài đặt người dùng"
+          >
+            <Settings size={18} />
+          </button>
         </div>
       </div>
 
-      {/* Modal Quản lý Phòng chat */}
+      {/* Modal Cài đặt Phòng (Đổi tên, mô tả, xóa phòng) */}
       {editingRoom && (
         <div className="modal-backdrop" onClick={() => setEditingRoom(null)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-title">Cài đặt kênh #{editingRoom.name}</div>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <h3 style={{ marginTop: 0 }}>Cài đặt phòng: {editingRoom.name}</h3>
 
             <div className="modal-field">
-              <label>Tên phòng</label>
+              <label>Tên phòng chat</label>
               <input
+                type="text"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
-                placeholder="Nhập tên phòng mới..."
+                maxLength={50}
               />
             </div>
 
@@ -275,45 +436,29 @@ export const RoomSidebar: React.FC<Props> = ({
               <textarea
                 value={newDesc}
                 onChange={e => setNewDesc(e.target.value)}
-                placeholder="Nhập mô tả chủ đề của phòng chat..."
-                rows={3}
+                rows={2}
+                maxLength={120}
               />
             </div>
 
-            <div className="modal-field">
-              <label>Mã mời / Đường dẫn tham gia</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  readOnly
-                  value={`discord-mini://join/${editingRoom.id}`}
-                  style={{ flex: 1, color: 'var(--text-muted)' }}
-                />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+              {editingRoom.role === 'OWNER' && (
                 <button
                   type="button"
-                  className="header-btn blurple"
-                  onClick={handleCopyInvite}
-                  style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                  className="btn-danger-outline"
+                  onClick={handleDelete}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                 >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                  <span>{copied ? 'Đã chép' : 'Sao chép'}</span>
+                  Xóa phòng
                 </button>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-              <button
-                type="button"
-                className="header-btn red"
-                onClick={handleDelete}
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <Trash2 size={14} />
-                <span>Xóa phòng</span>
-              </button>
-
-              <div className="modal-footer" style={{ margin: 0 }}>
-                <button className="btn-cancel" onClick={() => setEditingRoom(null)}>Hủy</button>
-                <button className="btn-primary" onClick={handleSaveSettings}>Lưu thay đổi</button>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                <button type="button" className="btn-cancel" onClick={() => setEditingRoom(null)}>
+                  Hủy
+                </button>
+                <button type="button" className="btn-primary" onClick={handleSaveSettings}>
+                  Lưu thay đổi
+                </button>
               </div>
             </div>
           </div>
@@ -322,3 +467,5 @@ export const RoomSidebar: React.FC<Props> = ({
     </div>
   );
 };
+
+export default RoomSidebar;

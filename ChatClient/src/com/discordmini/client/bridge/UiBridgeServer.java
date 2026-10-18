@@ -1,6 +1,7 @@
 package com.discordmini.client.bridge;
 
 import com.discordmini.client.network.SocketClient;
+import com.discordmini.client.protocol.MessageType;
 import com.discordmini.client.protocol.ProtocolHandler;
 import com.discordmini.client.service.AuthCallback;
 import com.discordmini.client.service.AuthResult;
@@ -131,6 +132,9 @@ public class UiBridgeServer {
         server.createContext("/api/rooms/join", new JoinRoomHandler());
         server.createContext("/api/rooms/create", new CreateRoomHandler());
         server.createContext("/api/rooms/leave", new LeaveRoomHandler());
+        server.createContext("/api/channels", new ChannelsHandler());
+        server.createContext("/api/channels/create", new CreateChannelHandler());
+        server.createContext("/api/channels/join", new JoinChannelHandler());
         server.createContext("/api/rooms/invite", new InviteRoomHandler());
         server.createContext("/api/rooms/kick", new KickRoomHandler());
         server.createContext("/api/rooms/rename", new RenameRoomHandler());
@@ -148,6 +152,8 @@ public class UiBridgeServer {
         server.createContext("/api/friends/reject", new FriendRejectHandler());
         server.createContext("/api/friends/refresh", new FriendRefreshHandler());
         server.createContext("/api/friends/search", new FriendSearchHandler());
+        server.createContext("/api/user/profile", new UpdateProfileHandler());
+        server.createContext("/api/user/password", new ChangePasswordHandler());
 
         // Phục vụ frontend tĩnh với SPA fallback
         server.createContext("/", new StaticFileHandler());
@@ -184,7 +190,7 @@ public class UiBridgeServer {
         public final String sessionId;
         public final int userId;
         public final String username;
-        public final String displayName;
+        public volatile String displayName;
         public final SocketClient socketClient;
         public final AuthService authService;
         public final RoomService roomService;
@@ -195,7 +201,12 @@ public class UiBridgeServer {
 
         public volatile Integer currentRoomId = null;
         public volatile String currentRoomName = "";
+        public volatile Integer currentChannelId = null;
+        public volatile String currentChannelName = "";
         public final List<Map<String, Object>> roomCache = new CopyOnWriteArrayList<>();
+        public final List<Map<String, Object>> channelCache = new CopyOnWriteArrayList<>();
+        public final Map<Integer, List<Map<String, Object>>> channelCacheByRoom = new ConcurrentHashMap<>();
+        public final Map<String, CompletableFuture<Map<String, Object>>> pendingRequests = new ConcurrentHashMap<>();
         public final List<Map<String, Object>> messageCache = new CopyOnWriteArrayList<>();
         public final List<Map<String, Object>> historyPageBuffer = new CopyOnWriteArrayList<>();
         public final List<Map<String, Object>> memberCache = new CopyOnWriteArrayList<>();
@@ -262,34 +273,129 @@ public class UiBridgeServer {
                     }
                     broadcastSse("ROOMS", Map.of("rooms", roomCache));
                 }
+                case "CHANNELS" -> {
+                    int rId = Integer.parseInt(p[1]);
+                    List<Map<String, Object>> list = new ArrayList<>();
+                    for (int i = 2; i < p.length; i++) {
+                        String[] x = p[i].split(",", 2);
+                        if (x.length >= 2) {
+                            Map<String, Object> ch = new HashMap<>();
+                            ch.put("id", Integer.parseInt(x[0]));
+                            ch.put("roomId", rId);
+                            ch.put("name", ProtocolHandler.decode(x[1]));
+                            list.add(ch);
+                        }
+                    }
+                    channelCacheByRoom.put(rId, list);
+                    if (currentRoomId != null && currentRoomId == rId) {
+                        channelCache.clear();
+                        channelCache.addAll(list);
+                    }
+                    broadcastSse("CHANNELS", Map.of("roomId", rId, "channels", list));
+                }
                 case "OK" -> {
                     if (p.length > 1 && "JOIN_ROOM".equals(p[1])) {
                         currentRoomId = Integer.parseInt(p[2]);
                         currentRoomName = ProtocolHandler.decode(p[3]);
+                        if (p.length >= 6) {
+                            currentChannelId = Integer.parseInt(p[4]);
+                            currentChannelName = ProtocolHandler.decode(p[5]);
+                        } else {
+                            currentChannelId = null;
+                            currentChannelName = "";
+                        }
                         messageCache.clear();
-                        broadcastSse("ROOM_JOINED", Map.of("room", Map.of("id", currentRoomId, "name", currentRoomName)));
+                        channelCache.clear();
+                        Map<String, Object> data = new HashMap<>();
+                        data.put("room", Map.of("id", currentRoomId, "name", currentRoomName));
+                        if (currentChannelId != null) {
+                            data.put("channel", Map.of("id", currentChannelId, "name", currentChannelName, "roomId", currentRoomId));
+                        }
+                        broadcastSse("ROOM_JOINED", data);
+                    } else if (p.length > 1 && "JOIN_CHANNEL".equals(p[1])) {
+                        int rId = Integer.parseInt(p[2]);
+                        int cId = Integer.parseInt(p[3]);
+                        String cName = ProtocolHandler.decode(p[4]);
+                        currentRoomId = rId;
+                        currentChannelId = cId;
+                        currentChannelName = cName;
+                        messageCache.clear();
+                        broadcastSse("CHANNEL_JOINED", Map.of("roomId", rId, "channel", Map.of("id", cId, "roomId", rId, "name", cName)));
+                    } else if (p.length > 1 && "CHANNEL_CREATED".equals(p[1])) {
+                        int rId = Integer.parseInt(p[2]);
+                        int cId = Integer.parseInt(p[3]);
+                        String cName = ProtocolHandler.decode(p[4]);
+                        Map<String, Object> ch = Map.of("id", cId, "roomId", rId, "name", cName);
+                        CompletableFuture<Map<String, Object>> cf = pendingRequests.remove("CREATE_CHANNEL");
+                        if (cf != null) {
+                            cf.complete(Map.of("success", true, "channel", ch));
+                        }
+                        if (currentRoomId != null && currentRoomId == rId) {
+                            roomService.listChannels(rId);
+                        }
+                        broadcastSse("CHANNEL_CREATED", Map.of("roomId", rId, "channel", ch));
                     } else if (p.length > 1 && "ROOM_CREATED".equals(p[1])) {
+                        int rId = p.length > 2 ? Integer.parseInt(p[2]) : 0;
+                        String rName = p.length > 3 ? ProtocolHandler.decode(p[3]) : "";
+                        CompletableFuture<Map<String, Object>> cf = pendingRequests.remove("CREATE_ROOM");
+                        if (cf != null) {
+                            cf.complete(Map.of("success", true, "roomId", rId, "name", rName));
+                        }
                         roomService.listRooms();
                     } else if (p.length > 1 && "LEAVE_ROOM".equals(p[1])) {
                         currentRoomId = null;
                         currentRoomName = "";
+                        currentChannelId = null;
+                        currentChannelName = "";
+                        channelCache.clear();
                         messageCache.clear();
                         memberCache.clear();
                         broadcastSse("ROOM_LEFT", Map.of());
                     } else if (p.length > 1 && "FRIEND_ACCEPT".equals(p[1])) {
                         friendService.getPendingRequests();
                         friendService.getFriendList();
+                    } else if (p.length > 1 && "UPDATE_PROFILE".equals(p[1])) {
+                        String newName = p.length > 2 ? ProtocolHandler.decode(p[2]) : "";
+                        this.displayName = newName;
+                        CompletableFuture<Map<String, Object>> cf = pendingRequests.remove("UPDATE_PROFILE");
+                        if (cf != null) {
+                            cf.complete(Map.of("success", true, "displayName", newName));
+                        }
+                        broadcastSse("PROFILE_UPDATED", Map.of("displayName", newName));
+                    } else if (p.length > 1 && "CHANGE_PASSWORD".equals(p[1])) {
+                        CompletableFuture<Map<String, Object>> cf = pendingRequests.remove("CHANGE_PASSWORD");
+                        if (cf != null) {
+                            cf.complete(Map.of("success", true));
+                        }
                     }
                 }
                 case "HISTORY_BEGIN" -> messageCache.clear();
                 case "HISTORY_ITEM" -> {
                     int msgId = Integer.parseInt(p[1]);
-                    String sender = ProtocolHandler.decode(p[2]);
-                    String content = ProtocolHandler.decode(p[3]);
-                    String time = ProtocolHandler.decode(p[4]);
-                    boolean isEdited = p.length >= 6 && "EDITED".equalsIgnoreCase(p[5]);
+                    int channelId = 0;
+                    String sender;
+                    String content;
+                    String time;
+                    boolean isEdited = false;
+                    if (p.length >= 7) {
+                        channelId = Integer.parseInt(p[2]);
+                        sender = ProtocolHandler.decode(p[3]);
+                        content = ProtocolHandler.decode(p[4]);
+                        time = ProtocolHandler.decode(p[5]);
+                        isEdited = "EDITED".equalsIgnoreCase(p[6]);
+                    } else if (p.length >= 6) {
+                        sender = ProtocolHandler.decode(p[2]);
+                        content = ProtocolHandler.decode(p[3]);
+                        time = ProtocolHandler.decode(p[4]);
+                        isEdited = "EDITED".equalsIgnoreCase(p[5]);
+                    } else {
+                        sender = ProtocolHandler.decode(p[2]);
+                        content = ProtocolHandler.decode(p[3]);
+                        time = ProtocolHandler.decode(p[4]);
+                    }
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", msgId);
+                    m.put("channelId", channelId);
                     m.put("senderId", sender.equalsIgnoreCase(displayName) ? userId : 0);
                     m.put("senderName", sender);
                     m.put("content", content);
@@ -324,22 +430,40 @@ public class UiBridgeServer {
                 case "NEW_MESSAGE" -> {
                     int msgId = Integer.parseInt(p[1]);
                     int rId = Integer.parseInt(p[2]);
-                    String sender = ProtocolHandler.decode(p[3]);
-                    String content = ProtocolHandler.decode(p[4]);
-                    String time = ProtocolHandler.decode(p[5]);
-                    boolean isEdited = p.length >= 7 && "EDITED".equalsIgnoreCase(p[6]);
+                    int chId = 0;
+                    String sender;
+                    String content;
+                    String time;
+                    boolean isEdited = false;
+                    if (p.length >= 8) {
+                        chId = Integer.parseInt(p[3]);
+                        sender = ProtocolHandler.decode(p[4]);
+                        content = ProtocolHandler.decode(p[5]);
+                        time = ProtocolHandler.decode(p[6]);
+                        isEdited = "EDITED".equalsIgnoreCase(p[7]);
+                    } else if (p.length >= 7) {
+                        chId = Integer.parseInt(p[3]);
+                        sender = ProtocolHandler.decode(p[4]);
+                        content = ProtocolHandler.decode(p[5]);
+                        time = ProtocolHandler.decode(p[6]);
+                    } else {
+                        sender = ProtocolHandler.decode(p[3]);
+                        content = ProtocolHandler.decode(p[4]);
+                        time = ProtocolHandler.decode(p[5]);
+                    }
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", msgId);
                     m.put("roomId", rId);
+                    m.put("channelId", chId);
                     m.put("senderId", sender.equalsIgnoreCase(displayName) ? userId : 0);
                     m.put("senderName", sender);
                     m.put("content", content);
                     m.put("timestamp", time);
                     m.put("isEdited", isEdited);
-                    if (currentRoomId != null && currentRoomId == rId) {
+                    if (currentRoomId != null && currentRoomId == rId && (currentChannelId == null || chId == 0 || Objects.equals(currentChannelId, chId))) {
                         messageCache.add(m);
                     }
-                    broadcastSse("NEW_MESSAGE", Map.of("message", m, "roomId", rId));
+                    broadcastSse("NEW_MESSAGE", Map.of("message", m, "roomId", rId, "channelId", chId));
                 }
                 case "NEW_PRIVATE_MESSAGE" -> {
                     int sId = Integer.parseInt(p[1]);
@@ -349,12 +473,29 @@ public class UiBridgeServer {
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", (int) (System.currentTimeMillis() % 100000));
                     m.put("senderId", sId);
-                    m.put("senderName", sName + " (Riêng)");
+                    m.put("senderName", sName);
                     m.put("content", content);
                     m.put("timestamp", time);
                     m.put("isEdited", false);
-                    messageCache.add(m);
-                    broadcastSse("NEW_MESSAGE", Map.of("message", m));
+                    m.put("isDirect", true);
+                    broadcastSse("NEW_PRIVATE_MESSAGE", Map.of(
+                            "message", m,
+                            "senderId", sId,
+                            "senderName", sName,
+                            "content", content,
+                            "time", time
+                    ));
+                    broadcastSse("PRIVATE_MESSAGE", Map.of(
+                            "message", m,
+                            "senderId", sId,
+                            "senderName", sName,
+                            "content", content,
+                            "time", time
+                    ));
+                }
+                case "PRIVATE_MESSAGE_SENT" -> {
+                    int targetId = Integer.parseInt(p[1]);
+                    broadcastSse("PRIVATE_MESSAGE_SENT", Map.of("targetUserId", targetId));
                 }
                 case "MESSAGE_EDITED" -> {
                     int rId = Integer.parseInt(p[1]);
@@ -473,9 +614,18 @@ public class UiBridgeServer {
                     }
                     broadcastSse("FRIEND_SEARCH_RESULT", Map.of("results", searchResults));
                 }
-                case "INCOMING_FRIEND_REQUEST" -> friendService.getPendingRequests();
-                case "FRIEND_ACCEPTED" -> friendService.getFriendList();
-                case "ROOM_INVITATION" -> roomService.listRooms();
+                case "INCOMING_FRIEND_REQUEST" -> {
+                    friendService.getPendingRequests();
+                    broadcastSse("INCOMING_FRIEND_REQUEST", Map.of("message", "Bạn nhận được một lời mời kết bạn mới."));
+                }
+                case "FRIEND_ACCEPTED" -> {
+                    friendService.getFriendList();
+                    broadcastSse("FRIEND_ACCEPTED", Map.of("message", "Lời mời kết bạn đã được chấp nhận."));
+                }
+                case "ROOM_INVITATION" -> {
+                    roomService.listRooms();
+                    broadcastSse("ROOM_INVITATION", Map.of("message", "Bạn vừa được mời vào một phòng mới."));
+                }
                 case "SYSTEM" -> {
                     String text = ProtocolHandler.decode(p[1]);
                     Map<String, Object> m = new HashMap<>();
@@ -488,7 +638,34 @@ public class UiBridgeServer {
                     messageCache.add(m);
                     broadcastSse("NEW_MESSAGE", Map.of("message", m));
                 }
-                case "ERROR" -> broadcastSse("ERROR", Map.of("message", ProtocolHandler.decode(p[1])));
+                case "USER_PROFILE_UPDATED" -> {
+                    if (p.length >= 3) {
+                        try {
+                            int uId = Integer.parseInt(p[1]);
+                            String newDName = ProtocolHandler.decode(p[2]);
+                            for (Map<String, Object> mem : memberCache) {
+                                if (mem.get("id") != null && ((Number) mem.get("id")).intValue() == uId) {
+                                    mem.put("displayName", newDName);
+                                }
+                            }
+                            if (this.userId == uId) {
+                                this.displayName = newDName;
+                            }
+                            broadcastSse("MEMBERS", Map.of("roomId", currentRoomId != null ? currentRoomId : 0, "members", memberCache));
+                            broadcastSse("USER_PROFILE_UPDATED", Map.of("userId", uId, "displayName", newDName));
+                        } catch (Exception ignored) {}
+                    }
+                }
+                case "ERROR" -> {
+                    String errorMsg = ProtocolHandler.decode(p[1]);
+                    for (String key : new ArrayList<>(pendingRequests.keySet())) {
+                        CompletableFuture<Map<String, Object>> cf = pendingRequests.remove(key);
+                        if (cf != null) {
+                            cf.complete(Map.of("success", false, "message", errorMsg));
+                        }
+                    }
+                    broadcastSse("ERROR", Map.of("message", errorMsg));
+                }
             }
         }
 
@@ -1010,12 +1187,146 @@ public class UiBridgeServer {
             ));
             state.put("rooms", session.roomCache);
             state.put("currentRoom", session.currentRoomId != null ? Map.of("id", session.currentRoomId, "name", session.currentRoomName) : null);
+            state.put("channels", session.channelCache);
+            state.put("currentChannel", session.currentChannelId != null ? Map.of("id", session.currentChannelId, "name", session.currentChannelName, "roomId", session.currentRoomId != null ? session.currentRoomId : 0) : null);
             state.put("messages", session.messageCache);
             state.put("members", session.memberCache);
             state.put("friends", session.friendCache);
             state.put("pendingRequests", session.pendingCache);
 
             sendJson(exchange, 200, state);
+        }
+    }
+
+    private static int parseJsonInt(Map<String, Object> body, String key, int defaultValue) {
+        if (body == null || !body.containsKey(key)) return defaultValue;
+        Object val = body.get(key);
+        if (val instanceof Number n) return n.intValue();
+        if (val instanceof String s && !s.isBlank()) {
+            try {
+                return Integer.parseInt(s.trim());
+            } catch (NumberFormatException ignored) {}
+        }
+        return defaultValue;
+    }
+
+    private class ChannelsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            int roomId = (session.currentRoomId != null) ? session.currentRoomId : 0;
+            String query = exchange.getRequestURI().getQuery();
+            if (query != null && query.contains("roomId=")) {
+                for (String param : query.split("&")) {
+                    String[] pair = param.split("=", 2);
+                    if ("roomId".equals(pair[0]) && pair.length > 1) {
+                        try {
+                            roomId = Integer.parseInt(pair[1]);
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+
+            if (roomId > 0) {
+                if (!session.channelCacheByRoom.containsKey(roomId)) {
+                    session.roomService.listChannels(roomId);
+                    for (int i = 0; i < 15; i++) {
+                        if (session.channelCacheByRoom.containsKey(roomId)) {
+                            break;
+                        }
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException ignored) {}
+                    }
+                }
+            }
+            List<Map<String, Object>> channels = session.channelCacheByRoom.getOrDefault(roomId, Collections.emptyList());
+            sendJson(exchange, 200, Map.of("roomId", roomId, "channels", channels));
+        }
+    }
+
+    private class CreateChannelHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int defaultRoomId = (session.currentRoomId != null) ? session.currentRoomId : 0;
+                int roomId = parseJsonInt(body, "roomId", defaultRoomId);
+                String name = (String) body.get("name");
+                if (roomId <= 0) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "Vui lòng chọn phòng trước khi tạo kênh."));
+                    return;
+                }
+                if (name == null || name.isBlank()) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "Tên kênh không được để trống."));
+                    return;
+                }
+                String trimmedName = name.trim();
+                if (trimmedName.length() > 50) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "Tên kênh không được vượt quá 50 ký tự."));
+                    return;
+                }
+
+                CompletableFuture<Map<String, Object>> cf = new CompletableFuture<>();
+                session.pendingRequests.put("CREATE_CHANNEL", cf);
+                session.roomService.createChannel(roomId, trimmedName);
+                try {
+                    Map<String, Object> res = cf.get(3, TimeUnit.SECONDS);
+                    boolean success = Boolean.TRUE.equals(res.get("success"));
+                    if (success) {
+                        sendJson(exchange, 200, res);
+                    } else {
+                        String errMsg = (String) res.getOrDefault("message", "Không thể tạo kênh.");
+                        sendJson(exchange, 400, Map.of("success", false, "message", errMsg));
+                    }
+                } catch (Exception e) {
+                    session.pendingRequests.remove("CREATE_CHANNEL");
+                    sendJson(exchange, 500, Map.of("success", false, "message", "Quá thời gian phản hồi từ máy chủ."));
+                }
+            }
+        }
+    }
+
+    private class JoinChannelHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                int defaultRoomId = (session.currentRoomId != null) ? session.currentRoomId : 0;
+                int roomId = parseJsonInt(body, "roomId", defaultRoomId);
+                int channelId = parseJsonInt(body, "channelId", 0);
+
+                if (roomId <= 0 || channelId <= 0) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "ID phòng hoặc kênh không hợp lệ."));
+                    return;
+                }
+
+                session.roomService.joinChannel(roomId, channelId);
+                sendJson(exchange, 200, Map.of("success", true));
+            }
         }
     }
 
@@ -1032,11 +1343,13 @@ public class UiBridgeServer {
 
             if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
                 Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
-                if (body.containsKey("roomId")) {
-                    int rId = ((Number) body.get("roomId")).intValue();
+                int rId = parseJsonInt(body, "roomId", 0);
+                if (rId > 0) {
                     session.roomService.joinRoom(rId);
+                    sendJson(exchange, 200, Map.of("success", true));
+                } else {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "ID phòng không hợp lệ."));
                 }
-                sendJson(exchange, 200, Map.of("success", true));
             }
         }
     }
@@ -1055,10 +1368,32 @@ public class UiBridgeServer {
             if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
                 Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
                 String name = (String) body.get("name");
-                if (name != null && !name.isBlank()) {
-                    session.roomService.createRoom(name.trim());
+                if (name == null || name.isBlank()) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "Tên phòng không được để trống."));
+                    return;
                 }
-                sendJson(exchange, 200, Map.of("success", true));
+                String trimmedName = name.trim();
+                if (trimmedName.length() > 50) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "Tên phòng không được vượt quá 50 ký tự."));
+                    return;
+                }
+
+                CompletableFuture<Map<String, Object>> cf = new CompletableFuture<>();
+                session.pendingRequests.put("CREATE_ROOM", cf);
+                session.roomService.createRoom(trimmedName);
+                try {
+                    Map<String, Object> res = cf.get(3, TimeUnit.SECONDS);
+                    boolean success = Boolean.TRUE.equals(res.get("success"));
+                    if (success) {
+                        sendJson(exchange, 200, res);
+                    } else {
+                        String errMsg = (String) res.getOrDefault("message", "Không thể tạo phòng.");
+                        sendJson(exchange, 400, Map.of("success", false, "message", errMsg));
+                    }
+                } catch (Exception e) {
+                    session.pendingRequests.remove("CREATE_ROOM");
+                    sendJson(exchange, 500, Map.of("success", false, "message", "Quá thời gian phản hồi từ máy chủ."));
+                }
             }
         }
     }
@@ -1078,6 +1413,9 @@ public class UiBridgeServer {
                 session.roomService.leaveRoom();
                 session.currentRoomId = null;
                 session.currentRoomName = "";
+                session.currentChannelId = null;
+                session.currentChannelName = "";
+                session.channelCache.clear();
                 sendJson(exchange, 200, Map.of("success", true));
             }
         }
@@ -1097,8 +1435,9 @@ public class UiBridgeServer {
             if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
                 Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
                 String content = (String) body.get("content");
+                int channelId = body.containsKey("channelId") ? ((Number) body.get("channelId")).intValue() : (session.currentChannelId != null ? session.currentChannelId : 0);
                 if (content != null && !content.isBlank()) {
-                    session.chatService.sendMessage(content.trim());
+                    session.chatService.sendMessage(channelId, content.trim());
                 }
                 sendJson(exchange, 200, Map.of("success", true));
             }
@@ -1525,6 +1864,92 @@ public class UiBridgeServer {
             exchange.sendResponseHeaders(200, target.length());
             try (FileInputStream fis = new FileInputStream(target); OutputStream os = exchange.getResponseBody()) {
                 fis.transferTo(os);
+            }
+        }
+    }
+
+    private class UpdateProfileHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                String displayName = (String) body.get("displayName");
+                String bio = (String) body.get("bio");
+                String avatarColor = (String) body.get("avatarColor");
+
+                if (displayName == null || displayName.isBlank() || displayName.length() > 32) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "Tên hiển thị phải từ 1 đến 32 ký tự."));
+                    return;
+                }
+
+                CompletableFuture<Map<String, Object>> cf = new CompletableFuture<>();
+                session.pendingRequests.put("UPDATE_PROFILE", cf);
+
+                session.socketClient.send(ProtocolHandler.command(
+                        MessageType.UPDATE_PROFILE.name(),
+                        displayName.trim(),
+                        bio != null ? bio.trim() : "",
+                        avatarColor != null ? avatarColor.trim() : ""
+                ));
+
+                try {
+                    Map<String, Object> res = cf.get(5, TimeUnit.SECONDS);
+                    sendJson(exchange, 200, res);
+                } catch (Exception e) {
+                    session.pendingRequests.remove("UPDATE_PROFILE");
+                    sendJson(exchange, 500, Map.of("success", false, "message", "Lỗi hoặc timeout cập nhật hồ sơ: " + e.getMessage()));
+                }
+            }
+        }
+    }
+
+    private class ChangePasswordHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                String oldPass = (String) body.get("oldPassword");
+                String newPass = (String) body.get("newPassword");
+
+                if (newPass == null || newPass.trim().length() < 6) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "Mật khẩu mới tối thiểu 6 ký tự."));
+                    return;
+                }
+
+                CompletableFuture<Map<String, Object>> cf = new CompletableFuture<>();
+                session.pendingRequests.put("CHANGE_PASSWORD", cf);
+
+                session.socketClient.send(ProtocolHandler.command(
+                        MessageType.CHANGE_PASSWORD.name(),
+                        oldPass != null ? oldPass : "",
+                        newPass
+                ));
+
+                try {
+                    Map<String, Object> res = cf.get(5, TimeUnit.SECONDS);
+                    boolean ok = Boolean.TRUE.equals(res.get("success"));
+                    int code = ok ? 200 : 400;
+                    sendJson(exchange, code, res);
+                } catch (Exception e) {
+                    session.pendingRequests.remove("CHANGE_PASSWORD");
+                    sendJson(exchange, 500, Map.of("success", false, "message", "Lỗi hoặc timeout đổi mật khẩu: " + e.getMessage()));
+                }
             }
         }
     }

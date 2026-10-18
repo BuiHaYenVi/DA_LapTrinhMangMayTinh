@@ -68,7 +68,7 @@ export const MemberSidebar: React.FC<Props> = ({
           )}
           {member.role === 'ADMIN' && (
             <span title="Quản trị viên" style={{ display: 'inline-flex' }}>
-              <Shield size={14} color="var(--accent-blurple)" />
+              <Shield size={14} color="var(--accent)" />
             </span>
           )}
         </div>
@@ -119,7 +119,7 @@ export const MemberSidebar: React.FC<Props> = ({
   return (
     <div className="member-sidebar">
       <div className="sidebar-simple-header">
-        <span>Thành viên ({members.length})</span>
+        <span>THÀNH VIÊN PHÒNG ({members.length})</span>
       </div>
 
       <div className="member-list">

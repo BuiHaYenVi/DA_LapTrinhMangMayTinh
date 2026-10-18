@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { chatBridge } from '../services/chatBridge';
 import { Logo } from './Logo';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface RegisterViewProps {
   onRegisterSuccess: (username: string, message: string) => void;
@@ -16,6 +17,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -45,7 +47,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
     }
 
     if (password !== confirmPassword) {
-      return 'Mật khẩu nhập lại không khớp. Vui lòng kiểm tra lại.';
+      return 'Mật khẩu xác nhận không trùng khớp. Vui lòng kiểm tra lại.';
     }
 
     const trimmedDisplay = displayName.trim();
@@ -74,13 +76,13 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
       const trimmedUser = username.trim();
       const finalDisplay = displayName.trim() || trimmedUser;
 
-      // Tuyệt đối không trim password
+      // Không bao giờ trim mật khẩu
       const result = await chatBridge.register(trimmedUser, password, finalDisplay);
 
       if (result.success) {
-        onRegisterSuccess(trimmedUser, result.message || 'Đăng ký tài khoản thành công! Vui lòng đăng nhập.');
+        onRegisterSuccess(trimmedUser, result.message || 'Đăng ký tài khoản thành công! Bạn có thể đăng nhập ngay.');
       } else {
-        setErrorMessage(result.message || 'Đăng ký thất bại. Tên đăng nhập có thể đã được sử dụng.');
+        setErrorMessage(result.message || 'Đăng ký thất bại. Tên đăng nhập này có thể đã được người khác sử dụng.');
       }
     } catch (err: any) {
       setErrorMessage('Không thể gửi yêu cầu đăng ký: ' + (err?.message || 'Lỗi mạng'));
@@ -91,20 +93,27 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
 
   return (
     <div className="auth-wrapper">
-      <div className="auth-card">
+      {/* Các hình khối trang trí nền tạo hiệu ứng Discord Art */}
+      <div className="auth-bg-decorations" aria-hidden="true">
+        <div className="decor-shape shape-1" />
+        <div className="decor-shape shape-2" />
+        <div className="decor-shape shape-3" />
+      </div>
+
+      <div className="auth-card auth-card-register">
         {/* Header */}
         <div className="auth-header">
-          <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'center' }}>
-            <Logo size={54} />
+          <div className="auth-logo-row">
+            <Logo size={48} withGlow={true} />
           </div>
-          <h2 className="auth-title">Tạo tài khoản mới</h2>
+          <h1 className="auth-title">Tạo một tài khoản</h1>
           <p className="auth-subtitle">Tham gia trò chuyện và kết nối cùng bạn bè</p>
         </div>
 
         {/* Thông báo Lỗi */}
         {errorMessage && (
           <div className="auth-alert error" role="alert">
-            <span className="alert-icon">⚠️</span>
+            <AlertCircle size={18} className="alert-icon" />
             <span>{errorMessage}</span>
           </div>
         )}
@@ -123,7 +132,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
               onChange={(e) => setDisplayName(e.target.value)}
               disabled={isLoading}
               tabIndex={1}
-              placeholder="VD: Nguyễn Văn A (Mặc định là username)"
+              placeholder="Tên bạn bè nhìn thấy (VD: Nguyễn Văn A)"
             />
           </div>
 
@@ -152,11 +161,13 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
               </label>
               <button
                 type="button"
-                className="show-pass-toggle"
+                className="show-pass-icon-btn"
                 onClick={() => setShowPassword(!showPassword)}
                 tabIndex={-1}
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               >
-                {showPassword ? 'Ẩn' : 'Hiện'}
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
             <div className="password-input-wrapper">
@@ -175,13 +186,25 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="reg-confirm-password">
-              XÁC NHẬN MẬT KHẨU <span className="required-star">*</span>
-            </label>
+            <div className="label-row">
+              <label className="form-label" htmlFor="reg-confirm-password">
+                XÁC NHẬN MẬT KHẨU <span className="required-star">*</span>
+              </label>
+              <button
+                type="button"
+                className="show-pass-icon-btn"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                tabIndex={-1}
+                aria-label={showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'}
+                title={showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'}
+              >
+                {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
             <div className="password-input-wrapper">
               <input
                 id="reg-confirm-password"
-                type={showPassword ? 'text' : 'password'}
+                type={showConfirmPassword ? 'text' : 'password'}
                 className="form-input"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -208,6 +231,10 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
             )}
           </button>
 
+          <p className="auth-terms-hint">
+            Bằng việc đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của LTMang Chat.
+          </p>
+
           <div className="auth-footer-link">
             <button
               type="button"
@@ -216,7 +243,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
               disabled={isLoading}
               tabIndex={6}
             >
-              ← Đã có tài khoản? Đăng nhập
+              ← Đã có tài khoản? Đăng nhập ngay
             </button>
           </div>
         </form>

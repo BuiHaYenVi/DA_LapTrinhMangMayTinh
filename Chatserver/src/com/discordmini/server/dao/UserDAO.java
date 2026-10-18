@@ -121,7 +121,50 @@ public class UserDAO {
             return false;
         }
     }
+    /**
+     * Cập nhật thông tin hồ sơ (Tên hiển thị) cho người dùng.
+     * Kiểm tra độ dài từ 1 đến 32 ký tự và escape an toàn với PreparedStatement.
+     */
+    public boolean updateProfile(int userId, String displayName) {
+        if (displayName == null || displayName.isBlank()) {
+            return false;
+        }
+        String trimmed = displayName.trim();
+        if (trimmed.length() > 32) {
+            trimmed = trimmed.substring(0, 32);
+        }
+        String sql = "UPDATE users SET display_name = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, trimmed);
+            ps.setInt(2, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("[UserDAO ERROR] Lỗi cập nhật hồ sơ user (ID=" + userId + "): " + e.getMessage());
+            return false;
+        }
+    }
 
+    /**
+     * Đổi mật khẩu cho người dùng:
+     * Kiểm tra mật khẩu cũ, kiểm tra độ dài mật khẩu mới (tối thiểu 6 ký tự),
+     * băm bằng PBKDF2 và lưu vào CSDL.
+     */
+    public boolean changePassword(int userId, String oldPassword, String newPassword) {
+        if (oldPassword == null || newPassword == null || newPassword.trim().length() < 6) {
+            return false;
+        }
+        User user = findById(userId);
+        if (user == null) {
+            return false;
+        }
+        // Kiểm tra khớp mật khẩu cũ
+        if (!com.discordmini.server.security.PasswordUtil.verifyPassword(oldPassword, user.getPassword())) {
+            return false;
+        }
+        String hashedNew = com.discordmini.server.security.PasswordUtil.hashPassword(newPassword.trim());
+        return updateUserPassword(userId, hashedNew);
+    }
     /**
      * Cập nhật trạng thái ONLINE / OFFLINE cho tài khoản.
      */

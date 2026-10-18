@@ -1,4 +1,4 @@
-import type { Room, MessageItem, User, Friend, PendingFriendRequest } from '../types/chat';
+import type { Room, Channel, MessageItem, User, Friend, PendingFriendRequest } from '../types/chat';
 
 type Listener = (event: string, data: any) => void;
 
@@ -177,7 +177,7 @@ class ChatBridgeService {
     } catch (e: any) {
       return {
         success: false,
-        message: 'Lỗi kết nối tới máy chủ cầu nối: ' + (e?.message || 'Không xác định')
+        message: 'Lỗi kết nối mạng: ' + (e?.message || 'Không xác định')
       };
     }
   }
@@ -199,15 +199,13 @@ class ChatBridgeService {
     } catch (e: any) {
       return {
         success: false,
-        message: 'Lỗi kết nối tới máy chủ cầu nối: ' + (e?.message || 'Không xác định')
+        message: 'Lỗi kết nối mạng: ' + (e?.message || 'Không xác định')
       };
     }
   }
 
   /**
    * Đăng xuất tài khoản và xóa phiên an toàn.
-   * CHỈ đóng luồng SSE khi máy chủ xác nhận hủy phiên thành công.
-   * Nếu có lỗi mạng hoặc thất bại, giữ nguyên phiên/SSE để tiếp tục nhận tin hoặc kiểm tra lại.
    */
   public async logout(): Promise<{ success: boolean; networkError?: boolean; message?: string }> {
     try {
@@ -219,24 +217,26 @@ class ChatBridgeService {
       return { 
         success: false, 
         networkError: false, 
-        message: 'Máy chủ phản hồi không thành công khi đăng xuất (HTTP ' + res.status + ').' 
+        message: 'Phản hồi không thành công khi đăng xuất (HTTP ' + res.status + ').' 
       };
     } catch (e: any) {
       return { 
         success: false, 
         networkError: true, 
-        message: 'Lỗi kết nối mạng: ' + (e?.message || 'Không thể liên lạc với máy chủ.') 
+        message: 'Lỗi kết nối mạng: ' + (e?.message || 'Không thể liên lạc với hệ thống.') 
       };
     }
   }
 
   /**
-   * Tải trạng thái ban đầu của phòng chat, tin nhắn, bạn bè sau khi đăng nhập.
+   * Tải trạng thái ban đầu của phòng chat, kênh, tin nhắn, bạn bè sau khi đăng nhập.
    */
   public async getInitialState(): Promise<{
     user: User;
     rooms: Room[];
     currentRoom: Room | null;
+    channels: Channel[];
+    currentChannel: Channel | null;
     messages: MessageItem[];
     members: User[];
     friends: Friend[];
@@ -255,20 +255,48 @@ class ChatBridgeService {
   }
 
   public async createRoom(name: string): Promise<void> {
-    await this.fetchWithAuth(`${this.baseUrl}/rooms/create`, {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/rooms/create`, {
       method: 'POST',
       body: JSON.stringify({ name })
     });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
   }
 
   public async leaveRoom(): Promise<void> {
     await this.fetchWithAuth(`${this.baseUrl}/rooms/leave`, { method: 'POST' });
   }
 
-  public async sendMessage(content: string): Promise<void> {
+  public async getChannels(roomId: number): Promise<Channel[]> {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/channels?roomId=${roomId}`, { method: 'GET' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.channels || [];
+  }
+
+  public async createChannel(roomId: number, name: string): Promise<void> {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/channels/create`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, name })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  }
+
+  public async joinChannel(roomId: number, channelId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/channels/join`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, channelId })
+    });
+  }
+
+  public async sendMessage(content: string, channelId?: number): Promise<void> {
     await this.fetchWithAuth(`${this.baseUrl}/messages/send`, {
       method: 'POST',
-      body: JSON.stringify({ content })
+      body: JSON.stringify({ content, channelId })
     });
   }
 
@@ -379,6 +407,45 @@ class ChatBridgeService {
       method: 'POST',
       body: JSON.stringify({ roomId, targetUserId, role })
     });
+  }
+
+  public async updateProfile(displayName: string, bio: string = '', avatarColor: string = ''): Promise<{ success: boolean; message?: string; notSupported?: boolean; displayName?: string }> {
+    try {
+      const res = await this.fetchWithAuth(`${this.baseUrl}/user/profile`, {
+        method: 'POST',
+        body: JSON.stringify({ displayName, bio, avatarColor })
+      });
+      if (res.status === 404 || res.status === 501) {
+        return { success: false, notSupported: true, message: 'Tính năng đang phát triển' };
+      }
+      const data = await res.json();
+      return {
+        success: data.success === true,
+        displayName: data.displayName || displayName,
+        message: data.message
+      };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi mạng khi cập nhật hồ sơ' };
+    }
+  }
+
+  public async changePassword(oldPassword: string, newPassword: string): Promise<{ success: boolean; message?: string; notSupported?: boolean }> {
+    try {
+      const res = await this.fetchWithAuth(`${this.baseUrl}/user/password`, {
+        method: 'POST',
+        body: JSON.stringify({ oldPassword, newPassword })
+      });
+      if (res.status === 404 || res.status === 501) {
+        return { success: false, notSupported: true, message: 'Tính năng đang phát triển' };
+      }
+      const data = await res.json();
+      return {
+        success: data.success === true,
+        message: data.message
+      };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi mạng khi đổi mật khẩu' };
+    }
   }
 }
 

@@ -1,15 +1,17 @@
-import React, { useState, useRef } from 'react';
-import type { Room, MessageItem, User } from '../types/chat';
+import React, { useState, useRef, useEffect } from 'react';
+import type { Room, Channel, MessageItem } from '../types/chat';
 import { 
-  Hash, Search, UserPlus, LogOut, Send, Edit3, Trash2,
-  Users, ArrowRight, Crown, Shield
+  Hash, Search, UserPlus, Send, Edit3, Trash2,
+  Users, ArrowRight, Loader2, MessageSquare, PlusCircle, Smile, Bell, Pin
 } from 'lucide-react';
 import { Logo } from './Logo';
 
 interface Props {
   currentRoom: Room | null;
+  currentChannel: Channel | null;
+  isDirectMessageMode?: boolean;
+  isLoading?: boolean;
   messages: MessageItem[];
-  members?: User[];
   currentUserId: number;
   currentUserRole?: string;
   isMemberListOpen?: boolean;
@@ -93,7 +95,7 @@ function extractJoinedUser(content: string): string {
   return '';
 }
 
-// 5. Kiểm tra gom tin nhắn liên tiếp của cùng người trong vòng 5 phút
+// 5. Gom tin nhắn liên tiếp của cùng người trong vòng 5 phút
 function shouldGroupWithPrevious(
   current: MessageItem,
   previous: MessageItem | undefined,
@@ -116,8 +118,10 @@ function shouldGroupWithPrevious(
 
 export const ChatCenter: React.FC<Props> = ({
   currentRoom,
+  currentChannel,
+  isDirectMessageMode = false,
+  isLoading = false,
   messages,
-  members = [],
   currentUserId,
   currentUserRole,
   isMemberListOpen = true,
@@ -127,8 +131,6 @@ export const ChatCenter: React.FC<Props> = ({
   onDeleteMessage,
   onLoadMore,
   onInvite,
-  onLeave,
-  onKick,
   isOwner
 }) => {
   const [inputText, setInputText] = useState('');
@@ -136,6 +138,14 @@ export const ChatCenter: React.FC<Props> = ({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const mainInputRef = useRef<HTMLInputElement>(null);
+
+  // Xóa ô nhập tin khi đổi kênh hoặc đổi phòng để tránh gửi nhầm
+  useEffect(() => {
+    setInputText('');
+    setEditingId(null);
+    setSearchTerm('');
+  }, [currentRoom?.id, currentChannel?.id, isDirectMessageMode]);
 
   const displayedMessages = searchTerm.trim()
     ? messages.filter(m =>
@@ -154,14 +164,6 @@ export const ChatCenter: React.FC<Props> = ({
     if (e.key === 'Enter') {
       handleSend();
     }
-  };
-
-  const handleLeaveClick = () => {
-    onLeave();
-  };
-
-  const handleKickClick = () => {
-    onKick();
   };
 
   const handleSaveEdit = (msgId: number) => {
@@ -186,102 +188,152 @@ export const ChatCenter: React.FC<Props> = ({
     }
   };
 
-  const scrollToMessage = (msgId: number) => {
-    const el = document.getElementById(`msg-${msgId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('flash-highlight');
-      setTimeout(() => el.classList.remove('flash-highlight'), 2000);
+  // Cuộn xuống tin mới nhất
+  useEffect(() => {
+    if (chatMessagesRef.current && !isLoading) {
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
     }
-  };
+  }, [messages.length, isLoading]);
+
+  // 1. MÀN HÌNH CHẾ ĐỘ TIN NHẮN TRỰC TIẾP
+  if (isDirectMessageMode) {
+    return (
+      <div className="chat-center">
+        <div className="chat-header">
+          <div className="chat-header-left">
+            <Users size={24} className="channel-hash-icon" color="var(--accent)" />
+            <div className="chat-header-title">Bạn bè & Tin nhắn trực tiếp</div>
+          </div>
+        </div>
+
+        <div className="chat-messages-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="chat-empty-state" style={{ maxWidth: '480px' }}>
+            <div className="empty-state-logo-wrap">
+              <MessageSquare size={56} color="var(--accent)" />
+            </div>
+            <h2 className="empty-state-title">Khu vực Tin nhắn trực tiếp</h2>
+            <p className="empty-state-desc">
+              Chức năng kết bạn và nhắn tin riêng 1–1 chưa được triển khai trong lượt này theo đúng yêu cầu phạm vi.
+              Hệ thống hiện đang tập trung hoàn thiện mô hình <strong>PHÒNG → KÊNH</strong> chat chữ.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="chat-center">
-      {/* 1. Header Bar chuẩn Discord */}
+      {/* 1. Header Bar: Tiêu đề kênh chat (# tên-kênh) và các công cụ kênh */}
       <div className="chat-header">
         <div className="chat-header-left">
-          <Hash size={24} className="channel-hash-icon" />
-          <div className="chat-header-title">{currentRoom ? currentRoom.name : 'Chọn phòng chat'}</div>
-          {currentRoom && (
-            <div className="chat-header-desc">
-              {currentRoom.description || 'Đây là kênh trò chuyện chính thức.'}
+          <div className="chat-header-channel-wrap" title={currentChannel ? `Kênh #${currentChannel.name}` : ''}>
+            <Hash size={22} className="channel-hash-icon" />
+            <div className="chat-header-title">
+              {currentChannel ? currentChannel.name : 'Chọn kênh'}
             </div>
+          </div>
+
+          {currentRoom?.description && (
+            <>
+              <div className="chat-header-separator subtle" />
+              <div className="chat-header-desc" title={`Mô tả: ${currentRoom.description}`}>
+                {currentRoom.description}
+              </div>
+            </>
           )}
         </div>
 
         <div className="chat-header-right">
-          {/* Hộp tìm kiếm bo cong tròn chuẩn Discord */}
-          <div className="discord-search-box">
-            <input 
-              placeholder={`Tìm kiếm ${currentRoom ? currentRoom.name : ''}`}
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-            {searchTerm ? (
-              <button 
-                className="search-clear-btn"
-                onClick={() => setSearchTerm('')}
-              >
-                ✕
-              </button>
-            ) : (
-              <Search size={15} className="search-icon" />
-            )}
-          </div>
+          {/* Nút thông báo */}
+          <button className="header-icon-btn" title="Thông báo" aria-label="Thông báo">
+            <Bell size={20} />
+          </button>
 
+          {/* Nút tin nhắn ghim */}
+          <button className="header-icon-btn" title="Tin nhắn đã ghim" aria-label="Tin nhắn đã ghim">
+            <Pin size={20} />
+          </button>
+
+          {/* Nút bật/tắt danh sách thành viên phòng */}
           {onToggleMemberList && (
             <button 
-              className={`header-icon-btn ${isMemberListOpen ? 'active' : ''}`} 
-              title={isMemberListOpen ? 'Ẩn danh sách thành viên' : 'Hiện danh sách thành viên'}
+              className={`header-icon-btn ${isMemberListOpen ? 'active' : ''}`}
+              title="Danh sách thành viên phòng"
               onClick={onToggleMemberList}
+              aria-label="Danh sách thành viên phòng"
             >
-              <Users size={18} />
+              <Users size={20} />
             </button>
           )}
 
-          {currentRoom && (
-            <>
-              <button className="header-btn blurple" onClick={onInvite} title="Mời bạn vào phòng">
-                <UserPlus size={15} />
-                <span>Mời bạn</span>
-              </button>
-
-              {isOwner && (
-                <button className="header-btn red" onClick={handleKickClick} title="Kick thành viên (chỉ Chủ phòng)">
-                  <span>Kick</span>
-                </button>
-              )}
-
-              <button className="header-btn red" onClick={handleLeaveClick} title="Rời phòng">
-                <LogOut size={15} />
-                <span>Rời phòng</span>
-              </button>
-            </>
-          )}
+          {/* Hộp tìm kiếm */}
+          <div className="discord-search-box">
+            <input 
+              placeholder={`Tìm kiếm`}
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              disabled={!currentChannel || isLoading}
+            />
+            <Search size={16} className="search-icon" />
+          </div>
         </div>
       </div>
 
-      {/* 2. Messages History */}
-      <div className="chat-messages" ref={chatMessagesRef} onScroll={handleScroll}>
-        {currentRoom ? (
-          <>
-            {onLoadMore && messages.length >= 25 && (
-              <div style={{ textAlign: 'center', padding: '8px 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-                Cuộn lên đầu để tải thêm tin nhắn cũ hơn...
-              </div>
-            )}
-
-            {/* HERO WELCOME BANNER ở đầu kênh (Chuẩn ảnh Discord thật) */}
+      {/* 2. Messages List Container */}
+      <div 
+        className="chat-messages-container" 
+        ref={chatMessagesRef}
+        onScroll={handleScroll}
+      >
+        {isLoading ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            color: 'var(--text-muted)',
+            gap: '12px'
+          }}>
+            <Loader2 size={32} className="spin-animation" color="var(--accent)" />
+            <span style={{ fontSize: '14px', fontWeight: 500 }}>Đang tải tin nhắn kênh #{currentChannel?.name}...</span>
+          </div>
+        ) : currentRoom && currentChannel ? (
+          <div className="messages-flow">
+            {/* Hero Welcome Banner ở đầu kênh */}
             <div className="channel-hero-welcome">
               <div className="hero-hash-circle">
-                <Hash size={40} />
+                <Hash size={42} />
               </div>
               <h1 className="hero-title">
-                Chào mừng đến với #{currentRoom.name}!
+                Chào mừng đến với #{currentChannel.name}!
               </h1>
               <p className="hero-subtitle">
-                Đây là sự khởi đầu của kênh #{currentRoom.name}. Hãy gửi tin nhắn đầu tiên!
+                Đây là khởi đầu của kênh <strong>#{currentChannel.name}</strong> thuộc phòng <strong>{currentRoom.name}</strong>.
               </p>
+              {displayedMessages.length === 0 && (
+                <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
+                  <button 
+                    className="header-btn blurple" 
+                    onClick={onInvite} 
+                    title="Mời bạn bè vào phòng"
+                    style={{ padding: '8px 14px', borderRadius: '4px' }}
+                  >
+                    <UserPlus size={16} />
+                    <span>Mời bạn bè</span>
+                  </button>
+                  <button 
+                    className="header-btn" 
+                    onClick={() => mainInputRef.current?.focus()} 
+                    title="Gửi tin nhắn đầu tiên"
+                    style={{ padding: '8px 14px', borderRadius: '4px', background: 'var(--bg-hover)', color: 'var(--text-header)' }}
+                  >
+                    <Send size={16} />
+                    <span>Gửi tin nhắn</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {displayedMessages.map((msg, idx) => {
@@ -292,7 +344,7 @@ export const ChatCenter: React.FC<Props> = ({
               const isGrouped = !isNewDay && shouldGroupWithPrevious(msg, prevMsg, curDateKey, prevDateKey);
               const timeInfo = formatMessageTime(msg.timestamp);
 
-              // Tin nhắn hệ thống dạng Discord thật
+              // Tin nhắn hệ thống
               if (msg.senderId === -1 || msg.content.startsWith('🔔') || msg.senderName === 'Hệ thống') {
                 const joinedName = extractJoinedUser(msg.content);
                 const displayContent = joinedName 
@@ -320,102 +372,50 @@ export const ChatCenter: React.FC<Props> = ({
                 );
               }
 
-              // Thông tin vai trò của thành viên gửi tin
-              const senderMember = members.find(m => m.id === msg.senderId);
-              const senderRole = senderMember?.role;
               const canEdit = msg.senderId === currentUserId;
               const canDelete = msg.senderId === currentUserId || isOwner || currentUserRole === 'ADMIN';
 
               return (
                 <React.Fragment key={msg.id || idx}>
-                  {/* Ngăn cách ngày mỗi khi đổi ngày (Hôm nay / Hôm qua / dd/mm/yyyy) */}
+                  {/* Ngăn cách ngày */}
                   {isNewDay && curDateKey && (
                     <div className="date-divider">
                       <span className="date-badge">{formatDateLabel(curDateKey)}</span>
                     </div>
                   )}
 
-                  {/* Khung tin nhắn */}
-                  <div
+                  <div 
+                    className={`discord-message-row ${isGrouped ? 'grouped' : ''}`}
                     id={`msg-${msg.id}`}
-                    className={`message-card ${isGrouped ? 'compact' : ''} ${msg.senderId === currentUserId ? 'highlight' : ''}`}
-                    onClick={() => searchTerm && scrollToMessage(msg.id)}
                   >
-                    {/* Thanh thao tác nhanh (Sửa / Xóa) khi di chuột */}
-                    <div className="message-actions-toolbar">
-                      {canEdit && (
-                        <button
-                          className="message-action-btn"
-                          title="Sửa tin nhắn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingId(msg.id);
-                            setEditText(msg.content);
-                          }}
-                        >
-                          <Edit3 size={14} />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          className="message-action-btn delete"
-                          title="Xóa tin nhắn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(msg.id);
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-
                     {isGrouped ? (
-                      <div className="compact-gutter">
-                        <span className="compact-time" title={timeInfo.full}>
-                          {timeInfo.short}
-                        </span>
-                      </div>
+                      <span className="grouped-timestamp" title={timeInfo.full}>
+                        {timeInfo.short}
+                      </span>
                     ) : (
-                      <div className="message-avatar">
-                        {msg.senderName ? msg.senderName.charAt(0).toUpperCase() : 'U'}
+                      <div className="msg-avatar-col">
+                        <div className="user-avatar-circle">
+                          {msg.senderName ? msg.senderName.charAt(0).toUpperCase() : 'U'}
+                        </div>
                       </div>
                     )}
 
-                    <div className="message-body">
+                    <div className="msg-content-col">
                       {!isGrouped && (
-                        <div className="message-header">
-                          <span className={`sender-name ${msg.senderId === currentUserId ? 'me' : ''}`}>
-                            {msg.senderName} {msg.senderId === currentUserId ? '(Bạn)' : ''}
+                        <div className="msg-header-line">
+                          <span className="sender-name">
+                            {msg.senderName}
                           </span>
-
-                          {/* Huy hiệu vai trò */}
-                          {senderRole === 'OWNER' && (
-                            <span className="role-badge owner" title="Chủ phòng">
-                              <Crown size={12} /> Chủ phòng
-                            </span>
-                          )}
-                          {senderRole === 'ADMIN' && (
-                            <span className="role-badge admin" title="Quản trị viên">
-                              <Shield size={12} /> Admin
-                            </span>
-                          )}
-
-                          <span className="message-time" title={timeInfo.full}>
+                          <span className="msg-timestamp" title={timeInfo.full}>
                             {timeInfo.short}
                           </span>
-
-                          {msg.isEdited && (
-                            <span className="edited-indicator">(đã chỉnh sửa)</span>
-                          )}
                         </div>
                       )}
 
-                      {/* Chế độ chỉnh sửa inline */}
                       {editingId === msg.id ? (
-                        <div className="inline-edit-box">
+                        <div className="msg-edit-wrap">
                           <input
-                            className="inline-edit-input"
+                            type="text"
                             value={editText}
                             onChange={e => setEditText(e.target.value)}
                             onKeyDown={e => {
@@ -423,71 +423,109 @@ export const ChatCenter: React.FC<Props> = ({
                               if (e.key === 'Escape') setEditingId(null);
                             }}
                             autoFocus
+                            maxLength={5000}
                           />
-                          <div className="inline-edit-actions">
-                            <span>nhấn enter để <span className="save-btn" onClick={() => handleSaveEdit(msg.id)}>lưu</span> • nhấn esc hoặc <span className="cancel-btn" onClick={() => setEditingId(null)}>hủy</span></span>
+                          <div className="msg-edit-actions">
+                            <button className="btn-cancel" onClick={() => setEditingId(null)}>Hủy (Esc)</button>
+                            <button className="btn-primary" onClick={() => handleSaveEdit(msg.id)}>Lưu (Enter)</button>
                           </div>
                         </div>
                       ) : (
-                        <div className="message-content">
+                        <div className="msg-body">
                           {msg.content}
-                          {isGrouped && msg.isEdited && (
-                            <span className="edited-indicator">(đã chỉnh sửa)</span>
-                          )}
+                          {msg.isEdited && <span className="edited-badge" title="Tin nhắn đã chỉnh sửa">(đã chỉnh sửa)</span>}
                         </div>
                       )}
+                    </div>
 
-                      {/* Phản ứng reaction */}
-                      {msg.reactions && msg.reactions.length > 0 && (
-                        <div className="reactions-list">
-                          {msg.reactions.map((r, rIdx) => (
-                            <div key={rIdx} className={`reaction-pill ${r.me ? 'me' : ''}`}>
-                              <span>{r.emoji}</span>
-                              <span>{r.count}</span>
-                            </div>
-                          ))}
-                        </div>
+                    {/* Toolbar thao tác sửa / xóa tin nhắn */}
+                    <div className="msg-quick-toolbar">
+                      {canEdit && editingId !== msg.id && (
+                        <button 
+                          className="quick-action-btn" 
+                          title="Chỉnh sửa tin nhắn"
+                          onClick={() => {
+                            setEditingId(msg.id);
+                            setEditText(msg.content);
+                          }}
+                        >
+                          <Edit3 size={15} />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button 
+                          className="quick-action-btn danger" 
+                          title="Xóa tin nhắn"
+                          onClick={() => handleDelete(msg.id)}
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       )}
                     </div>
                   </div>
                 </React.Fragment>
               );
             })}
-          </>
+          </div>
         ) : (
-          /* Màn hình chào khi chưa chọn phòng chat (Empty state chuẩn không dùng text kỹ thuật) */
+          /* Màn hình khi chưa chọn phòng hoặc kênh */
           <div className="chat-empty-state">
             <div className="empty-state-logo-wrap">
               <Logo size={64} />
             </div>
-            <h2 className="empty-state-title">Chào mừng bạn đến với LTMang Chat</h2>
+            <h2 className="empty-state-title">
+              {currentRoom ? `Phòng ${currentRoom.name}` : 'Chào mừng bạn đến với LTMang Chat'}
+            </h2>
             <p className="empty-state-desc">
-              Hãy chọn một phòng chat ở danh sách bên trái để bắt đầu trò chuyện, hoặc nhấn nút bên dưới để tạo phòng mới kết nối cùng mọi người.
+              {currentRoom 
+                ? 'Hãy chọn một kênh chat ở danh sách bên trái để bắt đầu trò chuyện.' 
+                : 'Hãy chọn một phòng ở thanh biểu tượng ngoài cùng bên trái để bắt đầu.'}
             </p>
-            <button className="empty-state-action" onClick={onInvite}>
-              <UserPlus size={16} />
-              <span>Bắt đầu trò chuyện</span>
-            </button>
           </div>
         )}
       </div>
 
-      {/* 3. Bottom Input Box (Rộng rãi, ổn định, không icon rác) */}
+      {/* 3. Bottom Input Box */}
       <div className="chat-input-container">
         <div className="chat-input-pill">
+          <button 
+            type="button" 
+            className="input-attach-btn" 
+            title="Đính kèm tệp"
+            aria-label="Đính kèm tệp"
+          >
+            <PlusCircle size={22} />
+          </button>
+
           <input
-            placeholder={currentRoom ? `Nhắn #${currentRoom.name}` : 'Hãy chọn phòng để gõ tin nhắn...'}
-            disabled={!currentRoom}
+            ref={mainInputRef}
+            placeholder={
+              currentChannel 
+                ? `Gửi tin nhắn tới #${currentChannel.name}` 
+                : (currentRoom ? 'Hãy chọn một kênh để gõ tin nhắn...' : 'Hãy chọn phòng để bắt đầu...')
+            }
+            disabled={!currentChannel || isLoading}
             value={inputText}
             onChange={e => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
           />
 
           <button 
+            type="button" 
+            className="input-emoji-btn" 
+            title="Biểu cảm"
+            aria-label="Biểu cảm"
+          >
+            <Smile size={22} />
+          </button>
+
+          <button 
+            type="button"
             className="chat-send-btn" 
             title="Gửi tin nhắn (Enter)"
             onClick={handleSend}
-            disabled={!inputText.trim() || !currentRoom}
+            disabled={!inputText.trim() || !currentChannel || isLoading}
+            aria-label="Gửi tin nhắn"
           >
             <Send size={18} />
           </button>
@@ -497,3 +535,4 @@ export const ChatCenter: React.FC<Props> = ({
   );
 };
 
+export default ChatCenter;

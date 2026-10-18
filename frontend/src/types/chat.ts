@@ -16,6 +16,13 @@ export interface Room {
   memberCount?: number;
 }
 
+export interface Channel {
+  id: number;
+  roomId: number;
+  name: string;
+  createdAt?: string;
+}
+
 export interface Reaction {
   emoji: string;
   count: number;
@@ -24,6 +31,8 @@ export interface Reaction {
 
 export interface MessageItem {
   id: number;
+  roomId?: number;
+  channelId?: number;
   senderId: number;
   senderName: string;
   avatar?: string;
@@ -32,6 +41,8 @@ export interface MessageItem {
   date?: string;
   isMe?: boolean;
   isEdited?: boolean;
+  isDirect?: boolean;
+  targetId?: number;
   reactions?: Reaction[];
   attachment?: {
     name: string;

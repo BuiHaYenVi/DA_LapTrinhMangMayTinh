@@ -63,6 +63,9 @@ public class ChatServer {
 
     private void initDefaultDatabaseRecords() {
         try {
+            // Tự động kiểm tra và nâng cấp cấu trúc bảng channels và migrate tin nhắn
+            com.discordmini.server.config.DatabaseMigration.runMigration();
+
             User systemUser = userDAO.findUser("system");
             if (systemUser == null) {
                 systemUser = userDAO.register("system", "system_protected_pwd", "Hệ Thống");

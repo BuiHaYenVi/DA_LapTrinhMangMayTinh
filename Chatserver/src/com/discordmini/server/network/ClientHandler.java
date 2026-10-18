@@ -18,13 +18,14 @@ public class ClientHandler implements Runnable {
     private volatile boolean running = true;
     private User user;
     private Integer currentRoomId;
+    private Integer currentChannelId;
     /** Request metadata is scoped to the single reader thread for this client. */
     private String activeRequestId;
     private boolean requestFailed;
 
     private static final int MAX_USERNAME_LENGTH = 50;
     private static final int MAX_DISPLAY_NAME_LENGTH = 100;
-    private static final int MAX_ROOM_NAME_LENGTH = 100;
+    private static final int MAX_ROOM_NAME_LENGTH = 50;
     private static final int MAX_MESSAGE_LENGTH = 5000;
 
     public ClientHandler(Socket socket, ChatServer server) throws IOException {
@@ -34,6 +35,7 @@ public class ClientHandler implements Runnable {
 
     public User getUser() { return user; }
     public Integer getCurrentRoomId() { return currentRoomId; }
+    public Integer getCurrentChannelId() { return currentChannelId; }
     public void sendPacket(String packet) { connection.send(packet); }
     public boolean isConnected() { return connection != null && connection.isConnected(); }
 
@@ -103,6 +105,11 @@ public class ClientHandler implements Runnable {
                 case TRANSFER_OWNER -> handleTransferOwner(parts);
                 case SET_MEMBER_ROLE -> handleSetMemberRole(parts);
                 case HISTORY_PAGE -> handleHistoryPage(parts);
+                case CREATE_CHANNEL -> handleCreateChannel(parts);
+                case LIST_CHANNELS -> handleListChannels(parts);
+                case JOIN_CHANNEL -> handleJoinChannel(parts);
+                case UPDATE_PROFILE -> handleUpdateProfile(parts);
+                case CHANGE_PASSWORD -> handleChangePassword(parts);
             }
         } catch (Exception e) {
             sendError(
@@ -241,14 +248,37 @@ public class ClientHandler implements Runnable {
 
     private void handleCreateRoom(String[] parts) throws Exception {
         requireLogin();
-        requireArgs(parts, 2);
+
+        if (parts.length < 2 || ProtocolHandler.REQUEST_ID_MARKER.equals(parts[1])) {
+            sendError(
+                    ProtocolErrorCode.INVALID_ROOM_NAME,
+                    "Tên phòng không được để trống."
+            );
+            return;
+        }
 
         String name = ProtocolHandler.decode(parts[1]).trim();
 
-        if (name.isBlank() || name.length() > MAX_ROOM_NAME_LENGTH) {
+        if (name.isBlank()) {
             sendError(
                     ProtocolErrorCode.INVALID_ROOM_NAME,
-                    "Tên phòng không hợp lệ hoặc vượt quá 100 ký tự."
+                    "Tên phòng không được để trống."
+            );
+            return;
+        }
+
+        if (name.length() > MAX_ROOM_NAME_LENGTH) {
+            sendError(
+                    ProtocolErrorCode.INVALID_ROOM_NAME,
+                    "Tên phòng không được vượt quá 50 ký tự."
+            );
+            return;
+        }
+
+        if (server.getRoomService().existsByName(name)) {
+            sendError(
+                    ProtocolErrorCode.ROOM_NAME_TAKEN,
+                    "Tên phòng đã tồn tại."
             );
             return;
         }
@@ -305,14 +335,23 @@ public class ClientHandler implements Runnable {
         room.getMemberIds().add(user.getId());
         server.getRoomManager().join(room, this);
 
+        com.discordmini.server.model.Channel defCh = server.getRoomService().getDefaultChannel(roomId);
+        currentChannelId = (defCh != null) ? defCh.getId() : 0;
+        String defChName = (defCh != null) ? defCh.getName() : "chung";
+
         connection.send(
                 "OK|JOIN_ROOM|"
                         + roomId
                         + "|"
                         + ProtocolHandler.encode(room.getName())
+                        + "|"
+                        + currentChannelId
+                        + "|"
+                        + ProtocolHandler.encode(defChName)
         );
 
-        handleHistory();
+        sendChannels(roomId);
+        handleHistory(currentChannelId);
 
         broadcastRoom(
                 "SYSTEM|"
@@ -359,7 +398,31 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        String content = ProtocolHandler.decode(parts[1]).trim();
+        int targetChannelId = (currentChannelId != null && currentChannelId > 0) ? currentChannelId : 0;
+        String content;
+
+        // Cho phép định dạng SEND_MESSAGE|<channelId>|<content> hoặc SEND_MESSAGE|<content>
+        if (parts.length >= 2) {
+            String decodedPart1 = ProtocolHandler.decode(parts[1]).trim();
+            boolean isChannelId = false;
+            try {
+                int parsed = Integer.parseInt(decodedPart1);
+                targetChannelId = parsed;
+                isChannelId = true;
+            } catch (NumberFormatException ignored) {}
+
+            if (isChannelId) {
+                if (parts.length >= 3 && !ProtocolHandler.REQUEST_ID_MARKER.equals(parts[2])) {
+                    content = ProtocolHandler.decode(parts[2]).trim();
+                } else {
+                    content = "";
+                }
+            } else {
+                content = decodedPart1;
+            }
+        } else {
+            content = "";
+        }
 
         if (content.isBlank()) {
             sendError(
@@ -377,13 +440,21 @@ public class ClientHandler implements Runnable {
             return;
         }
 
+        if (targetChannelId <= 0) {
+            com.discordmini.server.model.Channel def = server.getRoomService().getDefaultChannel(currentRoomId);
+            if (def != null) {
+                targetChannelId = def.getId();
+            }
+        }
+
         Message message = server.getChatService().save(
-                currentRoomId, user, content
+                currentRoomId, targetChannelId, user, content
         );
 
         String packet = "NEW_MESSAGE|"
                 + message.getId() + "|"
                 + message.getRoomId() + "|"
+                + message.getChannelId() + "|"
                 + ProtocolHandler.encode(message.getSender()) + "|"
                 + ProtocolHandler.encode(message.getContent()) + "|"
                 + ProtocolHandler.encode(message.getTimestamp());
@@ -456,6 +527,10 @@ public class ClientHandler implements Runnable {
     }
 
     private void handleHistory() {
+        handleHistory(currentChannelId);
+    }
+
+    private void handleHistory(Integer channelId) {
         requireLogin();
 
         if (currentRoomId == null) {
@@ -466,14 +541,26 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        List<Message> history = server.getChatService().history(currentRoomId);
+        int targetChannelId = (channelId != null && channelId > 0) ? channelId : 0;
+        if (targetChannelId <= 0) {
+            com.discordmini.server.model.Channel def = server.getRoomService().getDefaultChannel(currentRoomId);
+            if (def != null) {
+                targetChannelId = def.getId();
+            }
+        }
 
-        connection.send("HISTORY_BEGIN|" + currentRoomId);
+        List<Message> history = (targetChannelId > 0)
+                ? server.getChatService().channelHistory(targetChannelId, 50)
+                : server.getChatService().history(currentRoomId);
+
+        connection.send("HISTORY_BEGIN|" + currentRoomId + "|" + targetChannelId);
 
         for (Message m : history) {
             connection.send(
                     "HISTORY_ITEM|"
                             + m.getId()
+                            + "|"
+                            + (m.getChannelId() > 0 ? m.getChannelId() : targetChannelId)
                             + "|"
                             + ProtocolHandler.encode(m.getSender())
                             + "|"
@@ -486,6 +573,131 @@ public class ClientHandler implements Runnable {
         }
 
         connection.send("HISTORY_END");
+    }
+
+    private void handleCreateChannel(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        String channelName = ProtocolHandler.decode(parts[2]).trim();
+
+        if (channelName.isBlank()) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tên kênh không được để trống.");
+            return;
+        }
+
+        if (channelName.length() > 50) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tên kênh không được vượt quá 50 ký tự.");
+            return;
+        }
+
+        // Quyền: Chỉ OWNER hoặc ADMIN
+        String role = server.getRoomService().getMemberRole(roomId, user.getId());
+        if (role == null || (!"OWNER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role))) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ chủ phòng hoặc quản trị viên mới có quyền tạo kênh.");
+            return;
+        }
+
+        // Kiểm tra trùng tên trong phòng
+        if (server.getRoomService().getChannelDAO().existsByName(roomId, channelName)) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tên kênh '" + channelName + "' đã tồn tại trong phòng này.");
+            return;
+        }
+
+        com.discordmini.server.model.Channel channel = server.getRoomService().createChannel(roomId, channelName, user.getId());
+        if (channel == null) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Không thể tạo kênh.");
+            return;
+        }
+
+        connection.send(
+                "OK|CHANNEL_CREATED|"
+                        + roomId
+                        + "|"
+                        + channel.getId()
+                        + "|"
+                        + ProtocolHandler.encode(channel.getName())
+        );
+
+        // Đồng bộ danh sách kênh cho tất cả client trong phòng
+        for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
+            c.sendChannels(roomId);
+        }
+    }
+
+    private void handleListChannels(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 2);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        if (!server.getRoomService().isMember(roomId, user.getId())) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Bạn không phải thành viên của phòng này.");
+            return;
+        }
+
+        sendChannels(roomId);
+    }
+
+    public void sendChannels(int roomId) {
+        if (user == null || roomId <= 0) return;
+        List<com.discordmini.server.model.Channel> channels = server.getRoomService().listChannels(roomId, user.getId());
+        StringBuilder sb = new StringBuilder("CHANNELS|").append(roomId);
+        for (com.discordmini.server.model.Channel ch : channels) {
+            sb.append('|')
+                    .append(ch.getId())
+                    .append(',')
+                    .append(ProtocolHandler.encode(ch.getName()));
+        }
+        connection.send(sb.toString());
+    }
+
+    private void handleJoinChannel(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+
+        int roomId = parseId(parts[1], "ID phòng");
+        int channelId = parseId(parts[2], "ID kênh");
+
+        if (!server.getRoomService().isMember(roomId, user.getId())) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Bạn không phải thành viên của phòng này.");
+            return;
+        }
+
+        com.discordmini.server.model.Channel ch = server.getRoomService().findChannel(channelId);
+        if (ch == null || ch.getRoomId() != roomId) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Kênh không tồn tại trong phòng này.");
+            return;
+        }
+
+        Room room = server.getRoomService().findRoom(roomId);
+        if (room == null) {
+            sendError(ProtocolErrorCode.ROOM_NOT_FOUND, "Không tìm thấy phòng.");
+            return;
+        }
+
+        // Đảm bảo client đang tham gia phòng
+        if (currentRoomId == null || currentRoomId != roomId) {
+            leaveCurrentRoom(false);
+            currentRoomId = roomId;
+            server.getRoomService().joinRoom(roomId, user.getId());
+            room.getMemberIds().add(user.getId());
+            server.getRoomManager().join(room, this);
+            sendRoomMembers();
+        }
+
+        currentChannelId = channelId;
+
+        connection.send(
+                "OK|JOIN_CHANNEL|"
+                        + roomId
+                        + "|"
+                        + channelId
+                        + "|"
+                        + ProtocolHandler.encode(ch.getName())
+        );
+
+        handleHistory(channelId);
     }
 
     private void sendRooms() {
@@ -580,6 +792,7 @@ public class ClientHandler implements Runnable {
         }
 
         currentRoomId = null;
+        currentChannelId = null;
 
         // Cập nhật danh sách thành viên cho các client còn lại trong phòng cũ
         for (ClientHandler c : server.getRoomManager().clientsIn(oldRoomId)) {
@@ -1193,6 +1406,47 @@ public class ClientHandler implements Runnable {
     private void broadcastToRoom(int roomId, String packet) {
         for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
             c.connection.send(packet);
+        }
+    }
+
+    private void handleUpdateProfile(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 2);
+
+        String newDisplayName = ProtocolHandler.decode(parts[1]).trim();
+        if (newDisplayName.isBlank() || newDisplayName.length() > 32) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tên hiển thị phải từ 1 đến 32 ký tự.");
+            return;
+        }
+
+        boolean ok = server.getUserDAO().updateProfile(user.getId(), newDisplayName);
+        if (ok) {
+            user.setDisplayName(newDisplayName);
+            connection.send("OK|UPDATE_PROFILE|" + ProtocolHandler.encode(newDisplayName));
+            // Phát sóng toàn cục thông báo thay đổi tên hiển thị để danh sách thành viên cập nhật
+            broadcastGlobal("USER_PROFILE_UPDATED|" + user.getId() + "|" + ProtocolHandler.encode(newDisplayName));
+        } else {
+            sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể cập nhật hồ sơ người dùng.");
+        }
+    }
+
+    private void handleChangePassword(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+
+        String oldPass = ProtocolHandler.decode(parts[1]);
+        String newPass = ProtocolHandler.decode(parts[2]);
+
+        if (newPass == null || newPass.trim().length() < 6) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Mật khẩu mới phải có tối thiểu 6 ký tự.");
+            return;
+        }
+
+        boolean ok = server.getUserDAO().changePassword(user.getId(), oldPass, newPass);
+        if (ok) {
+            connection.send("OK|CHANGE_PASSWORD");
+        } else {
+            sendError(ProtocolErrorCode.AUTH_FAILED, "Mật khẩu cũ không chính xác hoặc không hợp lệ.");
         }
     }
 }

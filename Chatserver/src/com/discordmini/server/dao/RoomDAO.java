@@ -14,39 +14,91 @@ import java.util.List;
 public class RoomDAO {
 
     /**
-     * Tạo một phòng chat mới.
-     * Tự động thêm người tạo phòng vào danh sách thành viên của phòng đó.
+     * Tạo một phòng chat mới kèm kênh mặc định 'chung' và quyền OWNER.
+     * Cả 3 thao tác được thực hiện nhất quán trong một Transaction duy nhất.
      */
     public Room createRoom(String roomName, int createdBy) {
         if (roomName == null || roomName.isBlank()) return null;
+        String trimmedName = roomName.trim();
+        if (trimmedName.length() > 50) return null;
+        if (findRoomByName(trimmedName) != null) return null;
 
         String insertRoomSql = "INSERT INTO rooms (name, created_by) VALUES (?, ?) RETURNING id, created_at";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(insertRoomSql)) {
+        String insertMemberSql = "INSERT INTO room_members (room_id, user_id, role) VALUES (?, ?, ?) ON CONFLICT (room_id, user_id) DO UPDATE SET role = EXCLUDED.role";
+        String insertChannelSql = "INSERT INTO channels (room_id, name) VALUES (?, ?) ON CONFLICT (room_id, name) DO NOTHING";
 
-            ps.setString(1, roomName.trim());
-            if (createdBy > 0) {
-                ps.setInt(2, createdBy);
-            } else {
-                ps.setNull(2, Types.INTEGER);
-            }
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            if (conn == null) return null;
+            conn.setAutoCommit(false);
 
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    int roomId = rs.getInt("id");
-                    Timestamp createdAt = rs.getTimestamp("created_at");
-                    Room room = new Room(roomId, roomName.trim(), createdBy, createdAt);
+            int roomId = -1;
+            Timestamp createdAt = null;
 
-                    // Nếu người tạo hợp lệ, tự động thêm vào phòng với quyền OWNER (Trưởng nhóm)
-                    if (createdBy > 0) {
-                        addMember(roomId, createdBy, "OWNER");
-                        room.getMemberIds().add(createdBy);
+            // 1. Tạo phòng trong bảng rooms
+            try (PreparedStatement psRoom = conn.prepareStatement(insertRoomSql)) {
+                psRoom.setString(1, trimmedName);
+                if (createdBy > 0) {
+                    psRoom.setInt(2, createdBy);
+                } else {
+                    psRoom.setNull(2, Types.INTEGER);
+                }
+                try (ResultSet rs = psRoom.executeQuery()) {
+                    if (rs.next()) {
+                        roomId = rs.getInt("id");
+                        createdAt = rs.getTimestamp("created_at");
                     }
-                    return room;
                 }
             }
+
+            if (roomId <= 0) {
+                conn.rollback();
+                return null;
+            }
+
+            // 2. Thêm người tạo với quyền OWNER
+            if (createdBy > 0) {
+                try (PreparedStatement psMember = conn.prepareStatement(insertMemberSql)) {
+                    psMember.setInt(1, roomId);
+                    psMember.setInt(2, createdBy);
+                    psMember.setString(3, "OWNER");
+                    psMember.executeUpdate();
+                }
+            }
+
+            // 3. Tạo kênh chữ mặc định 'chung' trong transaction
+            try (PreparedStatement psChannel = conn.prepareStatement(insertChannelSql)) {
+                psChannel.setInt(1, roomId);
+                psChannel.setString(2, "chung");
+                psChannel.executeUpdate();
+            }
+
+            // Commit thành công toàn bộ transaction
+            conn.commit();
+
+            Room room = new Room(roomId, trimmedName, createdBy, createdAt);
+            if (createdBy > 0) {
+                room.getMemberIds().add(createdBy);
+            }
+            return room;
+
         } catch (SQLException e) {
-            System.err.println("[RoomDAO ERROR] Lỗi tạo phòng '" + roomName + "': " + e.getMessage());
+            System.err.println("[RoomDAO ERROR] Lỗi tạo phòng kèm kênh mặc định '" + roomName + "': " + e.getMessage());
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    System.err.println("[RoomDAO ERROR] Rollback thất bại: " + ex.getMessage());
+                }
+            }
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException ignored) {}
+            }
         }
         return null;
     }

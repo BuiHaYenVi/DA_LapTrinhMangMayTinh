@@ -31,5 +31,12 @@ public enum MessageType {
     SET_ROOM_DESC,
     TRANSFER_OWNER,
     SET_MEMBER_ROLE,
-    HISTORY_PAGE
+    HISTORY_PAGE,
+    // Phân tách PHÒNG & KÊNH
+    CREATE_CHANNEL,
+    LIST_CHANNELS,
+    JOIN_CHANNEL,
+    // Cài đặt người dùng & Hồ sơ
+    UPDATE_PROFILE,
+    CHANGE_PASSWORD
 }
