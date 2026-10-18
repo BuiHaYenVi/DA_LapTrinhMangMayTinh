@@ -31,9 +31,12 @@ public class DatabaseMigration {
                         username VARCHAR(50) UNIQUE NOT NULL,
                         password VARCHAR(255) NOT NULL,
                         display_name VARCHAR(100) NOT NULL,
+                        status VARCHAR(20) DEFAULT 'OFFLINE',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """);
+                st.executeUpdate("ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'OFFLINE'");
+
                 st.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS rooms (
                         id SERIAL PRIMARY KEY,
@@ -47,19 +50,25 @@ public class DatabaseMigration {
                         id SERIAL PRIMARY KEY,
                         room_id INT REFERENCES rooms(id) ON DELETE CASCADE,
                         user_id INT REFERENCES users(id) ON DELETE CASCADE,
+                        role VARCHAR(20) DEFAULT 'MEMBER',
                         joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         UNIQUE(room_id, user_id)
                     )
                 """);
+                st.executeUpdate("ALTER TABLE room_members ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'MEMBER'");
+
                 st.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS messages (
                         id SERIAL PRIMARY KEY,
                         room_id INT REFERENCES rooms(id) ON DELETE CASCADE,
-                        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+                        sender_id INT REFERENCES users(id) ON DELETE CASCADE,
                         content TEXT NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """);
+                st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE CASCADE");
+                st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+
                 st.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS friendships (
                         id SERIAL PRIMARY KEY,

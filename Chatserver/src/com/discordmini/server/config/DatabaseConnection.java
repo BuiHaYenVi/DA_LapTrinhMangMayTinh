@@ -49,7 +49,13 @@ public class DatabaseConnection {
                 String path = dbUri.getPath();
                 String query = dbUri.getQuery();
                 if (envUrl == null) {
-                    envUrl = "jdbc:postgresql://" + dbUri.getHost() + ":" + port + path + (query != null ? "?" + query : "");
+                    String baseJdbc = "jdbc:postgresql://" + dbUri.getHost() + ":" + port + path;
+                    if (query != null && !query.isBlank()) {
+                        baseJdbc += "?" + query;
+                    } else if (!dbUri.getHost().equals("localhost") && !dbUri.getHost().equals("127.0.0.1")) {
+                        baseJdbc += "?sslmode=require";
+                    }
+                    envUrl = baseJdbc;
                 }
                 System.out.println("[DB CONFIG] Đã tự động nhận diện DATABASE_URL: " + dbUri.getHost() + ":" + port + path);
             } catch (Exception ex) {
