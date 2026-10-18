@@ -8426,6 +8426,638 @@ html[data-density="compact"] .dm-message-row {
   color: #dbdee1;
 }
 
+/* ==========================================================================
+   DISCORD ATTACHMENT & FILE UPLOAD STYLES
+   ========================================================================== */
+
+/* Nút Tải Lên Tệp trong menu dấu + (chuẩn phong cách Discord) */
+.quick-attach-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 16px;
+  background-color: #2b2d31;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 6px;
+  min-width: 240px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 100;
+  animation: popoverFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.upload-action-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.upload-action-btn:hover {
+  background-color: #35373c;
+}
+
+.upload-action-btn:active {
+  transform: scale(0.98);
+}
+
+.quick-attach-icon-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #5865f2;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(88, 101, 242, 0.4);
+}
+
+.quick-attach-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quick-attach-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f2f3f5;
+}
+
+.quick-attach-desc {
+  font-size: 11px;
+  color: #949ba4;
+}
+
+/* Khung xem trước tệp đính kèm trước khi gửi */
+.discord-attachment-preview-box {
+  background: #2b2d31;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px 8px 0 0;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid #1e1f22;
+}
+
+.discord-attachment-preview-box.uploading {
+  color: #949ba4;
+  font-size: 13px;
+  justify-content: center;
+  padding: 10px;
+}
+
+.discord-spin {
+  animation: spin 1s linear infinite;
+  color: #5865f2;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.discord-preview-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.discord-preview-thumb-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #1e1f22;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.discord-preview-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.discord-preview-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  background: rgba(88, 101, 242, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.discord-preview-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.discord-preview-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f2f3f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.discord-preview-size {
+  font-size: 11px;
+  color: #949ba4;
+  margin-top: 1px;
+}
+
+.discord-preview-remove-btn {
+  background: transparent;
+  border: none;
+  color: #949ba4;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.discord-preview-remove-btn:hover {
+  color: #f23f43;
+  background: rgba(242, 63, 67, 0.1);
+}
+
+/* ==========================================================================
+   ATTACHMENT RENDERING IN MESSAGES
+   ========================================================================== */
+
+.discord-attachment-wrapper {
+  margin-top: 6px;
+  max-width: 100%;
+}
+
+/* Ảnh đính kèm trong tin nhắn */
+.discord-image-container {
+  position: relative;
+  display: inline-block;
+  max-width: 420px;
+  max-height: 320px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background-color: #1e1f22;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.discord-image-container:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.discord-chat-image {
+  max-width: 100%;
+  max-height: 320px;
+  display: block;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.discord-image-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, transparent 50%);
+  opacity: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 8px 12px;
+  transition: opacity 0.2s ease;
+}
+
+.discord-image-container:hover .discord-image-overlay {
+  opacity: 1;
+}
+
+.discord-image-hint {
+  font-size: 11px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.discord-image-quick-dl {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+}
+
+.discord-image-quick-dl:hover {
+  background: #5865f2;
+}
+
+/* Card tệp tin đính kèm (File Attachment) */
+.discord-file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #2b2d31;
+  border: 1px solid #1e1f22;
+  border-radius: 8px;
+  padding: 10px 14px;
+  max-width: 380px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.discord-file-card:hover {
+  background: #313338;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.discord-file-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #1e1f22;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.attachment-type-icon.archive { color: #f59e0b; }
+.attachment-type-icon.sheet { color: #23a55a; }
+.attachment-type-icon.code { color: #5865f2; }
+.attachment-type-icon.doc { color: #3b82f6; }
+.attachment-type-icon.generic { color: #949ba4; }
+
+.discord-file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.discord-file-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #5865f2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.discord-file-name:hover {
+  text-decoration: underline;
+}
+
+.discord-file-meta {
+  font-size: 11px;
+  color: #949ba4;
+  margin-top: 2px;
+}
+
+.discord-file-download-btn {
+  background: transparent;
+  border: none;
+  color: #b5bac1;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.discord-file-download-btn:hover {
+  color: #f2f3f5;
+  background: #383a40;
+}
+
+/* Modal Lightbox xem ảnh to chuẩn Discord */
+.discord-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeInBackdrop 0.15s ease-out;
+}
+
+@keyframes fadeInBackdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.discord-lightbox-content {
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: #1e1f22;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.discord-lightbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #2b2d31;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.discord-lightbox-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f2f3f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60vw;
+}
+
+.discord-lightbox-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.discord-lightbox-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #5865f2;
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.discord-lightbox-btn:hover {
+  background: #4752c4;
+}
+
+.discord-lightbox-close {
+  background: transparent;
+  border: none;
+  color: #b5bac1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+
+.discord-lightbox-close:hover {
+  color: #ffffff;
+}
+
+.discord-lightbox-body {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.discord-lightbox-image {
+  max-width: 85vw;
+  max-height: calc(85vh - 70px);
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   DISCORD MESSAGE REACTIONS
+   ========================================================================== */
+
+/* Thanh reaction nhanh nổi trên message toolbar */
+.quick-reactions-strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  padding-right: 4px;
+  margin-right: 4px;
+}
+
+.quick-reaction-item-btn {
+  background: transparent;
+  border: none;
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.1s ease, background-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quick-reaction-item-btn:hover {
+  background: #35373c;
+  transform: scale(1.25);
+}
+
+/* Hàng biểu cảm dưới tin nhắn */
+.discord-reactions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.discord-reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #2b2d31;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 12px;
+  color: #b5bac1;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.discord-reaction-pill:hover {
+  background: #35373c;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f2f3f5;
+}
+
+.discord-reaction-pill.reacted {
+  background: rgba(88, 101, 242, 0.18);
+  border-color: #5865f2;
+  color: #dee0fc;
+  font-weight: 600;
+}
+
+.discord-reaction-pill.reacted:hover {
+  background: rgba(88, 101, 242, 0.28);
+}
+
+.discord-reaction-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.discord-reaction-count {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.discord-reaction-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #2b2d31;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 4px 7px;
+  color: #949ba4;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.discord-reaction-add-btn:hover {
+  background: #35373c;
+  border-color: #5865f2;
+  color: #dee0fc;
+}
+
+/* Popover chọn Reaction Emoji */
+.discord-reaction-picker-popover {
+  position: absolute;
+  top: -10px;
+  right: 16px;
+  transform: translateY(-100%);
+  background: #2b2d31;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  width: 280px;
+  max-width: 90vw;
+  padding: 10px;
+  z-index: 1000;
+  animation: popoverFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.discord-reaction-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.discord-reaction-picker-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f2f3f5;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.discord-reaction-picker-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.discord-reaction-search-icon {
+  position: absolute;
+  left: 8px;
+  color: #949ba4;
+  pointer-events: none;
+}
+
+.discord-reaction-picker-search input {
+  width: 100%;
+  background: #1e1f22;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 6px 10px 6px 28px;
+  font-size: 12px;
+  color: #f2f3f5;
+  outline: none;
+}
+
+.discord-reaction-picker-search input:focus {
+  border-color: #5865f2;
+}
+
+.discord-reaction-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.discord-reaction-grid-btn {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.12s ease, transform 0.1s ease;
+}
+
+.discord-reaction-grid-btn:hover {
+  background: #35373c;
+  transform: scale(1.2);
+}
+
 
 
 

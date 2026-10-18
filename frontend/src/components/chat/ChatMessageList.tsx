@@ -1,9 +1,13 @@
 import React, { useRef, useEffect, useState } from 'react';
 import type { MessageItem } from '../../types/chat';
-import { RotateCw, Edit3, Trash2 } from 'lucide-react';
+import { RotateCw, Edit3, Trash2, Smile } from 'lucide-react';
 import { formatDateLabel, getDateKey, shouldGroupWithPrevious, formatTime } from './chatShared';
-import { extractStickerFromContent } from './EmojiStickerPicker';
+import { extractStickerFromContent, MessageReactionPicker } from './EmojiStickerPicker';
 import { loadStoredSettings } from '../UserSettingsModal';
+import { extractAttachmentFromContent } from './attachmentUtils';
+import { MessageAttachmentView } from './MessageAttachmentView';
+import { MessageReactionList } from './MessageReactionList';
+import { loadReactionsMap, toggleMessageReaction, type ReactionsMap } from './reactionManager';
 
 interface Props {
   messages: MessageItem[];
@@ -15,6 +19,8 @@ interface Props {
   onDeleteMessage?: (messageId: number) => void;
   onLoadMore?: (beforeId: number) => void;
 }
+
+const QUICK_REACTIONS = ['👍', '😭', '💯'];
 
 export const ChatMessageList: React.FC<Props> = ({
   messages,
@@ -29,7 +35,18 @@ export const ChatMessageList: React.FC<Props> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
+  const [reactionPickerMsgId, setReactionPickerMsgId] = useState<number | null>(null);
+  const [reactionsMap, setReactionsMap] = useState<ReactionsMap>(() => loadReactionsMap());
   const [, setTick] = useState(0);
+
+  // Lắng nghe cập nhật reaction
+  useEffect(() => {
+    const handleReactionsUpdated = (e: any) => {
+      setReactionsMap(e.detail || loadReactionsMap());
+    };
+    window.addEventListener('message_reactions_updated', handleReactionsUpdated);
+    return () => window.removeEventListener('message_reactions_updated', handleReactionsUpdated);
+  }, []);
 
   // Lắng nghe thay đổi cài đặt (định dạng giờ, mật độ...) để re-render ngay
   useEffect(() => {
@@ -64,6 +81,12 @@ export const ChatMessageList: React.FC<Props> = ({
     setEditingId(null);
   };
 
+  const handleToggleReaction = (msgId: number, emoji: string) => {
+    const author = currentUserName || 'Tôi';
+    toggleMessageReaction(msgId, emoji, author);
+    setReactionsMap(loadReactionsMap());
+  };
+
   return (
     <div 
       className="dm-scroll" 
@@ -96,8 +119,11 @@ export const ChatMessageList: React.FC<Props> = ({
 
           const isPending = msg.id < 0 || msg.status === 'sending';
           const isFailed = msg.status === 'failed';
-          const { text: cleanText, sticker } = extractStickerFromContent(msg.content);
+          
+          const { text: textAfterAttachment, attachment } = extractAttachmentFromContent(msg.content);
+          const { text: cleanText, sticker } = extractStickerFromContent(textAfterAttachment);
           const canModify = isMe && msg.id > 0 && !isPending && !sticker && Boolean(cleanText);
+          const msgReactions = reactionsMap[msg.id] || [];
 
           return (
             <React.Fragment key={msg.id || `${curDateKey}-${index}`}>
@@ -113,6 +139,7 @@ export const ChatMessageList: React.FC<Props> = ({
               {/* Từng mục tin nhắn */}
               <div 
                 className={`dm-message-row ${isGrouped ? 'grouped' : ''} ${sticker ? 'sticker-row' : ''} ${isMe ? 'mine' : ''} ${isPending ? 'pending' : ''} ${isFailed ? 'failed' : ''}`}
+                style={{ position: 'relative' }}
               >
                 {!isGrouped ? (
                   <div className="msg-avatar-col">
@@ -164,6 +191,12 @@ export const ChatMessageList: React.FC<Props> = ({
                         </div>
                       ) : null}
 
+                      {/* Đính kèm ảnh hoặc tệp tin */}
+                      {attachment && (
+                        <MessageAttachmentView attachment={attachment} />
+                      )}
+
+                      {/* Nhãn dán sticker */}
                       {sticker ? (
                         <div
                           className="discord-sticker-wrapper"
@@ -185,6 +218,15 @@ export const ChatMessageList: React.FC<Props> = ({
                           </div>
                         </div>
                       ) : null}
+
+                      {/* Danh sách các biểu cảm emoji đã thả dưới tin nhắn */}
+                      <MessageReactionList
+                        messageId={msg.id}
+                        reactions={msgReactions}
+                        currentUserName={currentUserName || 'Tôi'}
+                        onToggleReaction={(emoji) => handleToggleReaction(msg.id, emoji)}
+                        onOpenPicker={() => setReactionPickerMsgId(msg.id)}
+                      />
                     </div>
                   )}
 
@@ -204,10 +246,44 @@ export const ChatMessageList: React.FC<Props> = ({
                   )}
                 </div>
 
-                {/* Thanh công cụ chỉnh sửa / xóa tin nhắn riêng tư */}
-                {canModify && (onEditMessage || onDeleteMessage) && (
+                {/* Popover chọn Reaction Emoji khi người dùng click Thêm biểu cảm */}
+                {reactionPickerMsgId === msg.id && (
+                  <MessageReactionPicker
+                    onSelectEmoji={(emoji) => {
+                      handleToggleReaction(msg.id, emoji);
+                      setReactionPickerMsgId(null);
+                    }}
+                    onClose={() => setReactionPickerMsgId(null)}
+                  />
+                )}
+
+                {/* Thanh công cụ Quick Reaction & Hành động tin nhắn phong cách Discord */}
+                {!isPending && msg.id > 0 && (
                   <div className="msg-quick-toolbar">
-                    {onEditMessage && !sticker && editingId !== msg.id && (
+                    {/* Các biểu cảm nhanh giống Discord: 👍, 😭, 💯 */}
+                    <div className="quick-reactions-strip">
+                      {QUICK_REACTIONS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          className="quick-reaction-item-btn"
+                          title={`Thả biểu cảm ${emoji}`}
+                          onClick={() => handleToggleReaction(msg.id, emoji)}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="quick-action-btn"
+                        title="Thêm biểu cảm"
+                        onClick={() => setReactionPickerMsgId((prev) => (prev === msg.id ? null : msg.id))}
+                      >
+                        <Smile size={16} />
+                      </button>
+                    </div>
+
+                    {canModify && onEditMessage && editingId !== msg.id && (
                       <button
                         type="button"
                         className="quick-action-btn"
@@ -220,7 +296,7 @@ export const ChatMessageList: React.FC<Props> = ({
                         <Edit3 size={15} />
                       </button>
                     )}
-                    {onDeleteMessage && (
+                    {canModify && onDeleteMessage && (
                       <button
                         type="button"
                         className="quick-action-btn danger"

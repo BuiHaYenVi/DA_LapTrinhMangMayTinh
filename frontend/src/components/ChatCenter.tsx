@@ -5,8 +5,27 @@ import {
   Users, ArrowRight, Loader2, MessageSquare, PlusCircle, Smile, Bell, BellOff, Pin, X
 } from 'lucide-react';
 import { Logo } from './Logo';
-import { EmojiStickerPicker, QuickAttachMenu, parseStickerToken, extractStickerFromContent } from './chat/EmojiStickerPicker';
+import { 
+  EmojiStickerPicker, 
+  QuickAttachMenu, 
+  MessageReactionPicker,
+  parseStickerToken, 
+  extractStickerFromContent 
+} from './chat/EmojiStickerPicker';
 import { loadStoredSettings } from './UserSettingsModal';
+import { chatBridge } from '../services/chatBridge';
+import { 
+  type FileAttachment, 
+  encodeAttachmentToken, 
+  extractAttachmentFromContent 
+} from './chat/attachmentUtils';
+import { MessageAttachmentView, AttachmentPreviewBox } from './chat/MessageAttachmentView';
+import { MessageReactionList } from './chat/MessageReactionList';
+import { 
+  loadReactionsMap, 
+  toggleMessageReaction, 
+  type ReactionsMap 
+} from './chat/reactionManager';
 
 interface Props {
   currentRoom: Room | null;
@@ -15,6 +34,7 @@ interface Props {
   isLoading?: boolean;
   messages: MessageItem[];
   currentUserId: number;
+  currentUserName?: string;
   currentUserRole?: string;
   isMemberListOpen?: boolean;
   onToggleMemberList?: () => void;
@@ -29,6 +49,8 @@ interface Props {
   isRoomMuted?: boolean;
   onToggleRoomMute?: () => void;
 }
+
+const QUICK_REACTIONS = ['👍', '😭', '💯'];
 
 // 1. Định dạng giờ tin nhắn theo 24h hoặc 12h từ cài đặt người dùng
 function formatMessageTime(rawTime: string): { short: string; full: string } {
@@ -158,6 +180,7 @@ export const ChatCenter: React.FC<Props> = ({
   isLoading = false,
   messages,
   currentUserId,
+  currentUserName,
   currentUserRole,
   isMemberListOpen = true,
   onToggleMemberList,
@@ -177,6 +200,10 @@ export const ChatCenter: React.FC<Props> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showPinnedPopover, setShowPinnedPopover] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<FileAttachment | null>(null);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [reactionPickerMsgId, setReactionPickerMsgId] = useState<number | null>(null);
+  const [reactionsMap, setReactionsMap] = useState<ReactionsMap>(() => loadReactionsMap());
   const [pinnedIdsByChannel, setPinnedIdsByChannel] = useState<Record<string, number[]>>(() => {
     try {
       const raw = localStorage.getItem(PINNED_STORAGE_KEY);
@@ -188,6 +215,16 @@ export const ChatCenter: React.FC<Props> = ({
 
   const chatMessagesRef = useRef<HTMLDivElement>(null);
   const mainInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Lắng nghe cập nhật reaction
+  useEffect(() => {
+    const handleReactionsUpdated = (e: any) => {
+      setReactionsMap(e.detail || loadReactionsMap());
+    };
+    window.addEventListener('message_reactions_updated', handleReactionsUpdated);
+    return () => window.removeEventListener('message_reactions_updated', handleReactionsUpdated);
+  }, []);
 
   const channelPinKey = `${currentRoom?.id || 0}_${currentChannel?.id || 0}`;
   const currentPinnedIds = pinnedIdsByChannel[channelPinKey] || [];
@@ -209,6 +246,36 @@ export const ChatCenter: React.FC<Props> = ({
     });
   };
 
+  const handleToggleReaction = (msgId: number, emoji: string) => {
+    const author = currentUserName || 'Tôi';
+    toggleMessageReaction(msgId, emoji, author);
+    setReactionsMap(loadReactionsMap());
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingAttachment(true);
+    try {
+      const res = await chatBridge.uploadFile(file);
+      if (res && res.url) {
+        setPendingAttachment({
+          name: res.name || file.name,
+          size: res.size || `${(file.size / 1024).toFixed(1)} KB`,
+          type: res.type || file.type,
+          url: res.url
+        });
+      }
+    } catch (err) {
+      console.error('Lỗi khi tải tệp tin lên:', err);
+    } finally {
+      setIsUploadingAttachment(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   // Xóa ô nhập tin khi đổi kênh hoặc đổi phòng để tránh gửi nhầm
   useEffect(() => {
     setInputText('');
@@ -217,6 +284,8 @@ export const ChatCenter: React.FC<Props> = ({
     setShowEmojiPicker(false);
     setShowAttachMenu(false);
     setShowPinnedPopover(false);
+    setPendingAttachment(null);
+    setReactionPickerMsgId(null);
   }, [currentRoom?.id, currentChannel?.id, isDirectMessageMode]);
 
   const displayedMessages = searchTerm.trim()
@@ -234,9 +303,15 @@ export const ChatCenter: React.FC<Props> = ({
   }, []);
 
   const handleSend = () => {
-    if (!inputText.trim()) return;
-    onSendMessage(inputText.trim());
+    let textToSend = inputText.trim();
+    if (pendingAttachment) {
+      const token = encodeAttachmentToken(pendingAttachment);
+      textToSend = textToSend ? `${textToSend} ${token}` : token;
+    }
+    if (!textToSend) return;
+    onSendMessage(textToSend);
     setInputText('');
+    setPendingAttachment(null);
     setShowEmojiPicker(false);
   };
 
@@ -553,10 +628,12 @@ export const ChatCenter: React.FC<Props> = ({
               }
 
               const isMyMsg = Boolean(msg.isMe || (currentUserId && Number(msg.senderId) === Number(currentUserId)));
-              const { text: cleanText, sticker } = extractStickerFromContent(msg.content);
+              const { text: afterAttachmentText, attachment } = extractAttachmentFromContent(msg.content);
+              const { text: cleanText, sticker } = extractStickerFromContent(afterAttachmentText);
               const canEdit = isMyMsg && msg.id > 0 && !sticker && Boolean(cleanText);
               const canDelete = (isMyMsg || isOwner || currentUserRole === 'OWNER' || currentUserRole === 'ADMIN') && msg.id > 0;
               const isPinned = currentPinnedIds.includes(msg.id);
+              const msgReactions = reactionsMap[msg.id] || [];
 
               return (
                 <React.Fragment key={msg.id || idx}>
@@ -570,6 +647,7 @@ export const ChatCenter: React.FC<Props> = ({
                   <div 
                     className={`discord-message-row ${isGrouped ? 'grouped' : ''} ${sticker ? 'sticker-row' : ''} ${isPinned ? 'pinned-row' : ''}`}
                     id={`msg-${msg.id}`}
+                    style={{ position: 'relative' }}
                   >
                     {isGrouped ? (
                       <span className="grouped-timestamp" title={timeInfo.full}>
@@ -628,6 +706,11 @@ export const ChatCenter: React.FC<Props> = ({
                             </div>
                           ) : null}
 
+                          {/* Đính kèm ảnh hoặc tệp tin */}
+                          {attachment && (
+                            <MessageAttachmentView attachment={attachment} />
+                          )}
+
                           {/* Nhãn dán Sticker luôn render thành một khối block độc lập */}
                           {sticker ? (
                             <div
@@ -650,12 +733,54 @@ export const ChatCenter: React.FC<Props> = ({
                               </div>
                             </div>
                           ) : null}
+
+                          {/* Danh sách reaction emoji dưới tin nhắn */}
+                          <MessageReactionList
+                            messageId={msg.id}
+                            reactions={msgReactions}
+                            currentUserName={currentUserName || 'Tôi'}
+                            onToggleReaction={(emoji) => handleToggleReaction(msg.id, emoji)}
+                            onOpenPicker={() => setReactionPickerMsgId(msg.id)}
+                          />
                         </div>
                       )}
                     </div>
 
-                    {/* Toolbar thao tác ghim / sửa / xóa tin nhắn */}
+                    {/* Popover chọn Reaction Emoji khi người dùng click Thêm biểu cảm */}
+                    {reactionPickerMsgId === msg.id && (
+                      <MessageReactionPicker
+                        onSelectEmoji={(emoji) => {
+                          handleToggleReaction(msg.id, emoji);
+                          setReactionPickerMsgId(null);
+                        }}
+                        onClose={() => setReactionPickerMsgId(null)}
+                      />
+                    )}
+
+                    {/* Toolbar thao tác Quick Reaction / ghim / sửa / xóa tin nhắn */}
                     <div className="msg-quick-toolbar">
+                      <div className="quick-reactions-strip">
+                        {QUICK_REACTIONS.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className="quick-reaction-item-btn"
+                            title={`Thả biểu cảm ${emoji}`}
+                            onClick={() => handleToggleReaction(msg.id, emoji)}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          className="quick-action-btn"
+                          title="Thêm biểu cảm"
+                          onClick={() => setReactionPickerMsgId((prev) => (prev === msg.id ? null : msg.id))}
+                        >
+                          <Smile size={16} />
+                        </button>
+                      </div>
+
                       <button
                         type="button"
                         className={`quick-action-btn ${isPinned ? 'active' : ''}`}
@@ -713,6 +838,13 @@ export const ChatCenter: React.FC<Props> = ({
 
       {/* 3. Bottom Input Box */}
       <div className="chat-input-container" style={{ position: 'relative' }}>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          style={{ display: 'none' }}
+        />
+
         {showEmojiPicker && (
           <EmojiStickerPicker
             onSelectEmoji={(emoji) => {
@@ -729,24 +861,23 @@ export const ChatCenter: React.FC<Props> = ({
 
         {showAttachMenu && (
           <QuickAttachMenu
-            onInsertTemplate={(tpl) => {
-              setInputText((prev) => prev + tpl);
-              mainInputRef.current?.focus();
-            }}
-            onOpenStickerTab={() => {
-              setShowAttachMenu(false);
-              setShowEmojiPicker(true);
-            }}
+            onUploadFile={() => fileInputRef.current?.click()}
             onClose={() => setShowAttachMenu(false)}
           />
         )}
+
+        <AttachmentPreviewBox
+          attachment={pendingAttachment}
+          isUploading={isUploadingAttachment}
+          onRemove={() => setPendingAttachment(null)}
+        />
 
         <div className="chat-input-pill">
           <button 
             type="button" 
             className="input-attach-btn" 
-            title="Chèn nhanh / Nhãn dán"
-            aria-label="Chèn nhanh"
+            title="Đính kèm tệp tin / Hình ảnh"
+            aria-label="Đính kèm tệp tin"
             disabled={!currentChannel || isLoading}
             onClick={() => {
               setShowAttachMenu((v) => !v);
@@ -788,7 +919,7 @@ export const ChatCenter: React.FC<Props> = ({
             className="chat-send-btn" 
             title={loadStoredSettings().enterToSend ? "Gửi tin nhắn (Enter)" : "Gửi tin nhắn (Ctrl + Enter)"}
             onClick={handleSend}
-            disabled={!inputText.trim() || !currentChannel || isLoading}
+            disabled={(!inputText.trim() && !pendingAttachment) || !currentChannel || isLoading}
             aria-label="Gửi tin nhắn"
           >
             <Send size={18} />

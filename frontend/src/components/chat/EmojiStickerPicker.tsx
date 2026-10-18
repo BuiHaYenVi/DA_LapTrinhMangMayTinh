@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Smile, Sticker as StickerIcon, Search, X, Code, Quote, Sparkles, Flame, Upload } from 'lucide-react';
+import { Smile, Sticker as StickerIcon, Search, X, Upload } from 'lucide-react';
 
 import { 
   STICKER_LIST, 

@@ -1832,6 +1832,7 @@ export const App: React.FC = () => {
             isLoading={isLoadingChannelMessages}
             messages={messages}
             currentUserId={currentUser ? currentUser.id : 0}
+            currentUserName={currentUser?.displayName || currentUser?.username || 'Tôi'}
             currentUserRole={currentUserRole}
             isMemberListOpen={isMemberListOpen}
             onToggleMemberList={() => setIsMemberListOpen(prev => !prev)}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   FileText, Download, X, Eye, FileArchive, FileSpreadsheet, 
-  FileCode, File, Loader2, ExternalLink 
+  FileCode, File, Loader2 
 } from 'lucide-react';
 import { type FileAttachment, isImageFile } from './attachmentUtils';
 
