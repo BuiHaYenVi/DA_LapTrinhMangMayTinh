@@ -154,9 +154,24 @@ export const ChatMessageList: React.FC<Props> = ({
                       </div>
                     </div>
                   ) : sticker ? (
-                    <div className="msg-sticker-bubble" style={{ background: sticker.bgGradient }}>
-                      <span className="msg-sticker-emoji">{sticker.emoji}</span>
-                      <span className="msg-sticker-label">{sticker.label}</span>
+                    <div
+                      className="discord-sticker-wrapper"
+                      title={`${sticker.name} • ${sticker.type === 'animated' ? 'Nhãn dán Động' : 'Nhãn dán Tĩnh'}`}
+                    >
+                      <img
+                        src={sticker.url}
+                        alt={sticker.name}
+                        className={`discord-sticker-img ${sticker.type === 'animated' ? 'animated' : 'static'}`}
+                        loading="lazy"
+                      />
+                      <div className="discord-sticker-caption">
+                        <span>{sticker.name}</span>
+                        {sticker.type === 'animated' ? (
+                          <span className="sticker-badge-gif">GIF</span>
+                        ) : (
+                          <span className="sticker-badge-static">TĨNH</span>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="msg-text-content">

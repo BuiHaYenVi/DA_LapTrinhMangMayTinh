@@ -1,27 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Smile, Sticker as StickerIcon, Search, X, Code, Quote, Sparkles, Flame } from 'lucide-react';
 
-export interface StickerItem {
-  id: string;
-  emoji: string;
-  label: string;
-  bgGradient: string;
-}
+import { 
+  STICKER_LIST, 
+  type StickerItem, 
+  formatStickerToken, 
+  parseStickerToken 
+} from './stickerData';
 
-export const STICKER_PACK: StickerItem[] = [
-  { id: 'wave', emoji: '👋', label: 'Chào bạn nha!', bgGradient: 'linear-gradient(135deg, #5865F2 0%, #4752C4 100%)' },
-  { id: 'party', emoji: '🎉', label: 'Ăn mừng thôi!', bgGradient: 'linear-gradient(135deg, #EB459E 0%, #9B59B6 100%)' },
-  { id: 'love', emoji: '💖', label: 'Thả tim cực mạnh!', bgGradient: 'linear-gradient(135deg, #ED4245 0%, #EB459E 100%)' },
-  { id: 'lol', emoji: '🤣', label: 'Cười xỉu luôn!', bgGradient: 'linear-gradient(135deg, #FEE75C 0%, #F59E0B 100%)' },
-  { id: 'gg', emoji: '🏆', label: 'Good Game (GG)!', bgGradient: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' },
-  { id: 'fire', emoji: '🔥', label: 'Quá cháy luôn!', bgGradient: 'linear-gradient(135deg, #EF4444 0%, #F97316 100%)' },
-  { id: 'ok', emoji: '👌', label: 'Okela chốt đơn!', bgGradient: 'linear-gradient(135deg, #23A55A 0%, #10B981 100%)' },
-  { id: 'coding', emoji: '💻', label: 'Đang fix bug...', bgGradient: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' },
-  { id: 'coffee', emoji: '☕', label: 'Làm ly cà phê!', bgGradient: 'linear-gradient(135deg, #92400E 0%, #B45309 100%)' },
-  { id: 'cry', emoji: '😭', label: 'Khóc một dòng sông', bgGradient: 'linear-gradient(135deg, #0EA5E9 0%, #2563EB 100%)' },
-  { id: 'sleep', emoji: '😴', label: 'Đi ngủ trước đây', bgGradient: 'linear-gradient(135deg, #6366F1 0%, #4338CA 100%)' },
-  { id: 'rocket', emoji: '🚀', label: 'Bay lên mặt trăng!', bgGradient: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)' }
-];
+export type { StickerItem };
+export { formatStickerToken, parseStickerToken, STICKER_LIST };
+export const STICKER_PACK = STICKER_LIST;
 
 export const EMOJI_CATEGORIES: { id: string; name: string; icon: string; emojis: string[] }[] = [
   {
@@ -79,25 +68,6 @@ export const EMOJI_CATEGORIES: { id: string; name: string; icon: string; emojis:
   }
 ];
 
-export function formatStickerToken(sticker: StickerItem): string {
-  return `[STICKER:${sticker.id}|${sticker.label}|${sticker.emoji}]`;
-}
-
-export function parseStickerToken(content: string): StickerItem | null {
-  if (!content) return null;
-  const trimmed = content.trim();
-  const match = /^\[STICKER:([a-z0-9_-]+)\|([^|\]]+)\|([^\]]+)\]$/i.exec(trimmed);
-  if (!match) return null;
-  const [, id, label, emoji] = match;
-  const found = STICKER_PACK.find(s => s.id === id);
-  return {
-    id,
-    label,
-    emoji,
-    bgGradient: found?.bgGradient || 'linear-gradient(135deg, #5865F2 0%, #4752C4 100%)'
-  };
-}
-
 interface EmojiStickerPickerProps {
   onSelectEmoji: (emoji: string) => void;
   onSelectSticker: (stickerToken: string) => void;
@@ -111,6 +81,7 @@ export const EmojiStickerPicker: React.FC<EmojiStickerPickerProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'emoji' | 'sticker'>('emoji');
   const [selectedCategory, setSelectedCategory] = useState<string>('smileys');
+  const [stickerFilter, setStickerFilter] = useState<'all' | 'animated' | 'static'>('all');
   const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -124,9 +95,19 @@ export const EmojiStickerPicker: React.FC<EmojiStickerPickerProps> = ({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [onClose]);
 
-  const filteredStickers = STICKER_PACK.filter(s =>
-    !search.trim() || s.label.toLowerCase().includes(search.trim().toLowerCase()) || s.id.includes(search.trim().toLowerCase())
-  );
+  const animatedCount = STICKER_LIST.filter(s => s.type === 'animated').length;
+  const staticCount = STICKER_LIST.filter(s => s.type === 'static').length;
+
+  const filteredStickers = STICKER_LIST.filter(s => {
+    if (stickerFilter !== 'all' && s.type !== stickerFilter) return false;
+    if (!search.trim()) return true;
+    const query = search.trim().toLowerCase();
+    return (
+      s.name.toLowerCase().includes(query) ||
+      s.pack.toLowerCase().includes(query) ||
+      s.id.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div
@@ -200,30 +181,72 @@ export const EmojiStickerPicker: React.FC<EmojiStickerPickerProps> = ({
             <input
               type="text"
               className="emoji-search-input"
-              placeholder="Tìm kiếm sticker..."
+              placeholder="Tìm kiếm nhãn dán theo tên, gói..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="emoji-sticker-body">
-            <div className="emoji-cat-title">Bộ nhãn dán Discord Mini</div>
-            <div className="sticker-grid">
-              {filteredStickers.map((st) => (
-                <button
-                  key={st.id}
-                  type="button"
-                  className="sticker-card-btn"
-                  style={{ background: st.bgGradient }}
-                  onClick={() => {
-                    onSelectSticker(formatStickerToken(st));
-                    onClose();
-                  }}
-                >
-                  <span className="sticker-card-emoji">{st.emoji}</span>
-                  <span className="sticker-card-label">{st.label}</span>
-                </button>
-              ))}
-            </div>
+
+          <div className="sticker-filter-bar">
+            <button
+              type="button"
+              className={`sticker-filter-btn ${stickerFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setStickerFilter('all')}
+            >
+              Tất cả ({STICKER_LIST.length})
+            </button>
+            <button
+              type="button"
+              className={`sticker-filter-btn ${stickerFilter === 'animated' ? 'active' : ''}`}
+              onClick={() => setStickerFilter('animated')}
+            >
+              🎬 Động ({animatedCount})
+            </button>
+            <button
+              type="button"
+              className={`sticker-filter-btn ${stickerFilter === 'static' ? 'active' : ''}`}
+              onClick={() => setStickerFilter('static')}
+            >
+              🖼️ Tĩnh ({staticCount})
+            </button>
+          </div>
+
+          <div className="emoji-sticker-body sticker-picker-body">
+            {filteredStickers.length === 0 ? (
+              <div className="sticker-empty-state">
+                <span>Không tìm thấy nhãn dán phù hợp</span>
+              </div>
+            ) : (
+              <div className="discord-sticker-grid">
+                {filteredStickers.map((st) => (
+                  <button
+                    key={st.id}
+                    type="button"
+                    className="discord-sticker-card-btn"
+                    title={`${st.name} • ${st.type === 'animated' ? 'Nhãn dán Động' : 'Nhãn dán Tĩnh'} (${st.pack})`}
+                    onClick={() => {
+                      onSelectSticker(formatStickerToken(st));
+                      onClose();
+                    }}
+                  >
+                    <div className="discord-sticker-preview-box">
+                      <img
+                        src={st.url}
+                        alt={st.name}
+                        className={`discord-picker-sticker-img ${st.type === 'animated' ? 'animated' : 'static'}`}
+                        loading="lazy"
+                      />
+                      {st.type === 'animated' ? (
+                        <span className="sticker-badge-gif">GIF</span>
+                      ) : (
+                        <span className="sticker-badge-static">TĨNH</span>
+                      )}
+                    </div>
+                    <span className="discord-picker-sticker-name">{st.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}

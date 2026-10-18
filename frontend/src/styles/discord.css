@@ -6065,6 +6065,140 @@ body {
   transform: scale(1.18);
 }
 
+.sticker-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 10px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.sticker-filter-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid transparent;
+  color: var(--text-2, #b5bac1);
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.sticker-filter-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.sticker-filter-btn.active {
+  background: var(--primary, #5865f2);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 6px rgba(88, 101, 242, 0.35);
+}
+
+.discord-sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.discord-sticker-card-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.discord-sticker-card-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--primary, #5865f2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.discord-sticker-preview-box {
+  position: relative;
+  width: 100%;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.discord-picker-sticker-img {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  transition: transform 0.2s ease;
+}
+
+.discord-sticker-card-btn:hover .discord-picker-sticker-img {
+  transform: scale(1.14);
+}
+
+.sticker-badge-gif {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 9px;
+  font-weight: 800;
+  color: #ffffff;
+  background: linear-gradient(135deg, #eb459e, #5865f2);
+  padding: 1px 4px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.sticker-badge-static {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--text-3, #949ba4);
+  background: rgba(0, 0, 0, 0.45);
+  padding: 1px 4px;
+  border-radius: 4px;
+  line-height: 1.2;
+}
+
+.discord-picker-sticker-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-1, #f2f3f5);
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.sticker-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  color: var(--text-3, #949ba4);
+  font-size: 13px;
+  font-style: italic;
+}
+
 .sticker-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -6160,7 +6294,54 @@ body {
   line-height: 1.25;
 }
 
-/* Hiển thị nhãn dán (Sticker Bubble) trong luồng tin nhắn */
+/* Hiển thị nhãn dán Discord trong luồng tin nhắn (ảnh trong suốt, hiệu ứng hover, không bị đóng khung thô) */
+.discord-sticker-wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 6px 0;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.discord-sticker-img {
+  width: 135px;
+  height: 135px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.32));
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.discord-sticker-wrapper:hover .discord-sticker-img {
+  transform: scale(1.08);
+}
+
+.discord-sticker-caption {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2, #dbdee1);
+  background: rgba(17, 18, 20, 0.85);
+  backdrop-filter: blur(4px);
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(2px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.discord-sticker-wrapper:hover .discord-sticker-caption {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Fallback tương thích cũ cho msg-sticker-bubble */
 .msg-sticker-bubble {
   display: inline-flex;
   flex-direction: column;
