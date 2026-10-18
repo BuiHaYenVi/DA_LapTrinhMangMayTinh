@@ -47,7 +47,14 @@ interface Props {
   onClearExternalDeleteRoom?: () => void;
 }
 
-function getLocalUserStyle(): { avatarColor: string; avatarIcon: string; bio: string } {
+function getLocalUserStyle(): { 
+  avatarColor: string; 
+  avatarIcon: string; 
+  bannerColor: string;
+  bio: string; 
+  presenceStatus: 'online' | 'idle' | 'dnd' | 'invisible';
+  customStatus: string;
+} {
   try {
     const raw = localStorage.getItem('discord_mini_user_settings_v2');
     if (raw) {
@@ -55,13 +62,23 @@ function getLocalUserStyle(): { avatarColor: string; avatarIcon: string; bio: st
       return {
         avatarColor: parsed.avatarColor || '#5865F2',
         avatarIcon: parsed.avatarIcon || '',
-        bio: parsed.bio || ''
+        bannerColor: parsed.bannerColor || '#23A55A',
+        bio: parsed.bio || '',
+        presenceStatus: parsed.presenceStatus || 'online',
+        customStatus: parsed.customStatus || ''
       };
     }
   } catch {
     // ignore
   }
-  return { avatarColor: '#5865F2', avatarIcon: '', bio: '' };
+  return { 
+    avatarColor: '#5865F2', 
+    avatarIcon: '', 
+    bannerColor: '#23A55A',
+    bio: '', 
+    presenceStatus: 'online', 
+    customStatus: '' 
+  };
 }
 
 export const RoomSidebar: React.FC<Props> = ({
@@ -244,8 +261,21 @@ export const RoomSidebar: React.FC<Props> = ({
 
   const userAvatarChar = userStyle.avatarIcon || (currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U');
 
+  const presenceLabels: Record<string, string> = {
+    online: 'Trực tuyến',
+    idle: 'Chờ',
+    dnd: 'Không làm phiền',
+    invisible: 'Ẩn danh'
+  };
+  const currentStatusLabel = userStyle.customStatus || presenceLabels[userStyle.presenceStatus] || 'Trực tuyến';
+
   const renderUserProfileBar = () => (
-    <div className="user-profile-bar">
+    <div 
+      className="user-profile-bar" 
+      onClick={onOpenSettings}
+      style={{ cursor: 'pointer' }}
+      title="Nhấp để mở Cài đặt hồ sơ & trạng thái"
+    >
       <div className="user-avatar-wrap">
         <div
           className="user-avatar-circle"
@@ -256,7 +286,10 @@ export const RoomSidebar: React.FC<Props> = ({
         >
           {userAvatarChar}
         </div>
-        <div className="status-dot" title="Trực tuyến" />
+        <div 
+          className={`status-dot ${userStyle.presenceStatus || 'online'}`} 
+          title={presenceLabels[userStyle.presenceStatus] || 'Trực tuyến'} 
+        />
       </div>
 
       <div className="user-info">
@@ -266,12 +299,12 @@ export const RoomSidebar: React.FC<Props> = ({
         >
           {currentUser?.displayName || currentUser?.username || 'Người dùng'}
         </div>
-        <div className="status" title={userStyle.bio || 'Trực tuyến'}>
-          {userStyle.bio ? userStyle.bio : 'Trực tuyến'}
+        <div className="status" title={currentStatusLabel}>
+          {userStyle.customStatus ? `💬 ${userStyle.customStatus}` : currentStatusLabel}
         </div>
       </div>
 
-      <div className="user-profile-actions">
+      <div className="user-profile-actions" onClick={e => e.stopPropagation()}>
         <button
           type="button"
           className="user-action-btn"

@@ -6713,6 +6713,515 @@ html[data-density="compact"] .dm-message-row {
   padding-bottom: 2px !important;
 }
 
+/* ==========================================================================
+   DISCORD USER PROFILE CARD & PRESENCE STATUS SYSTEM
+   ========================================================================== */
+
+/* Trạng thái chấm hiển thị (Presence dots) */
+.status-dot.online {
+  background-color: #23a55a !important;
+  box-shadow: 0 0 4px rgba(35, 165, 90, 0.4);
+}
+.status-dot.idle {
+  background-color: #f0b232 !important;
+  box-shadow: 0 0 4px rgba(240, 178, 50, 0.4);
+}
+.status-dot.dnd {
+  background-color: #f23f43 !important;
+  box-shadow: 0 0 4px rgba(242, 63, 67, 0.4);
+}
+.status-dot.invisible,
+.status-dot.offline {
+  background-color: #80848e !important;
+  box-shadow: none;
+}
+
+/* Highlight item khi đang mở profile popover */
+.member-item.active-profile {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Backdrop cho popover */
+.discord-profile-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: transparent;
+  pointer-events: auto;
+}
+
+/* Khung Popover Profile chuẩn Discord */
+.discord-profile-card {
+  position: fixed;
+  width: 320px;
+  background-color: #232428;
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  z-index: 1201;
+  overflow: hidden;
+  animation: popoverSlideIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popoverSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+}
+
+/* Header Banner */
+.discord-profile-banner {
+  height: 88px;
+  width: 100%;
+  position: relative;
+  background: linear-gradient(135deg, #23a55a, #10b981);
+}
+
+.discord-profile-banner-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 5;
+}
+
+.banner-icon-btn {
+  background: rgba(0, 0, 0, 0.5);
+  color: #dbdee1;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.banner-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.banner-icon-btn.close-btn:hover {
+  background: rgba(242, 63, 67, 0.85);
+}
+
+/* Hàng Avatar và Bong bóng trạng thái */
+.discord-profile-avatar-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 14px;
+  margin-top: -38px;
+  position: relative;
+  z-index: 4;
+  gap: 10px;
+}
+
+.discord-profile-avatar-wrapper {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  flex-shrink: 0;
+}
+
+.discord-profile-avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 6px solid #232428;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  background-color: #5865f2;
+}
+
+.discord-profile-status-badge {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 4px solid #232428;
+  box-sizing: content-box;
+}
+
+/* Bong bóng trạng thái tùy chỉnh kiểu Discord */
+.discord-profile-bubble-container {
+  flex: 1;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: flex-end;
+  max-width: calc(100% - 88px);
+}
+
+.discord-profile-bubble {
+  background-color: #111214;
+  color: #f2f3f5;
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  max-width: 100%;
+}
+
+.discord-profile-bubble.interactive {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.discord-profile-bubble.interactive:hover {
+  background-color: #1e1f22;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.discord-profile-bubble-tail {
+  position: absolute;
+  left: -6px;
+  bottom: 10px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-right: 6px solid #111214;
+}
+
+.discord-profile-bubble .bubble-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+  line-height: 1.2;
+}
+
+.discord-profile-bubble .bubble-edit-icon {
+  color: #949ba4;
+  margin-left: 2px;
+}
+
+.discord-profile-bubble-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #111214;
+  border: 1px solid #5865f2;
+  border-radius: 10px;
+  padding: 3px 6px;
+}
+
+.bubble-edit-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 12px;
+  width: 130px;
+}
+
+.bubble-save-btn {
+  background: #5865f2;
+  border: none;
+  color: #ffffff;
+  border-radius: 4px;
+  padding: 3px 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Thân thẻ hồ sơ */
+.discord-profile-body {
+  padding: 12px 14px 14px;
+}
+
+.discord-profile-card-inner {
+  background-color: #111214;
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.discord-profile-header-info .profile-display-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f2f3f5;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.discord-profile-header-info .profile-you-badge {
+  font-size: 13px;
+  font-weight: 500;
+  color: #949ba4;
+}
+
+.discord-profile-header-info .profile-username {
+  font-size: 13px;
+  color: #949ba4;
+  margin-top: 2px;
+}
+
+.profile-divider {
+  height: 1px;
+  background-color: #2b2d31;
+  margin: 12px 0;
+}
+
+.profile-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b5bac1;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 6px;
+}
+
+.profile-role-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.profile-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.profile-role-pill.owner {
+  background: rgba(240, 178, 50, 0.15);
+  color: #f0b232;
+  border: 1px solid rgba(240, 178, 50, 0.35);
+}
+
+.profile-role-pill.admin {
+  background: rgba(88, 101, 242, 0.15);
+  color: #5865f2;
+  border: 1px solid rgba(88, 101, 242, 0.35);
+}
+
+.profile-role-pill.member {
+  background: rgba(255, 255, 255, 0.08);
+  color: #dbdee1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.profile-bio-text {
+  font-size: 13px;
+  color: #dbdee1;
+  line-height: 1.45;
+  word-break: break-word;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.profile-room-meta {
+  font-size: 12.5px;
+  color: #949ba4;
+}
+
+/* Nút Sửa Hồ Sơ */
+.profile-primary-btn {
+  width: 100%;
+  padding: 8px 14px;
+  background-color: #5865f2;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.15s ease;
+  margin-top: 10px;
+}
+
+.profile-primary-btn:hover {
+  background-color: #4752c4;
+}
+
+/* Lưới chọn trạng thái nhanh */
+.quick-presence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.quick-presence-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background-color: #1e1f22;
+  border: 1px solid #2b2d31;
+  border-radius: 6px;
+  color: #dbdee1;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.quick-presence-chip:hover {
+  background-color: #2b2d31;
+  border-color: #3f4147;
+}
+
+.quick-presence-chip.active {
+  border-color: #5865f2;
+  background-color: rgba(88, 101, 242, 0.15);
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.quick-presence-chip .chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Ô nhắn tin nhanh cho người khác */
+.profile-quick-dm-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  background-color: #1e1f22;
+  border: 1px solid #2b2d31;
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+
+.profile-quick-dm-form:focus-within {
+  border-color: #5865f2;
+}
+
+.profile-quick-dm-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 13px;
+  padding: 4px 2px;
+}
+
+.profile-quick-dm-input::placeholder {
+  color: #80848e;
+}
+
+.profile-quick-dm-send-btn {
+  background-color: #5865f2;
+  border: none;
+  color: #ffffff;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+}
+
+.profile-quick-dm-send-btn:hover {
+  background-color: #4752c4;
+}
+
+.profile-dm-link-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid #35363c;
+  border-radius: 6px;
+  color: #b5bac1;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.profile-dm-link-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  border-color: #4e5058;
+}
+
+/* Dropdown quản lý thành viên từ profile */
+.profile-manager-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background-color: #111214;
+  border: 1px solid #2b2d31;
+  border-radius: 8px;
+  padding: 6px;
+  z-index: 20;
+  min-width: 195px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.manager-dropdown-item {
+  width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #dbdee1;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.manager-dropdown-item:hover {
+  background-color: #5865f2;
+  color: #ffffff;
+}
+
+.manager-dropdown-item.warning:hover {
+  background-color: #f0b232;
+  color: #111214;
+}
+
+.manager-dropdown-item.danger:hover {
+  background-color: #da373c;
+  color: #ffffff;
+}
+
 
 
 

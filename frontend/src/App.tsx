@@ -1219,7 +1219,7 @@ export const App: React.FC = () => {
   };
 
   // Khi bấm vào thành viên trong MemberSidebar -> chuyển sang chat riêng 1-1
-  const handleMemberDirectMessage = (userId: number, name: string) => {
+  const handleMemberDirectMessage = (userId: number, name: string, initialMessage?: string) => {
     const matchedFriend = friends.find(f => f.id === userId);
     const directUser: Friend = matchedFriend || {
       id: userId,
@@ -1239,6 +1239,9 @@ export const App: React.FC = () => {
     setMessages([]);
     setDirectUnreadMap(prev => ({ ...prev, [userId]: 0 }));
     chatBridge.getDirectHistory(userId, 50).catch(() => {});
+    if (initialMessage && initialMessage.trim()) {
+      chatBridge.sendPrivateMessage(userId, initialMessage.trim()).catch(() => {});
+    }
   };
 
   const handleOpenCreateRoom = () => {
@@ -1835,7 +1838,9 @@ export const App: React.FC = () => {
             members={members}
             currentUserId={currentUser?.id}
             currentUserRole={currentUserRole}
+            roomName={currentRoom?.name}
             onDirectMessage={handleMemberDirectMessage}
+            onOpenSettings={() => setIsUserSettingsOpen(true)}
             onSetMemberRole={handleSetMemberRole}
             onTransferOwner={handleTransferOwner}
             onKickMember={handleKickMember}

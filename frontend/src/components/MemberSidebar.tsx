@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import type { User } from '../types/chat';
 import { Crown, Shield, MoreVertical } from 'lucide-react';
+import { UserProfileCard } from './UserProfileCard';
 
 interface Props {
   members: User[];
   currentUserId?: number;
   currentUserRole?: string;
-  onDirectMessage: (userId: number, name: string) => void;
+  roomName?: string;
+  onDirectMessage: (userId: number, name: string, initialMessage?: string) => void;
+  onOpenSettings?: () => void;
   onSetMemberRole?: (userId: number, role: string) => void;
   onTransferOwner?: (userId: number) => void;
   onKickMember?: (userId: number) => void;
@@ -16,12 +19,15 @@ export const MemberSidebar: React.FC<Props> = ({
   members,
   currentUserId,
   currentUserRole,
+  roomName,
   onDirectMessage,
+  onOpenSettings,
   onSetMemberRole,
   onTransferOwner,
   onKickMember
 }) => {
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
+  const [activeProfile, setActiveProfile] = useState<{ user: User; anchorRect: DOMRect } | null>(null);
 
   const onlineMembers = members.filter(m => m.online !== false);
   const offlineMembers = members.filter(m => m.online === false);
@@ -48,15 +54,25 @@ export const MemberSidebar: React.FC<Props> = ({
     }
   };
 
+  const handleMemberClick = (member: User, e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setActiveProfile({ user: member, anchorRect: rect });
+  };
+
   const renderMemberItem = (member: User, isOnline: boolean) => {
     const isMe = member.id === currentUserId;
     const canManage = !isMe && (isOwner || (isAdmin && member.role !== 'OWNER' && member.role !== 'ADMIN'));
+    const isSelected = activeProfile?.user.id === member.id;
+
+    // Determine status dot class
+    const presenceClass = member.presenceStatus || (isOnline ? 'online' : 'offline');
 
     return (
       <div 
         key={member.id} 
-        className={`member-item ${isOnline ? 'online' : 'offline'}`}
-        onClick={() => !isMe && onDirectMessage(member.id, member.displayName)}
+        className={`member-item ${isOnline ? 'online' : 'offline'} ${isSelected ? 'active-profile' : ''}`}
+        onClick={(e) => handleMemberClick(member, e)}
         onContextMenu={(e) => {
           if (canManage) {
             e.preventDefault();
@@ -64,33 +80,60 @@ export const MemberSidebar: React.FC<Props> = ({
             setSelectedMember(prev => prev?.id === member.id ? null : member);
           }
         }}
-        title={isMe ? 'Bạn' : (canManage ? 'Nhấn để chat riêng, click chuột phải hoặc bấm 3 chấm để quản lý' : 'Nhấn để gửi tin nhắn riêng')}
-        style={{ position: 'relative' }}
+        title={`Xem hồ sơ & trạng thái của ${member.displayName || member.username}`}
+        style={{ position: 'relative', cursor: 'pointer' }}
       >
         <div className="user-avatar-wrap">
-          <div className="user-avatar-circle">
-            {member.displayName ? member.displayName.charAt(0).toUpperCase() : 'U'}
+          <div 
+            className="user-avatar-circle"
+            style={{
+              backgroundColor: member.avatarColor || undefined,
+              fontSize: member.avatarIcon ? '16px' : undefined
+            }}
+          >
+            {member.avatarIcon || (member.displayName ? member.displayName.charAt(0).toUpperCase() : 'U')}
           </div>
-          <div className={`status-dot ${isOnline ? 'online' : 'offline'}`} title={isOnline ? 'Trực tuyến' : 'Ngoại tuyến'} />
+          <div 
+            className={`status-dot ${presenceClass}`} 
+            title={isOnline ? 'Trực tuyến' : 'Ngoại tuyến'} 
+          />
         </div>
 
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
-          <span className="name">
-            {member.displayName} {isMe ? '(Bạn)' : ''}
-          </span>
-          {member.role === 'OWNER' && (
-            <span title="Chủ phòng" style={{ display: 'inline-flex' }}>
-              <Crown size={14} color="var(--accent-yellow)" />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+            <span className="name">
+              {member.displayName} {isMe ? '(Bạn)' : ''}
             </span>
-          )}
-          {member.role === 'ADMIN' && (
-            <span title="Phó nhóm" style={{ display: 'inline-flex' }}>
-              <Shield size={14} color="var(--accent)" />
+            {member.role === 'OWNER' && (
+              <span title="Chủ phòng" style={{ display: 'inline-flex' }}>
+                <Crown size={14} color="var(--accent-yellow)" />
+              </span>
+            )}
+            {member.role === 'ADMIN' && (
+              <span title="Phó nhóm" style={{ display: 'inline-flex' }}>
+                <Shield size={14} color="var(--accent)" />
+              </span>
+            )}
+          </div>
+          {member.customStatus && (
+            <span 
+              className="member-custom-status" 
+              title={member.customStatus}
+              style={{
+                fontSize: '11px',
+                color: 'var(--text-muted, #949ba4)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                lineHeight: '1.2'
+              }}
+            >
+              {member.customStatus}
             </span>
           )}
         </div>
 
-        {/* Nút 3 chấm tùy chọn của Chủ phòng hoặc Phó nhóm */}
+        {/* Nút 3 chấm tùy chọn nhanh của Chủ phòng hoặc Phó nhóm */}
         {canManage && (
           <button
             type="button"
@@ -105,7 +148,7 @@ export const MemberSidebar: React.FC<Props> = ({
           </button>
         )}
 
-        {/* Dropdown quản lý thành viên */}
+        {/* Dropdown quản lý thành viên nhanh */}
         {selectedMember?.id === member.id && (
           <div className="member-action-menu" onClick={e => e.stopPropagation()}>
             {isOwner && (
@@ -170,6 +213,26 @@ export const MemberSidebar: React.FC<Props> = ({
           </div>
         )}
       </div>
+
+      {/* THẺ HỒ SƠ NGƯỜI DÙNG PHONG CÁCH DISCORD */}
+      {activeProfile && (
+        <UserProfileCard
+          user={activeProfile.user}
+          currentUserId={currentUserId}
+          currentUserRole={currentUserRole}
+          roomRole={activeProfile.user.role}
+          roomName={roomName}
+          anchorRect={activeProfile.anchorRect}
+          onClose={() => setActiveProfile(null)}
+          onDirectMessage={onDirectMessage}
+          onOpenSettings={onOpenSettings}
+          onSetMemberRole={onSetMemberRole}
+          onTransferOwner={onTransferOwner}
+          onKickMember={onKickMember}
+        />
+      )}
     </div>
   );
 };
+
+export default MemberSidebar;

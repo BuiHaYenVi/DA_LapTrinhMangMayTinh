@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { User } from '../types/chat';
+import type { User, PresenceStatus } from '../types/chat';
 import { chatBridge } from '../services/chatBridge';
 import { 
   X, User as UserIcon, Palette, Bell, MessageSquare, 
@@ -27,7 +27,7 @@ interface UserSettingsModalProps {
   onProfileUpdated?: (newDisplayName: string) => void;
 }
 
-const AVATAR_COLORS = [
+export const AVATAR_COLORS = [
   '#5865F2', // Blurple
   '#2DD4BF', // Teal
   '#0EA5E9', // Sky
@@ -39,7 +39,19 @@ const AVATAR_COLORS = [
   '#8B5CF6'  // Purple
 ];
 
-const AVATAR_ICONS = ['', '😎', '🐱', '🐶', '🦊', '🐼', '👑', '⚡', '🔥', '🎮', '💻', '🌸'];
+export const BANNER_COLORS = [
+  '#23A55A', // Emerald green (Discord style)
+  '#5865F2', // Blurple
+  '#EB459E', // Fuchsia
+  '#FEE75C', // Butter
+  '#ED4245', // Red
+  '#57F287', // Green
+  '#1E1F22', // Dark slate
+  '#4E5058', // Charcoal
+  '#313338'  // Discord dark grey
+];
+
+export const AVATAR_ICONS = ['', '😎', '🐱', '🐶', '🦊', '🐼', '👑', '⚡', '🔥', '🎮', '💻', '🌸'];
 
 const LOCAL_STORAGE_KEY = 'discord_mini_user_settings_v2';
 const LEGACY_STORAGE_KEY = 'ltmang_settings_v2';
@@ -58,7 +70,10 @@ export interface StoredSettings {
   autoReconnect: boolean;
   avatarColor: string;
   avatarIcon: string;
+  bannerColor: string;
   bio: string;
+  presenceStatus: PresenceStatus;
+  customStatus: string;
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
@@ -75,7 +90,10 @@ const DEFAULT_SETTINGS: StoredSettings = {
   autoReconnect: true,
   avatarColor: '#5865F2',
   avatarIcon: '',
-  bio: ''
+  bannerColor: '#23A55A',
+  bio: '',
+  presenceStatus: 'online',
+  customStatus: 'Vừa đọc xong...'
 };
 
 export const loadStoredSettings = (): StoredSettings => {
@@ -100,6 +118,20 @@ export const saveStoredSettings = (settings: StoredSettings) => {
   } catch (err) {
     console.warn('Lỗi ghi cài đặt vào localStorage:', err);
   }
+};
+
+export const updateUserPresence = (status: PresenceStatus) => {
+  const current = loadStoredSettings();
+  const next = { ...current, presenceStatus: status };
+  saveStoredSettings(next);
+  return next;
+};
+
+export const updateCustomStatus = (customStatus: string) => {
+  const current = loadStoredSettings();
+  const next = { ...current, customStatus };
+  saveStoredSettings(next);
+  return next;
 };
 
 export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
@@ -132,6 +164,9 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const [bio, setBio] = useState('');
   const [avatarColor, setAvatarColor] = useState('#5865F2');
   const [avatarIcon, setAvatarIcon] = useState('');
+  const [bannerColor, setBannerColor] = useState('#23A55A');
+  const [presenceStatus, setPresenceStatus] = useState<PresenceStatus>('online');
+  const [customStatus, setCustomStatus] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileFeedback, setProfileFeedback] = useState<{ text: string; type: 'success' | 'error' | 'notice' } | null>(null);
 
@@ -161,6 +196,9 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
       setBio(stored.bio || '');
       setAvatarColor(stored.avatarColor || '#5865F2');
       setAvatarIcon(stored.avatarIcon || '');
+      setBannerColor(stored.bannerColor || '#23A55A');
+      setPresenceStatus(stored.presenceStatus || 'online');
+      setCustomStatus(stored.customStatus || '');
       setProfileFeedback(null);
       setPassFeedback(null);
       setOldPassword('');
@@ -276,11 +314,17 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const initialBio = settings.bio || '';
   const initialColor = settings.avatarColor || '#5865F2';
   const initialIcon = settings.avatarIcon || '';
+  const initialBanner = settings.bannerColor || '#23A55A';
+  const initialPresence = settings.presenceStatus || 'online';
+  const initialCustomStatus = settings.customStatus || '';
   const hasProfileChanges = 
     displayName.trim() !== initialName.trim() ||
     bio.trim() !== initialBio.trim() ||
     avatarColor !== initialColor ||
-    avatarIcon !== initialIcon;
+    avatarIcon !== initialIcon ||
+    bannerColor !== initialBanner ||
+    presenceStatus !== initialPresence ||
+    customStatus.trim() !== initialCustomStatus.trim();
 
   // Xử lý Lưu hồ sơ
   const handleSaveProfile = async () => {
@@ -298,12 +342,15 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     setIsSavingProfile(true);
     setProfileFeedback(null);
 
-    // Luôn lưu màu sắc, icon đại diện và tiểu sử ngay lập tức
+    // Luôn lưu màu sắc, icon, banner, trạng thái và tiểu sử ngay lập tức
     setSettings(prev => {
       const next = {
         ...prev,
         avatarColor,
         avatarIcon,
+        bannerColor,
+        presenceStatus,
+        customStatus: customStatus.trim(),
         bio: bio.trim()
       };
       saveStoredSettings(next);
@@ -472,16 +519,143 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
 
               {/* Thẻ Hồ Sơ */}
               <div className="settings-card-box">
-                <div className="settings-profile-preview-row">
-                  <div 
-                    className="settings-avatar-large" 
-                    style={{ backgroundColor: avatarColor, fontSize: avatarIcon ? '28px' : undefined }}
-                  >
-                    {avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')}
+                {/* Xem trước biểu ngữ và ảnh đại diện phong cách Discord */}
+                <div 
+                  className="settings-banner-preview"
+                  style={{
+                    backgroundColor: bannerColor,
+                    borderRadius: '8px',
+                    height: '80px',
+                    marginBottom: '16px',
+                    position: 'relative'
+                  }}
+                />
+
+                <div className="settings-profile-preview-row" style={{ marginTop: '-44px', position: 'relative', zIndex: 2 }}>
+                  <div style={{ position: 'relative' }}>
+                    <div 
+                      className="settings-avatar-large" 
+                      style={{ 
+                        backgroundColor: avatarColor, 
+                        fontSize: avatarIcon ? '28px' : undefined,
+                        border: '4px solid var(--bg-card, #2b2d31)'
+                      }}
+                    >
+                      {avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')}
+                    </div>
+                    {/* Chấm trạng thái trên avatar */}
+                    <div 
+                      className={`status-dot ${presenceStatus}`} 
+                      style={{ 
+                        position: 'absolute', 
+                        bottom: 0, 
+                        right: 0, 
+                        width: 14, 
+                        height: 14, 
+                        borderRadius: '50%',
+                        border: '3px solid var(--bg-card, #2b2d31)',
+                        backgroundColor: 
+                          presenceStatus === 'online' ? '#23a55a' :
+                          presenceStatus === 'idle' ? '#f0b232' :
+                          presenceStatus === 'dnd' ? '#f23f43' : '#80848e'
+                      }} 
+                    />
                   </div>
                   <div className="settings-profile-preview-meta">
                     <h3 className="settings-profile-preview-name">{displayName || 'Chưa đặt tên'}</h3>
                     <span className="settings-profile-preview-user">@{currentUser?.username || 'user'}</span>
+                    {customStatus && (
+                      <div 
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--text-muted, #949ba4)',
+                          marginTop: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        💬 {customStatus}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Chọn trạng thái hiện diện (Presence Status) */}
+                <div className="settings-form-group">
+                  <label className="settings-form-label">Trạng thái hiện diện</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                    {[
+                      { id: 'online', label: 'Trực tuyến', color: '#23a55a', desc: 'Sẵn sàng trò chuyện' },
+                      { id: 'idle', label: 'Chờ', color: '#f0b232', desc: 'Tạm vắng mặt' },
+                      { id: 'dnd', label: 'Không làm phiền', color: '#f23f43', desc: 'Đang bận việc' },
+                      { id: 'invisible', label: 'Ẩn danh', color: '#80848e', desc: 'Xuất hiện như ngoại tuyến' }
+                    ].map(st => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setPresenceStatus(st.id as PresenceStatus)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 10px',
+                          borderRadius: '6px',
+                          border: presenceStatus === st.id ? '1px solid var(--accent, #5865F2)' : '1px solid var(--border, #3f4147)',
+                          backgroundColor: presenceStatus === st.id ? 'rgba(88, 101, 242, 0.15)' : 'var(--bg-secondary, #2b2d31)',
+                          cursor: 'pointer',
+                          color: '#fff',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: st.color, flexShrink: 0 }} />
+                        <span style={{ fontSize: '13px', fontWeight: presenceStatus === st.id ? 600 : 400 }}>{st.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Trạng thái tùy chỉnh (Custom Status) */}
+                <div className="settings-form-group">
+                  <div className="settings-label-row">
+                    <label className="settings-form-label" htmlFor="input-custom-status">Trạng thái tùy chỉnh (Custom Status)</label>
+                    <span className="settings-char-counter">{customStatus.length}/80</span>
+                  </div>
+                  <input
+                    id="input-custom-status"
+                    type="text"
+                    maxLength={80}
+                    className="settings-text-input"
+                    value={customStatus}
+                    onChange={e => setCustomStatus(e.target.value)}
+                    placeholder="Ví dụ: Vừa đọc xong..., Đang bận học bài..."
+                  />
+                  {/* Gợi ý trạng thái nhanh */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                    {[
+                      'Vừa đọc xong...',
+                      '🎮 Đang chơi game',
+                      '💻 Đang code Lập trình mạng',
+                      '📚 Đang học bài',
+                      '☕ Đi cà phê'
+                    ].map(sug => (
+                      <button
+                        key={sug}
+                        type="button"
+                        onClick={() => setCustomStatus(sug)}
+                        style={{
+                          fontSize: '11px',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          border: '1px solid var(--border, #3f4147)',
+                          backgroundColor: 'var(--bg-secondary, #2b2d31)',
+                          color: 'var(--text-muted, #949ba4)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {sug}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -518,6 +692,26 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                         aria-label={`Chọn màu ${c}`}
                       >
                         {avatarColor === c && <Check size={14} color="#fff" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Chọn màu biểu ngữ (Banner) */}
+                <div className="settings-form-group">
+                  <label className="settings-form-label">Màu biểu ngữ hồ sơ (Banner)</label>
+                  <div className="settings-color-swatches">
+                    {BANNER_COLORS.map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={`settings-color-dot ${bannerColor === c ? 'selected' : ''}`}
+                        style={{ backgroundColor: c }}
+                        onClick={() => setBannerColor(c)}
+                        title={c}
+                        aria-label={`Chọn màu biểu ngữ ${c}`}
+                      >
+                        {bannerColor === c && <Check size={14} color="#fff" />}
                       </button>
                     ))}
                   </div>

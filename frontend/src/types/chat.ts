@@ -1,9 +1,17 @@
+export type PresenceStatus = 'online' | 'idle' | 'dnd' | 'invisible' | 'offline';
+
 export interface User {
   id: number;
   username: string;
   displayName: string;
   role?: string;
   online?: boolean;
+  presenceStatus?: PresenceStatus;
+  customStatus?: string;
+  bio?: string;
+  avatarColor?: string;
+  avatarIcon?: string;
+  bannerColor?: string;
 }
 
 export interface Room {
