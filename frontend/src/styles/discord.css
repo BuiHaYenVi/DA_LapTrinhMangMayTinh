@@ -640,27 +640,55 @@ body {
   white-space: nowrap;
 }
 
+.channel-action-btn,
 .channel-settings-btn {
   background: none;
   border: none;
   color: var(--text-muted);
-  padding: 2px;
-  margin-left: 4px;
-  border-radius: 3px;
+  padding: 3px;
+  border-radius: 4px;
   opacity: 0;
   cursor: pointer;
-  transition: opacity 0.15s ease, color 0.15s ease;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.channel-item:hover .channel-settings-btn {
-  opacity: 1;
+.channel-item:hover .channel-action-btn,
+.channel-item:hover .channel-settings-btn,
+.channel-item.active .channel-action-btn,
+.channel-item.active .channel-settings-btn {
+  opacity: 0.85;
 }
 
+.channel-action-btn:hover,
 .channel-settings-btn:hover {
+  opacity: 1;
   color: var(--text-header);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.channel-invite-btn:hover {
+  color: var(--accent, #5865f2);
+}
+
+.server-header-invite-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.server-header-invite-btn:hover {
+  color: var(--accent, #5865f2);
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 /* User Profile Bar ở đáy Cột 2 (52px cố định) */
@@ -995,6 +1023,73 @@ body {
   color: var(--text-2);
   margin: 0;
   line-height: 1.45;
+}
+
+.discord-welcome-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+  width: 100%;
+  max-width: 520px;
+}
+
+.discord-welcome-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s ease;
+  width: 100%;
+}
+
+.discord-welcome-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateX(4px);
+}
+
+.welcome-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.welcome-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.welcome-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1, #f2f3f5);
+  margin-bottom: 2px;
+}
+
+.welcome-card-desc {
+  font-size: 12px;
+  color: var(--text-3, #949ba4);
+}
+
+.welcome-card-arrow {
+  color: var(--text-3, #949ba4);
+  transition: transform 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.discord-welcome-card:hover .welcome-card-arrow {
+  transform: translateX(4px);
+  color: var(--text-1, #f2f3f5);
 }
 
 /* MÀN HÌNH CHƯA CHỌN PHÒNG CHAT (EMPTY STATE THÂN THIỆN) */

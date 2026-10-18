@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Room, Friend, User } from '../types/chat';
+import type { Room, Channel, Friend, User } from '../types/chat';
 import { X, UserPlus, Check, Search, Copy, CheckCheck } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   room: Room | null;
+  channel?: Channel | null;
   friends: Friend[];
   members: User[];
   onInviteMember: (target: number | string) => Promise<void> | void;
@@ -15,6 +16,7 @@ export const InviteToRoomModal: React.FC<Props> = ({
   isOpen,
   onClose,
   room,
+  channel,
   friends = [],
   members = [],
   onInviteMember
@@ -113,10 +115,16 @@ export const InviteToRoomModal: React.FC<Props> = ({
   };
 
   const handleCopyRoomId = () => {
-    navigator.clipboard.writeText(String(room.id)).then(() => {
+    const inviteLink = `${window.location.origin}/#room=${room.id}`;
+    navigator.clipboard.writeText(inviteLink).then(() => {
       setCopiedId(true);
       setTimeout(() => setCopiedId(false), 2000);
-    }).catch(() => {});
+    }).catch(() => {
+      navigator.clipboard.writeText(String(room.id)).then(() => {
+        setCopiedId(true);
+        setTimeout(() => setCopiedId(false), 2000);
+      });
+    });
   };
 
   return (
@@ -137,10 +145,10 @@ export const InviteToRoomModal: React.FC<Props> = ({
             </div>
             <div style={{ minWidth: 0, overflow: 'hidden' }}>
               <h3 id="invite-room-modal-title" className="invite-modal-title">
-                Mời bạn bè tham gia
+                Mời bạn bè vào {room.name}
               </h3>
               <p className="invite-modal-subtitle">
-                Phòng <span className="highlight-friend">#{room.name}</span> (ID: #{room.id})
+                Người nhận sẽ đến <span className="highlight-friend">#{channel?.name || 'chung'}</span>
               </p>
             </div>
           </div>
@@ -290,69 +298,97 @@ export const InviteToRoomModal: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Chia sẻ ID phòng hoặc mời trực tiếp bằng ID */}
+          {/* HOẶC, GỬI LINK MỜI CHO HỌ (Chuẩn Discord) */}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                MÃ ID PHÒNG ĐỂ CHIA SẺ
-              </span>
-              <button 
-                type="button" 
-                onClick={handleCopyRoomId}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: copiedId ? '#23a55a' : 'var(--accent)',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4
-                }}
-              >
-                {copiedId ? <CheckCheck size={14} /> : <Copy size={14} />}
-                {copiedId ? 'Đã sao chép' : 'Sao chép ID'}
-              </button>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
+              Hoặc, gửi link mời cho họ
             </div>
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <input
                 type="text"
-                placeholder="Nhập @username hoặc ID người dùng..."
-                value={directIdInput}
-                onChange={e => {
-                  setDirectIdInput(e.target.value);
-                  setDirectIdError('');
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') handleDirectInvite();
-                }}
+                readOnly
+                value={`${window.location.origin}/#room=${room.id}`}
+                onClick={e => (e.target as HTMLInputElement).select()}
                 style={{
                   flex: 1,
-                  padding: '8px 12px',
+                  padding: '9px 12px',
                   borderRadius: 6,
                   border: '1px solid var(--border)',
                   background: 'var(--bg-3)',
                   color: 'var(--text-header)',
                   fontSize: 13,
-                  outline: 'none'
+                  outline: 'none',
+                  cursor: 'pointer'
                 }}
               />
               <button
                 type="button"
                 className="btn-primary"
-                style={{ padding: '8px 14px', fontSize: 13, whiteSpace: 'nowrap' }}
-                onClick={handleDirectInvite}
+                onClick={handleCopyRoomId}
+                style={{
+                  padding: '9px 18px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  borderRadius: 6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: copiedId ? '#23a55a' : 'var(--primary)'
+                }}
               >
-                Gửi lời mời
+                {copiedId ? <CheckCheck size={15} /> : <Copy size={15} />}
+                {copiedId ? 'Đã sao chép' : 'Sao chép'}
               </button>
             </div>
-            {directIdError && (
-              <div style={{ fontSize: 12, color: '#f23f43', marginTop: 6 }}>
-                ⚠️ {directIdError}
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+              Mã phòng: <strong>#{room.id}</strong> • Link mời không bao giờ hết hạn.
+            </div>
+
+            {/* Mời trực tiếp người dùng khác bằng @username hoặc ID */}
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
+                Mời trực tiếp tài khoản khác:
               </div>
-            )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder="Nhập @username hoặc ID người dùng..."
+                  value={directIdInput}
+                  onChange={e => {
+                    setDirectIdInput(e.target.value);
+                    setDirectIdError('');
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleDirectInvite();
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-3)',
+                    color: 'var(--text-header)',
+                    fontSize: 13,
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  type="button"
+                  className="header-btn"
+                  style={{ padding: '8px 14px', fontSize: 13, whiteSpace: 'nowrap' }}
+                  onClick={handleDirectInvite}
+                >
+                  Gửi lời mời
+                </button>
+              </div>
+              {directIdError && (
+                <div style={{ fontSize: 12, color: '#f23f43', marginTop: 6 }}>
+                  ⚠️ {directIdError}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

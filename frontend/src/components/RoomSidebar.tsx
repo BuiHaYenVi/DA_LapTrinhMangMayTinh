@@ -446,11 +446,27 @@ export const RoomSidebar: React.FC<Props> = ({
         </div>
 
         {currentRoom && (
-          isServerMenuOpen ? (
-            <ChevronUp size={18} className="server-chevron" />
-          ) : (
-            <ChevronDown size={18} className="server-chevron" />
-          )
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {onInvite && (
+              <button
+                type="button"
+                className="server-header-invite-btn"
+                title={`Mời bạn bè vào ${currentRoom.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onInvite();
+                }}
+                aria-label="Mời bạn bè"
+              >
+                <UserPlus size={16} />
+              </button>
+            )}
+            {isServerMenuOpen ? (
+              <ChevronUp size={18} className="server-chevron" />
+            ) : (
+              <ChevronDown size={18} className="server-chevron" />
+            )}
+          </div>
         )}
 
         {/* Dropdown Menu của Phòng */}
@@ -552,17 +568,34 @@ export const RoomSidebar: React.FC<Props> = ({
                   <span className="channel-name" title={channel.name}>
                     {channel.name}
                   </span>
-                  {isManager && (
-                    <button
-                      type="button"
-                      className="channel-settings-btn"
-                      title={`Cài đặt kênh #${channel.name}`}
-                      onClick={(e) => openChannelSettings(channel, e)}
-                      aria-label={`Cài đặt kênh #${channel.name}`}
-                    >
-                      <Settings size={14} />
-                    </button>
-                  )}
+                  <div className="channel-actions-group" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    {onInvite && (
+                      <button
+                        type="button"
+                        className="channel-action-btn channel-invite-btn"
+                        title={`Mời vào kênh #${channel.name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectChannel(channel);
+                          onInvite();
+                        }}
+                        aria-label={`Mời vào kênh #${channel.name}`}
+                      >
+                        <UserPlus size={14} />
+                      </button>
+                    )}
+                    {isManager && (
+                      <button
+                        type="button"
+                        className="channel-settings-btn"
+                        title={`Cài đặt kênh #${channel.name}`}
+                        onClick={(e) => openChannelSettings(channel, e)}
+                        aria-label={`Cài đặt kênh #${channel.name}`}
+                      >
+                        <Settings size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}

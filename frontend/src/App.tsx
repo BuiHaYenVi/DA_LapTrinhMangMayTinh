@@ -1861,6 +1861,7 @@ export const App: React.FC = () => {
         isOpen={isInviteToRoomOpen}
         onClose={() => setIsInviteToRoomOpen(false)}
         room={currentRoom}
+        channel={currentChannel}
         friends={friends}
         members={members}
         onInviteMember={handleInviteMemberToCurrentRoom}

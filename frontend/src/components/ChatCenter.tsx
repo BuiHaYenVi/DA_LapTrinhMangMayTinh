@@ -335,6 +335,19 @@ export const ChatCenter: React.FC<Props> = ({
         </div>
 
         <div className="chat-header-right" style={{ position: 'relative' }}>
+          {/* Nút Mời bạn bè nhanh vào phòng */}
+          {onInvite && (
+            <button
+              type="button"
+              className="header-icon-btn"
+              title="Mời bạn bè vào phòng"
+              aria-label="Mời bạn bè"
+              onClick={onInvite}
+            >
+              <UserPlus size={20} />
+            </button>
+          )}
+
           {/* Nút bật/tắt thông báo phòng */}
           <button
             type="button"
@@ -465,26 +478,37 @@ export const ChatCenter: React.FC<Props> = ({
                 Đây là khởi đầu của kênh <strong>#{currentChannel.name}</strong> thuộc phòng <strong>{currentRoom.name}</strong>.
               </p>
               {displayedMessages.length === 0 && (
-                <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
-                  <button 
+                <div className="discord-welcome-cards-grid">
+                  <button
                     type="button"
-                    className="header-btn blurple" 
-                    onClick={() => onInvite()} 
+                    className="discord-welcome-card"
+                    onClick={() => onInvite()}
                     title="Mời bạn bè vào phòng"
-                    style={{ padding: '8px 14px', borderRadius: '4px' }}
                   >
-                    <UserPlus size={16} />
-                    <span>Mời bạn bè</span>
+                    <div className="welcome-card-icon" style={{ background: 'rgba(88, 101, 242, 0.15)', color: '#5865f2' }}>
+                      <UserPlus size={22} />
+                    </div>
+                    <div className="welcome-card-content">
+                      <div className="welcome-card-title">Mời bạn bè của bạn</div>
+                      <div className="welcome-card-desc">Chia sẻ mã phòng hoặc gửi lời mời để cùng nhau trò chuyện</div>
+                    </div>
+                    <ArrowRight size={16} className="welcome-card-arrow" />
                   </button>
-                  <button 
+
+                  <button
                     type="button"
-                    className="header-btn" 
-                    onClick={() => mainInputRef.current?.focus()} 
+                    className="discord-welcome-card"
+                    onClick={() => mainInputRef.current?.focus()}
                     title="Gửi tin nhắn đầu tiên"
-                    style={{ padding: '8px 14px', borderRadius: '4px', background: 'var(--bg-hover)', color: 'var(--text-header)' }}
                   >
-                    <Send size={16} />
-                    <span>Gửi tin nhắn</span>
+                    <div className="welcome-card-icon" style={{ background: 'rgba(35, 165, 90, 0.15)', color: '#23a55a' }}>
+                      <Send size={22} />
+                    </div>
+                    <div className="welcome-card-content">
+                      <div className="welcome-card-title">Gửi tin nhắn đầu tiên</div>
+                      <div className="welcome-card-desc">Bắt đầu cuộc trò chuyện trong kênh #{currentChannel.name}</div>
+                    </div>
+                    <ArrowRight size={16} className="welcome-card-arrow" />
                   </button>
                 </div>
               )}
