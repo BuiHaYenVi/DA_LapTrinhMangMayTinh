@@ -1737,8 +1737,7 @@ public class ClientHandler implements Runnable {
 
         String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
         boolean isOwner = "OWNER".equalsIgnoreCase(userRole)
-                || (room.getCreatedBy() == user.getId())
-                || (room.getCreatedBy() <= 0);
+                || (room.getCreatedBy() > 0 && room.getCreatedBy() == user.getId());
 
         if (!isOwner) {
             sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng (OWNER) mới có quyền xóa/giải tán phòng.");
@@ -1806,6 +1805,11 @@ public class ClientHandler implements Runnable {
             return;
         }
 
+        if (!server.getRoomService().isMember(roomId, targetUserId)) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Người nhận quyền phải là thành viên trong phòng.");
+            return;
+        }
+
         boolean ok = server.getRoomService().transferOwnership(roomId, user.getId(), targetUserId);
         if (ok) {
             User targetUser = server.getUserDAO().findById(targetUserId);
@@ -1843,6 +1847,11 @@ public class ClientHandler implements Runnable {
 
         if (!"ADMIN".equals(role) && !"MEMBER".equals(role)) {
             sendError(ProtocolErrorCode.BAD_REQUEST, "Vai trò chỉ có thể là ADMIN hoặc MEMBER.");
+            return;
+        }
+
+        if (!server.getRoomService().isMember(roomId, targetUserId)) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Người dùng này không phải là thành viên của phòng.");
             return;
         }
 

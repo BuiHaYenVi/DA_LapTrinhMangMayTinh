@@ -670,7 +670,11 @@ public class RoomDAO {
             try (PreparedStatement ps2 = conn.prepareStatement(promoteSql)) {
                 ps2.setInt(1, roomId);
                 ps2.setInt(2, newOwnerId);
-                ps2.executeUpdate();
+                int rows = ps2.executeUpdate();
+                if (rows <= 0) {
+                    conn.rollback();
+                    return false;
+                }
             }
 
             // 3. Cập nhật created_by của bảng rooms
