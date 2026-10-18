@@ -2,21 +2,21 @@
 
 :root,
 :root[data-theme="dark"] {
-  --bg-0: #0F1415;
-  --bg-1: #151B1D;
-  --bg-2: #1A2124;
-  --bg-3: #222B2E;
-  --border: #263033;
-  --text-1: #E6F1F0;
-  --text-2: #A9BDBB;
-  --text-3: #7F9593;
-  --accent: #2DD4BF;
-  --accent-strong: #5EEAD4;
-  --accent-soft: rgba(45, 212, 191, 0.14);
-  --on-accent: #04201C;
-  --rail-item-bg: #232C2F;
-  --rail-item-text: #CFE3E1;
-  --danger: #ED4245;
+  --bg-0: #1e1f22;
+  --bg-1: #2b2d31;
+  --bg-2: #313338;
+  --bg-3: #383a40;
+  --border: #3f4147;
+  --text-1: #f2f3f5;
+  --text-2: #dbdee1;
+  --text-3: #949ba4;
+  --accent: #5865F2;
+  --accent-strong: #4752C4;
+  --accent-soft: rgba(88, 101, 242, 0.16);
+  --on-accent: #FFFFFF;
+  --rail-item-bg: #2b2d31;
+  --rail-item-text: #dbdee1;
+  --danger: #f23f43;
   --tooltip-bg: #111214;
   --tooltip-text: #FFFFFF;
 
@@ -30,15 +30,15 @@
   --bg-user-bar: var(--bg-1);
   --bg-card: var(--bg-2);
   --bg-secondary: var(--bg-1);
-  --bg-hover: rgba(45, 212, 191, 0.08);
-  --bg-active: rgba(45, 212, 191, 0.16);
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: rgba(255, 255, 255, 0.10);
   --bg-modifier-selected: var(--accent-soft);
   
-  --accent-blurple: var(--accent);
-  --accent-blurple-hover: var(--accent-strong);
-  --accent-hover: var(--accent-strong);
+  --accent-blurple: #5865F2;
+  --accent-blurple-hover: #4752C4;
+  --accent-hover: #4752C4;
   --accent-green: #23a55a;
-  --accent-red: #da373c;
+  --accent-red: #f23f43;
   --accent-yellow: #f0b232;
   
   --text-header: var(--text-1);
@@ -46,29 +46,29 @@
   --text-muted: var(--text-3);
   --text-channel: var(--text-3);
   --text-channel-hover: var(--text-1);
-  --text-channel-active: var(--accent-strong);
+  --text-channel-active: #FFFFFF;
   
   --border-color: var(--border);
   --border-subtle: var(--border);
-  --font-family: 'Inter', 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  --font-family: 'gg sans', 'Noto Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
 }
 
 :root[data-theme="light"] {
-  --bg-0: #E6ECEC;
-  --bg-1: #EEF3F3;
-  --bg-2: #FFFFFF;
-  --bg-3: #EAF0F0;
-  --border: #D5DEDE;
-  --text-1: #12201F;
-  --text-2: #3F5352;
-  --text-3: #5B6F6E;
-  --accent: #0F766E;
-  --accent-strong: #0B5F58;
-  --accent-soft: #D7EFEC;
+  --bg-0: #e3e5e8;
+  --bg-1: #f2f3f5;
+  --bg-2: #ffffff;
+  --bg-3: #ebedef;
+  --border: #d1d4d9;
+  --text-1: #060607;
+  --text-2: #313338;
+  --text-3: #5c5e66;
+  --accent: #5865F2;
+  --accent-strong: #4752C4;
+  --accent-soft: rgba(88, 101, 242, 0.12);
   --on-accent: #FFFFFF;
-  --rail-item-bg: #D3DDDD;
-  --rail-item-text: #1F3534;
-  --danger: #DA373C;
+  --rail-item-bg: #e3e5e8;
+  --rail-item-text: #313338;
+  --danger: #da373c;
   --tooltip-bg: #111214;
   --tooltip-text: #FFFFFF;
 
@@ -80,15 +80,15 @@
   --bg-chat: var(--bg-2);
   --bg-input: var(--bg-3);
   --bg-user-bar: var(--bg-1);
-  --bg-card: var(--bg-2);
-  --bg-secondary: var(--bg-1);
-  --bg-hover: rgba(15, 118, 110, 0.08);
-  --bg-active: rgba(15, 118, 110, 0.16);
+  --bg-card: #ffffff;
+  --bg-secondary: #f2f3f5;
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-active: rgba(0, 0, 0, 0.08);
   --bg-modifier-selected: var(--accent-soft);
   
-  --accent-blurple: var(--accent);
-  --accent-blurple-hover: var(--accent-strong);
-  --accent-hover: var(--accent-strong);
+  --accent-blurple: #5865F2;
+  --accent-blurple-hover: #4752C4;
+  --accent-hover: #4752C4;
   --accent-green: #23a55a;
   --accent-red: #da373c;
   --accent-yellow: #f0b232;
@@ -98,7 +98,7 @@
   --text-muted: var(--text-3);
   --text-channel: var(--text-3);
   --text-channel-hover: var(--text-1);
-  --text-channel-active: var(--accent-strong);
+  --text-channel-active: #5865F2;
   
   --border-color: var(--border);
   --border-subtle: var(--border);
@@ -108,6 +108,12 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+button, input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
 }
 
 body {
@@ -1849,9 +1855,10 @@ body {
   position: relative;
   z-index: 1;
   background-color: var(--bg-card);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--border);
+  border-radius: 20px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--border-color);
   animation: authCardFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
 }
 
 @keyframes authCardFadeIn {
@@ -1865,89 +1872,36 @@ body {
   }
 }
 
-/* 1. Card Đăng Nhập: Thiết kế Dual-pane chuẩn Discord */
+/* 1. Card Đăng Nhập: Căn giữa thanh lịch, bo tròn hiện đại */
 .auth-card-login {
-  display: flex;
-  flex-direction: row;
-  width: 784px;
+  width: 480px;
   max-width: 96vw;
-  overflow: hidden;
+  padding: 36px 36px;
+  display: flex;
+  flex-direction: column;
 }
 
 .auth-main-pane {
   flex: 1;
-  padding: 32px 36px;
+  width: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.auth-qr-pane {
-  width: 280px;
-  background-color: var(--bg-hover);
-  border-left: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
-  text-align: center;
-}
-
-.qr-box-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 220px;
-}
-
-.qr-code-frame {
-  background: #ffffff;
-  padding: 8px;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease;
-}
-
-.qr-code-frame:hover {
-  transform: scale(1.02);
-}
-
-.qr-svg-mockup {
-  display: block;
-}
-
-.qr-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-header);
-  margin-bottom: 8px;
-  letter-spacing: -0.01em;
-}
-
-.qr-desc {
-  font-size: 13.5px;
-  color: var(--text-muted);
-  line-height: 1.4;
-}
-
-.qr-desc strong {
-  color: var(--text-normal);
-}
-
-/* 2. Card Đăng Ký: Căn giữa thanh lịch */
+/* 2. Card Đăng Ký: Căn giữa đồng bộ */
 .auth-card-register {
   width: 480px;
   max-width: 96vw;
-  padding: 32px 36px;
+  padding: 36px 36px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 3. Card Loading Splash kiểm tra phiên */
 .auth-loading-card {
   width: 400px;
   max-width: 96vw;
+  border-radius: 20px;
   align-items: center;
   text-align: center;
   padding: 48px 32px;
@@ -2038,9 +1992,9 @@ body {
 
 /* Alert Thông báo */
 .auth-alert {
-  padding: 10px 14px;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13.5px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2105,7 +2059,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 2px 4px;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: color 0.15s ease;
 }
 
@@ -2122,26 +2076,26 @@ body {
 
 .form-input {
   width: 100%;
-  height: 40px;
+  height: 44px;
   background-color: var(--bg-input);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 10px;
   color: var(--text-header);
-  padding: 8px 12px;
+  padding: 10px 14px;
   font-size: 14.5px;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
   font-family: inherit;
   box-sizing: border-box;
 }
 
 .form-input:hover {
-  border-color: var(--accent);
+  border-color: rgba(88, 101, 242, 0.5);
 }
 
 .form-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.25);
 }
 
 .form-input:disabled {
@@ -2159,33 +2113,38 @@ body {
   width: 100%;
   height: 44px;
   background-color: var(--accent);
-  color: var(--on-accent);
+  color: #ffffff;
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
   padding: 0 16px;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.08s ease;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   margin-top: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   user-select: none;
+  box-shadow: 0 4px 14px rgba(88, 101, 242, 0.32);
 }
 
 .btn-auth-submit:hover:not(:disabled) {
-  background-color: var(--accent-strong);
+  background-color: #4752c4;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(88, 101, 242, 0.45);
 }
 
 .btn-auth-submit:active:not(:disabled) {
   background-color: var(--accent);
-  transform: translateY(1px);
+  transform: translateY(0);
 }
 
 .btn-auth-submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-loading-content {
@@ -2232,17 +2191,11 @@ body {
 
 /* Responsive cho màn hình nhỏ (< 820px) */
 @media (max-width: 820px) {
-  .auth-card-login {
-    width: 480px;
-  }
-  .auth-qr-pane {
-    display: none;
-  }
-  .auth-main-pane {
-    padding: 28px 24px;
-  }
+  .auth-card-login,
   .auth-card-register {
-    padding: 28px 24px;
+    width: 92vw;
+    padding: 28px 20px;
+    border-radius: 16px;
   }
 }
 
@@ -2426,11 +2379,11 @@ body {
 
 .modal-card {
   background-color: var(--bg-card);
-  border-radius: 12px;
+  border-radius: 16px;
   width: 440px;
   max-width: 90vw;
   padding: 24px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -2460,7 +2413,7 @@ body {
   background-color: var(--bg-input);
   color: var(--text-normal);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 10px 12px;
   font-size: 14px;
   font-family: inherit;
@@ -2471,48 +2424,225 @@ body {
   border-color: var(--accent-blurple);
 }
 
+/* Nút Đóng Modal Icon tròn có hiệu ứng xoay nhẹ */
+.modal-close-icon-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+}
+
+.modal-close-icon-btn:hover {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.08));
+  color: var(--text-header);
+  transform: rotate(90deg) scale(1.05);
+}
+
+.modal-close-icon-btn:active {
+  transform: rotate(90deg) scale(0.92);
+}
+
+/* ==============================================================
+   HỆ THỐNG NÚT BẤM TOÀN CỤC CHUẨN DISCORD (GLOBAL BUTTON SYSTEM)
+   ============================================================== */
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 8px;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
 }
 
+/* Base quy chuẩn cho tất cả các loại nút hệ thống */
+.btn-primary,
+.btn-cancel,
+.btn-secondary,
+.btn-danger,
+.btn-danger-outline,
 .modal-footer button {
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.2px;
+  height: 38px;
+  min-width: 88px;
+  padding: 0 20px;
+  border-radius: 8px;
   border: none;
+  cursor: pointer;
+  outline: none;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  text-decoration: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.15s ease,
+              box-shadow 0.15s ease,
+              filter 0.15s ease;
 }
 
-.modal-footer .btn-cancel {
-  background: transparent;
-  color: var(--text-muted);
+/* Hiệu ứng gợn sóng (Ripple Pulse Wave) khi click chuột */
+.btn-primary::after,
+.btn-danger::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 140px;
+  height: 140px;
+  margin-top: -70px;
+  margin-left: -70px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0.2);
+  pointer-events: none;
+  transition: transform 0.38s ease-out, opacity 0.38s ease-out;
 }
 
-.modal-footer .btn-cancel:hover {
-  color: var(--text-header);
-  text-decoration: underline;
+.btn-primary:active::after,
+.btn-danger:active::after {
+  opacity: 1;
+  transform: scale(1.4);
+  transition: 0s;
 }
 
+/* 1. NÚT CHÍNH (PRIMARY - DISCORD BLURPLE #5865F2) */
+.btn-primary,
 .modal-footer .btn-primary {
-  background-color: var(--accent);
-  color: var(--on-accent);
+  background-color: var(--accent, #5865F2) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(88, 101, 242, 0.35);
 }
 
-.modal-footer .btn-primary:hover {
-  background-color: var(--accent-strong);
+.btn-primary:hover:not(:disabled),
+.modal-footer .btn-primary:hover:not(:disabled) {
+  background-color: #4752c4 !important;
+  color: #ffffff !important;
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 20px rgba(88, 101, 242, 0.45);
 }
 
+.btn-primary:active:not(:disabled),
+.modal-footer .btn-primary:active:not(:disabled) {
+  background-color: #3c45a5 !important;
+  transform: scale(0.95) translateY(1px) !important;
+  box-shadow: 0 2px 6px rgba(88, 101, 242, 0.25) !important;
+}
+
+/* 2. NÚT HỦY / THỨ CẤP (CANCEL / SECONDARY) - ĐỒNG BỘ CẢ SÁNG VÀ TỐI */
+.btn-cancel,
+.btn-secondary,
+.modal-footer .btn-cancel {
+  background-color: transparent !important;
+  color: var(--text-header, #f2f3f5) !important;
+  border: 1px solid transparent !important;
+}
+
+:root[data-theme="light"] .btn-cancel,
+:root[data-theme="light"] .btn-secondary,
+:root[data-theme="light"] .modal-footer .btn-cancel {
+  color: #2e3035 !important;
+}
+
+.btn-cancel:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+.modal-footer .btn-cancel:hover:not(:disabled) {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.08)) !important;
+  color: var(--text-header, #ffffff) !important;
+  transform: translateY(-1px);
+  text-decoration: underline !important;
+}
+
+:root[data-theme="light"] .btn-cancel:hover:not(:disabled),
+:root[data-theme="light"] .btn-secondary:hover:not(:disabled),
+:root[data-theme="light"] .modal-footer .btn-cancel:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+  color: #060607 !important;
+}
+
+.btn-cancel:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.modal-footer .btn-cancel:active:not(:disabled) {
+  transform: scale(0.95) translateY(1px) !important;
+  background-color: var(--bg-active, rgba(255, 255, 255, 0.12)) !important;
+}
+
+:root[data-theme="light"] .btn-cancel:active:not(:disabled),
+:root[data-theme="light"] .btn-secondary:active:not(:disabled),
+:root[data-theme="light"] .modal-footer .btn-cancel:active:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 3. NÚT NGUY HIỂM / XÓA (DANGER) */
+.btn-danger,
 .modal-footer .btn-danger {
-  background-color: var(--accent-red);
-  color: white;
+  background-color: var(--accent-red, #da373c) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(218, 55, 60, 0.35);
 }
 
-.modal-footer .btn-danger:hover {
-  background-color: #da373c;
+.btn-danger:hover:not(:disabled),
+.modal-footer .btn-danger:hover:not(:disabled) {
+  background-color: #c92f33 !important;
+  color: #ffffff !important;
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 20px rgba(218, 55, 60, 0.45);
+}
+
+.btn-danger:active:not(:disabled),
+.modal-footer .btn-danger:active:not(:disabled) {
+  background-color: #a12428 !important;
+  transform: scale(0.95) translateY(1px) !important;
+  box-shadow: 0 2px 6px rgba(218, 55, 60, 0.25) !important;
+}
+
+/* 4. NÚT VIỀN ĐỎ (DANGER OUTLINE) */
+.btn-danger-outline {
+  background-color: transparent !important;
+  color: var(--accent-red, #da373c) !important;
+  border: 1px solid var(--accent-red, #da373c) !important;
+}
+
+.btn-danger-outline:hover:not(:disabled) {
+  background-color: rgba(218, 55, 60, 0.12) !important;
+  transform: translateY(-1px);
+}
+
+.btn-danger-outline:active:not(:disabled) {
+  transform: scale(0.95) translateY(1px) !important;
+  background-color: rgba(218, 55, 60, 0.2) !important;
+}
+
+/* TRẠNG THÁI VÔ HIỆU HÓA (DISABLED) */
+.btn-primary:disabled,
+.btn-cancel:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled,
+.btn-danger-outline:disabled,
+.modal-footer button:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 /* ============================================================== */
@@ -2529,8 +2659,8 @@ body {
 .server-modal-card {
   background-color: var(--bg-card) !important;
   border: 1px solid var(--border-color);
-  border-radius: 14px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35) !important;
   padding: 24px !important;
 }
 
@@ -2645,9 +2775,9 @@ body {
   width: 100%;
   max-width: 440px;
   background-color: var(--bg-card);
-  border-radius: 8px;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
   border: 1px solid var(--border);
   animation: discordModalFadeIn 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -2687,7 +2817,7 @@ body {
   padding: 8px 12px;
   background-color: rgba(218, 55, 60, 0.15);
   border: 1px solid var(--accent-red);
-  border-radius: 4px;
+  border-radius: 8px;
   color: var(--accent-red);
   font-size: 13px;
   line-height: 18px;
@@ -2706,7 +2836,7 @@ body {
   padding: 10px 24px;
   background-color: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   color: var(--text-header);
   font-size: 14px;
   font-weight: 500;
@@ -2726,7 +2856,7 @@ body {
 .discord-modal-btn-confirm {
   padding: 10px 24px;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   color: var(--on-accent);
   font-size: 14px;
   font-weight: 600;
@@ -2802,7 +2932,7 @@ body {
 /* ============================================================== */
 .channel-modal-card {
   background-color: var(--bg-card) !important;
-  border-radius: 14px !important;
+  border-radius: 16px !important;
   max-width: 460px !important;
   width: 100% !important;
   padding: 0 !important;
@@ -2989,11 +3119,117 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
 }
 
-.channel-input-suffix:hover {
+.channel-input-suffix:hover,
+.channel-input-suffix.active {
   color: var(--text-header);
+  background-color: var(--bg-hover);
+}
+
+/* Popover Chọn Emoji cho Kênh Chat */
+.channel-emoji-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 320px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 320px;
+}
+
+.channel-emoji-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--bg-input);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.channel-emoji-search-input {
+  border: none;
+  background: transparent !important;
+  color: var(--text-header) !important;
+  font-size: 13px;
+  outline: none !important;
+  width: 100%;
+}
+
+.channel-emoji-categories {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+}
+
+.channel-emoji-cat-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 6px;
+  font-size: 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+
+.channel-emoji-cat-btn:hover,
+.channel-emoji-cat-btn.active {
+  opacity: 1;
+  background-color: var(--bg-hover);
+}
+
+.channel-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 8px;
+  overflow-y: auto;
+  max-height: 180px;
+}
+
+.channel-emoji-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s, background-color 0.1s;
+}
+
+.channel-emoji-item:hover {
+  background-color: var(--bg-hover);
+  transform: scale(1.2);
+}
+
+.channel-emoji-preview-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 /* Kênh Riêng & Switch */
@@ -3269,7 +3505,7 @@ body {
   max-height: 92vh;
   display: flex;
   background-color: var(--bg-1);
-  border-radius: 12px;
+  border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border-color);
   overflow: hidden;
   position: relative;
@@ -7218,52 +7454,67 @@ body {
 }
 
 .custom-icon-chip {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
   background-color: var(--bg-3);
   color: var(--text-1);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
 }
 
 .custom-icon-chip:hover {
   border-color: var(--accent);
-  transform: translateY(-1px);
+  background-color: var(--bg-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.custom-icon-chip:active {
+  transform: scale(0.92);
 }
 
 .custom-icon-chip.active {
-  background-color: var(--accent-soft);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  background-color: rgba(88, 101, 242, 0.18) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--accent);
+  color: var(--accent);
 }
 
 .custom-color-chip,
 .custom-color-swatch {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .custom-color-chip:hover,
 .custom-color-swatch:hover {
-  transform: scale(1.12);
+  transform: scale(1.18);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+.custom-color-chip:active,
+.custom-color-swatch:active {
+  transform: scale(0.92);
 }
 
 .custom-color-chip.active,
 .custom-color-swatch.active {
   border-color: #ffffff;
-  box-shadow: 0 0 0 2px var(--accent);
+  box-shadow: 0 0 0 2.5px var(--accent);
+  transform: scale(1.08);
 }
 
 /* Tùy chọn Cỡ chữ & Mật độ tin nhắn từ UserSettingsModal */

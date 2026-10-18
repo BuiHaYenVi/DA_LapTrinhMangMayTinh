@@ -1,13 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { X, Hash } from 'lucide-react';
-import type { Room, Channel } from '../types/chat';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Hash, Volume2, MessagesSquare, Smile, Lock, Search } from 'lucide-react';
+import type { Room, Channel, ChannelType } from '../types/chat';
+import { EMOJI_CATEGORIES } from './chat/EmojiStickerPicker';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   room: Room | null;
   existingChannels?: Channel[];
-  onCreateChannel: (roomId: number, channelName: string) => Promise<{ success: boolean; error?: string }>;
+  onCreateChannel: (
+    roomId: number,
+    channelName: string,
+    channelType: ChannelType,
+    isPrivate: boolean
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 export const CreateChannelModal: React.FC<Props> = ({
@@ -17,17 +23,45 @@ export const CreateChannelModal: React.FC<Props> = ({
   existingChannels = [],
   onCreateChannel
 }) => {
+  const [channelType, setChannelType] = useState<ChannelType>('text');
   const [channelName, setChannelName] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Popover Emoji Picker
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [emojiSearch, setEmojiSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string>('smileys');
+  const [hoveredEmoji, setHoveredEmoji] = useState<{ emoji: string; name: string } | null>(null);
+
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (isOpen) {
+      setChannelType('text');
       setChannelName('');
+      setIsPrivate(false);
       setErrorMsg('');
       setIsSubmitting(false);
+      setShowEmojiPicker(false);
+      setEmojiSearch('');
+      setHoveredEmoji(null);
     }
   }, [isOpen]);
+
+  // Đóng popover Emoji khi click ra ngoài
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showEmojiPicker]);
 
   if (!isOpen || !room) return null;
 
@@ -35,15 +69,36 @@ export const CreateChannelModal: React.FC<Props> = ({
     if (isSubmitting) return;
     setChannelName('');
     setErrorMsg('');
+    setShowEmojiPicker(false);
     onClose();
+  };
+
+  // Chuẩn hóa tên kênh tự động (thay khoảng trắng thành '-', cho phép emoji và tiếng Việt)
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    // Thay thế khoảng trắng thành dấu '-' chuẩn quy ước kênh Discord
+    const formatted = val.replace(/\s+/g, '-');
+    setChannelName(formatted);
+    if (errorMsg) setErrorMsg('');
+  };
+
+  const handleSelectEmoji = (emoji: string) => {
+    if (!channelName) {
+      setChannelName(`${emoji}-`);
+    } else {
+      setChannelName(prev => `${prev}-${emoji}`.replace(/-+/g, '-'));
+    }
+    setShowEmojiPicker(false);
+    inputRef.current?.focus();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
 
-    // Chuẩn hóa tên kênh: trim khoảng trắng thừa
-    const trimmed = channelName.trim();
+    let trimmed = channelName.trim();
+    // Loại bỏ dấu gạch nối thừa ở đầu và cuối nếu có
+    trimmed = trimmed.replace(/^-+|-+$/g, '');
 
     if (!trimmed) {
       setErrorMsg('Vui lòng nhập tên kênh chat.');
@@ -60,18 +115,18 @@ export const CreateChannelModal: React.FC<Props> = ({
       ch => ch.name.trim().toLowerCase() === trimmed.toLowerCase()
     );
     if (isDuplicate) {
-      setErrorMsg(`Kênh "#${trimmed}" đã tồn tại trong phòng này. Vui lòng chọn tên khác.`);
+      setErrorMsg(`Kênh "${trimmed}" đã tồn tại trong máy chủ này. Vui lòng chọn tên khác.`);
       return;
     }
 
     setErrorMsg('');
     setIsSubmitting(true);
     try {
-      const result = await onCreateChannel(room.id, trimmed);
+      const result = await onCreateChannel(room.id, trimmed, channelType, isPrivate);
       if (result.success) {
         handleClose();
       } else {
-        setErrorMsg(result.error || 'Không thể tạo kênh chat. Vui lòng thử lại.');
+        setErrorMsg(result.error || 'Không thể tạo kênh. Vui lòng thử lại.');
       }
     } catch (err: any) {
       setErrorMsg(err?.message || 'Lỗi kết nối khi gửi yêu cầu tạo kênh.');
@@ -80,157 +135,304 @@ export const CreateChannelModal: React.FC<Props> = ({
     }
   };
 
+  // Lọc emoji theo tìm kiếm
+  const filteredEmojis = () => {
+    const q = emojiSearch.trim().toLowerCase();
+    if (!q) {
+      const cat = EMOJI_CATEGORIES.find(c => c.id === activeCategory);
+      return cat ? cat.emojis : EMOJI_CATEGORIES[0].emojis;
+    }
+    const all = EMOJI_CATEGORIES.flatMap(c => c.emojis);
+    return all.filter(em => em.includes(q));
+  };
+
+  const currentPrefixIcon = () => {
+    switch (channelType) {
+      case 'voice':
+        return <Volume2 size={18} />;
+      case 'forum':
+        return <MessagesSquare size={18} />;
+      case 'text':
+      default:
+        return <Hash size={18} />;
+    }
+  };
+
+  const currentPlaceholder = () => {
+    switch (channelType) {
+      case 'voice':
+        return 'phòng-đàm-thoại';
+      case 'forum':
+        return 'diễn-đàn-thảo-luận';
+      case 'text':
+      default:
+        return 'kênh-mới';
+    }
+  };
+
   return (
     <div className="modal-backdrop" onClick={handleClose}>
       <div
-        className="modal-card server-modal-card"
+        className="channel-modal-card"
         onClick={e => e.stopPropagation()}
-        style={{ maxWidth: '440px', width: '100%', position: 'relative' }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-channel-title"
       >
+        {/* Nút đóng (X) ở góc phải trên */}
         <button
           type="button"
+          className="channel-modal-close"
           onClick={handleClose}
           disabled={isSubmitting}
-          style={{
-            position: 'absolute',
-            top: '16px',
-            right: '16px',
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-muted)',
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            padding: '4px',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          title="Đóng"
+          title="Đóng (ESC)"
+          aria-label="Đóng"
         >
-          <X size={20} />
+          <X size={18} />
         </button>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ textAlign: 'left', marginBottom: '16px', padding: '0 4px' }}>
-            <h2 
-              id="create-channel-title" 
-              style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-header)', margin: '0 0 6px' }}
-            >
-              Tạo kênh chat
+          {/* Header Modal */}
+          <div className="channel-modal-header">
+            <h2 id="create-channel-title" className="channel-modal-title">
+              Tạo kênh
             </h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.45', margin: 0 }}>
-              trong phòng <strong style={{ color: 'var(--text-normal)' }}>{room.name}</strong>
-            </p>
+            <div className="channel-modal-subtitle">
+              trong <strong>{room.name}</strong>
+            </div>
           </div>
 
-          {/* Loại kênh: Kênh chat chữ */}
-          <div className="modal-field" style={{ marginBottom: '16px' }}>
-            <label style={{ marginBottom: '6px', display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>
-              LOẠI KÊNH
-            </label>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '10px 14px',
-              backgroundColor: 'var(--bg-card)',
-              borderRadius: '6px',
-              border: '1px solid var(--accent)'
-            }}>
-              <Hash size={24} color="var(--accent)" />
-              <div>
-                <div style={{ fontWeight: 600, color: 'var(--text-header)', fontSize: '14px' }}>Chat chữ</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Đăng tin nhắn văn bản, hình ảnh, tài liệu</div>
+          {/* Section: LOẠI KÊNH (3 Lựa chọn: Văn bản, Giọng nói, Diễn đàn) */}
+          <div className="channel-modal-section">
+            <label className="channel-section-label">Loại Kênh</label>
+
+            {/* 1. Kênh Văn Bản */}
+            <div
+              className={`channel-type-option ${channelType === 'text' ? 'active' : ''}`}
+              onClick={() => setChannelType('text')}
+              role="radio"
+              aria-checked={channelType === 'text'}
+              tabIndex={0}
+              onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') setChannelType('text'); }}
+            >
+              <div className="channel-radio-indicator">
+                <div className="channel-radio-dot" />
+              </div>
+              <div className="channel-type-icon">
+                <Hash size={22} />
+              </div>
+              <div className="channel-type-info">
+                <div className="channel-type-name">Văn bản</div>
+                <div className="channel-type-desc">
+                  Gửi tin nhắn, hình ảnh, ảnh GIF, emoji, ý kiến, và chơi chữ
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Kênh Giọng Nói */}
+            <div
+              className={`channel-type-option ${channelType === 'voice' ? 'active' : ''}`}
+              onClick={() => setChannelType('voice')}
+              role="radio"
+              aria-checked={channelType === 'voice'}
+              tabIndex={0}
+              onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') setChannelType('voice'); }}
+            >
+              <div className="channel-radio-indicator">
+                <div className="channel-radio-dot" />
+              </div>
+              <div className="channel-type-icon">
+                <Volume2 size={22} />
+              </div>
+              <div className="channel-type-info">
+                <div className="channel-type-name">Giọng nói</div>
+                <div className="channel-type-desc">
+                  Cùng gặp mặt bằng gọi thoại, video, và chia sẻ màn hình
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Kênh Diễn Đàn */}
+            <div
+              className={`channel-type-option ${channelType === 'forum' ? 'active' : ''}`}
+              onClick={() => setChannelType('forum')}
+              role="radio"
+              aria-checked={channelType === 'forum'}
+              tabIndex={0}
+              onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') setChannelType('forum'); }}
+            >
+              <div className="channel-radio-indicator">
+                <div className="channel-radio-dot" />
+              </div>
+              <div className="channel-type-icon">
+                <MessagesSquare size={22} />
+              </div>
+              <div className="channel-type-info">
+                <div className="channel-type-name">Diễn Đàn</div>
+                <div className="channel-type-desc">
+                  Tạo không gian cho những cuộc thảo luận có tổ chức
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Tên kênh chat */}
-          <div className="modal-field" style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label htmlFor="create-channel-name" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>
-                TÊN KÊNH <span style={{ color: 'var(--accent-red)' }}>*</span>
-              </label>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                {channelName.length}/50
-              </span>
-            </div>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <span style={{
-                position: 'absolute',
-                left: '12px',
-                color: 'var(--text-muted)',
-                fontWeight: 600,
-                fontSize: '16px',
-                pointerEvents: 'none'
-              }}>
-                #
+          {/* Section: TÊN KÊNH (Kèm Tiền tố & Nút Emoji Picker chuẩn Discord) */}
+          <div className="channel-modal-section" style={{ position: 'relative' }}>
+            <label className="channel-section-label" htmlFor="create-channel-name-input">
+              Tên kênh
+            </label>
+            <div className="channel-input-wrapper">
+              <span className="channel-input-prefix">
+                {currentPrefixIcon()}
               </span>
               <input
-                id="create-channel-name"
+                ref={inputRef}
+                id="create-channel-name-input"
                 type="text"
+                className="channel-name-field"
                 value={channelName}
-                onChange={e => {
-                  setChannelName(e.target.value);
-                  if (errorMsg) setErrorMsg('');
-                }}
-                placeholder="kenh-moi"
-                autoFocus
+                onChange={handleNameChange}
+                placeholder={currentPlaceholder()}
                 maxLength={50}
                 disabled={isSubmitting}
-                style={{
-                  paddingLeft: '30px',
-                  width: '100%',
-                  boxSizing: 'border-box'
-                }}
+                autoFocus
               />
+              <button
+                type="button"
+                className={`channel-input-suffix ${showEmojiPicker ? 'active' : ''}`}
+                title="Chọn biểu cảm cho tên kênh"
+                aria-label="Chọn biểu cảm"
+                onClick={() => setShowEmojiPicker(v => !v)}
+              >
+                <Smile size={18} />
+              </button>
             </div>
+
+            {/* Popover Emoji Picker nổi khi bấm nút Smiley Face */}
+            {showEmojiPicker && (
+              <div
+                ref={emojiPickerRef}
+                className="channel-emoji-popover"
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Thanh tìm kiếm Emoji */}
+                <div className="channel-emoji-search-wrap">
+                  <Search size={14} color="var(--text-muted)" />
+                  <input
+                    type="text"
+                    className="channel-emoji-search-input"
+                    value={emojiSearch}
+                    onChange={e => setEmojiSearch(e.target.value)}
+                    placeholder="Tìm biểu cảm..."
+                    autoFocus
+                  />
+                  {emojiSearch && (
+                    <button
+                      type="button"
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                      onClick={() => setEmojiSearch('')}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Danh mục Emoji */}
+                {!emojiSearch && (
+                  <div className="channel-emoji-categories">
+                    {EMOJI_CATEGORIES.map(cat => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        className={`channel-emoji-cat-btn ${activeCategory === cat.id ? 'active' : ''}`}
+                        title={cat.name}
+                        onClick={() => setActiveCategory(cat.id)}
+                      >
+                        {cat.icon}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Lưới Emoji */}
+                <div className="channel-emoji-grid">
+                  {filteredEmojis().map((em, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className="channel-emoji-item"
+                      onClick={() => handleSelectEmoji(em)}
+                      onMouseEnter={() => setHoveredEmoji({ emoji: em, name: `emoji_${idx}` })}
+                      onMouseLeave={() => setHoveredEmoji(null)}
+                    >
+                      {em}
+                    </button>
+                  ))}
+                  {filteredEmojis().length === 0 && (
+                    <div style={{ gridColumn: '1 / -1', padding: '16px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
+                      Không tìm thấy biểu cảm phù hợp.
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer xem trước Emoji đang di chuột */}
+                <div className="channel-emoji-preview-footer">
+                  <span style={{ fontSize: '22px', minWidth: '28px', textAlign: 'center' }}>
+                    {hoveredEmoji ? hoveredEmoji.emoji : '🙂'}
+                  </span>
+                  <span style={{ fontWeight: 500, color: 'var(--text-normal)' }}>
+                    {hoveredEmoji ? `:${hoveredEmoji.emoji}:` : 'Chọn biểu cảm để thêm vào tên'}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Thông báo lỗi inline thực tế */}
+          {/* Section: KÊNH RIÊNG & TOGGLE SWITCH */}
+          <div className="channel-modal-section private-section">
+            <div className="channel-private-row">
+              <div className="channel-private-left">
+                <Lock size={18} className="channel-private-icon" />
+                <span className="channel-private-label">Kênh Riêng</span>
+              </div>
+              <label className="channel-switch" title="Chuyển đổi trạng thái Kênh Riêng">
+                <input
+                  type="checkbox"
+                  checked={isPrivate}
+                  onChange={e => setIsPrivate(e.target.checked)}
+                  disabled={isSubmitting}
+                />
+                <span className="channel-slider" />
+              </label>
+            </div>
+            <p className="channel-private-desc">
+              Chỉ có thành viên và vai trò được chọn mới có thể nhìn thấy kênh này.
+            </p>
+          </div>
+
+          {/* Thông báo lỗi inline */}
           {errorMsg && (
-            <div className="room-modal-inline-error" role="alert" style={{ marginBottom: '14px' }}>
-              ⚠️ {errorMsg}
+            <div style={{ padding: '0 24px 12px' }}>
+              <div className="room-modal-inline-error" role="alert">
+                ⚠️ {errorMsg}
+              </div>
             </div>
           )}
 
           {/* Footer nút hành động */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
+          <div className="channel-modal-footer">
             <button
               type="button"
-              className="btn-cancel"
+              className="channel-btn-cancel"
               onClick={handleClose}
               disabled={isSubmitting}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
-                fontWeight: 600,
-                padding: '8px 14px'
-              }}
             >
-              Hủy
+              Hủy bỏ
             </button>
             <button
               type="submit"
-              className="btn-primary"
+              className="channel-btn-submit"
               disabled={isSubmitting || !channelName.trim()}
-              style={{
-                background: 'var(--accent)',
-                color: 'var(--on-accent)',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '10px 22px',
-                fontWeight: 600,
-                fontSize: '14px',
-                cursor: isSubmitting || !channelName.trim() ? 'not-allowed' : 'pointer',
-                opacity: isSubmitting || !channelName.trim() ? 0.6 : 1
-              }}
             >
               {isSubmitting ? 'Đang tạo...' : 'Tạo kênh'}
             </button>

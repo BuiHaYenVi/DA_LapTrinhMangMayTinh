@@ -1,4 +1,5 @@
-import type { Room, Channel, MessageItem, User, Friend, PendingFriendRequest } from '../types/chat';
+import type { Room, Channel, ChannelType, MessageItem, User, Friend, PendingFriendRequest } from '../types/chat';
+import { getChannelMeta, saveChannelMeta } from '../utils/channelMeta';
 
 type Listener = (event: string, data: any) => void;
 
@@ -277,17 +278,38 @@ class ChatBridgeService {
     const res = await this.fetchWithAuth(`${this.baseUrl}/channels?roomId=${roomId}`, { method: 'GET' });
     if (!res.ok) return [];
     const data = await res.json();
-    return data.channels || [];
+    const list: Channel[] = data.channels || [];
+    return list.map(ch => {
+      const meta = getChannelMeta(ch.id, ch.name);
+      return {
+        ...ch,
+        type: ch.type || meta.type || 'text',
+        isPrivate: ch.isPrivate ?? meta.isPrivate ?? false
+      };
+    });
   }
 
-  public async createChannel(roomId: number, name: string): Promise<{ success: boolean; channel?: Channel; message?: string }> {
+  public async createChannel(
+    roomId: number, 
+    name: string,
+    type: ChannelType = 'text',
+    isPrivate: boolean = false
+  ): Promise<{ success: boolean; channel?: Channel; message?: string }> {
     const res = await this.fetchWithAuth(`${this.baseUrl}/channels/create`, {
       method: 'POST',
-      body: JSON.stringify({ roomId, name })
+      body: JSON.stringify({ roomId, name, type, isPrivate })
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.success === false) {
       throw new Error(data.message || `HTTP ${res.status}`);
+    }
+    if (data.channel) {
+      saveChannelMeta(data.channel.id, data.channel.name, { type, isPrivate });
+      data.channel = {
+        ...data.channel,
+        type,
+        isPrivate
+      };
     }
     return data;
   }

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { Room, Channel, MessageItem } from '../types/chat';
+import type { Room, Channel, MessageItem, User } from '../types/chat';
 import { 
   Hash, Search, UserPlus, Send, Edit3, Trash2,
-  Users, ArrowRight, Loader2, MessageSquare, PlusCircle, Smile, Bell, BellOff, Pin, X
+  Users, ArrowRight, Loader2, MessageSquare, PlusCircle, Smile, Bell, BellOff, Pin, X,
+  Volume2, MessagesSquare, Lock
 } from 'lucide-react';
 import { Logo } from './Logo';
 import { 
@@ -26,6 +27,8 @@ import {
   toggleMessageReaction, 
   type ReactionsMap 
 } from './chat/reactionManager';
+import { ForumChannelView } from './chat/ForumChannelView';
+import { VoiceChannelView } from './chat/VoiceChannelView';
 
 interface Props {
   currentRoom: Room | null;
@@ -36,6 +39,8 @@ interface Props {
   currentUserId: number;
   currentUserName?: string;
   currentUserRole?: string;
+  currentUser?: User | null;
+  members?: User[];
   isMemberListOpen?: boolean;
   onToggleMemberList?: () => void;
   onSendMessage: (text: string) => void;
@@ -182,6 +187,8 @@ export const ChatCenter: React.FC<Props> = ({
   currentUserId,
   currentUserName,
   currentUserRole,
+  currentUser,
+  members = [],
   isMemberListOpen = true,
   onToggleMemberList,
   onSendMessage,
@@ -394,8 +401,16 @@ export const ChatCenter: React.FC<Props> = ({
       {/* 1. Header Bar: Tiêu đề kênh chat (# tên-kênh) và các công cụ kênh */}
       <div className="chat-header">
         <div className="chat-header-left">
-          <div className="chat-header-channel-wrap" title={currentChannel ? `Kênh #${currentChannel.name}` : ''}>
-            <Hash size={22} className="channel-hash-icon" />
+          <div className="chat-header-channel-wrap" title={currentChannel ? `${currentChannel.isPrivate ? '[Riêng tư] ' : ''}Kênh ${currentChannel.name}` : ''}>
+            {currentChannel?.isPrivate ? (
+              <Lock size={20} className="channel-lock-icon" style={{ color: 'var(--text-muted)' }} />
+            ) : currentChannel?.type === 'voice' ? (
+              <Volume2 size={22} className="channel-hash-icon" />
+            ) : currentChannel?.type === 'forum' ? (
+              <MessagesSquare size={22} className="channel-hash-icon" />
+            ) : (
+              <Hash size={22} className="channel-hash-icon" />
+            )}
             <div className="chat-header-title">
               {currentChannel ? currentChannel.name : 'Chọn kênh'}
             </div>
@@ -522,12 +537,22 @@ export const ChatCenter: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* 2. Messages List Container */}
-      <div 
-        className="chat-messages-container" 
-        ref={chatMessagesRef}
-        onScroll={handleScroll}
-      >
+      {currentChannel?.type === 'forum' ? (
+        <ForumChannelView channel={currentChannel} currentUser={currentUser || null} />
+      ) : currentChannel?.type === 'voice' ? (
+        <VoiceChannelView 
+          channel={currentChannel} 
+          currentUser={currentUser || null} 
+          members={members} 
+        />
+      ) : (
+        <>
+          {/* 2. Messages List Container */}
+          <div 
+            className="chat-messages-container" 
+            ref={chatMessagesRef}
+            onScroll={handleScroll}
+          >
         {isLoading ? (
           <div style={{
             display: 'flex',
@@ -926,6 +951,8 @@ export const ChatCenter: React.FC<Props> = ({
           </button>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

@@ -115,21 +115,9 @@ export const CreateRoomModal: React.FC<Props> = ({
           type="button"
           onClick={handleClose}
           disabled={isSubmitting}
-          style={{
-            position: 'absolute',
-            top: '16px',
-            right: '16px',
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-muted)',
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            padding: '4px',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          title="Đóng"
+          className="modal-close-icon-btn"
+          title="Đóng (ESC)"
+          aria-label="Đóng"
         >
           <X size={20} />
         </button>
@@ -199,6 +187,7 @@ export const CreateRoomModal: React.FC<Props> = ({
                   key={idx}
                   type="button"
                   className={`custom-icon-chip ${selectedIcon === ic ? 'active' : ''}`}
+                  style={!ic ? { fontSize: '13px', fontWeight: 700 } : undefined}
                   onClick={() => setSelectedIcon(ic)}
                   title={ic ? `Biểu tượng ${ic}` : 'Chữ viết tắt mặc định'}
                 >
@@ -258,7 +247,7 @@ export const CreateRoomModal: React.FC<Props> = ({
           )}
 
           {/* Footer nút hành động */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
+          <div className="modal-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '14px' }}>
             <button
               type="button"
               className="btn-cancel"

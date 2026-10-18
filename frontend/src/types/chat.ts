@@ -25,10 +25,14 @@ export interface Room {
   memberCount?: number;
 }
 
+export type ChannelType = 'text' | 'voice' | 'forum';
+
 export interface Channel {
   id: number;
   roomId: number;
   name: string;
+  type?: ChannelType;
+  isPrivate?: boolean;
   createdAt?: string;
 }
 

@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { Room, Channel, User, Friend, MessageItem } from '../types/chat';
 import { 
   Hash, Plus, Settings, ChevronDown, ChevronUp, LogOut, 
-  UserPlus, Users, MessageSquare, X, Trash2
+  UserPlus, Users, MessageSquare, X, Trash2,
+  Volume2, MessagesSquare, Lock
 } from 'lucide-react';
 import { formatTime } from './chat/chatShared';
 import {
@@ -597,57 +598,82 @@ export const RoomSidebar: React.FC<Props> = ({
               )}
             </div>
 
-            {channels.map(channel => {
-              const isSelected = currentChannel?.id === channel.id;
+            {(() => {
+              const visibleChannels = channels.filter(ch => {
+                if (ch.isPrivate && currentUserRole === 'MEMBER') {
+                  return false;
+                }
+                return true;
+              });
 
               return (
-                <div
-                  key={channel.id}
-                  className={`channel-item ${isSelected ? 'active' : ''}`}
-                  onClick={() => onSelectChannel(channel)}
-                  title={`Kênh #${channel.name}`}
-                >
-                  <Hash size={18} className="channel-hash-icon" />
-                  <span className="channel-name" title={channel.name}>
-                    {channel.name}
-                  </span>
-                  <div className="channel-actions-group" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    {onInvite && (
-                      <button
-                        type="button"
-                        className="channel-action-btn channel-invite-btn"
-                        title={`Mời vào kênh #${channel.name}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectChannel(channel);
-                          onInvite();
-                        }}
-                        aria-label={`Mời vào kênh #${channel.name}`}
-                      >
-                        <UserPlus size={14} />
-                      </button>
-                    )}
-                    {isManager && (
-                      <button
-                        type="button"
-                        className="channel-settings-btn"
-                        title={`Cài đặt kênh #${channel.name}`}
-                        onClick={(e) => openChannelSettings(channel, e)}
-                        aria-label={`Cài đặt kênh #${channel.name}`}
-                      >
-                        <Settings size={14} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                <>
+                  {visibleChannels.map(channel => {
+                    const isSelected = currentChannel?.id === channel.id;
+                    const chType = channel.type || 'text';
+                    const isPrivate = Boolean(channel.isPrivate);
 
-            {channels.length === 0 && (
-              <div style={{ padding: '8px 12px', fontSize: '13px', color: 'var(--text-muted)' }}>
-                Chưa có kênh nào trong phòng này.
-              </div>
-            )}
+                    return (
+                      <div
+                        key={channel.id}
+                        className={`channel-item ${isSelected ? 'active' : ''} ${isPrivate ? 'private' : ''}`}
+                        onClick={() => onSelectChannel(channel)}
+                        title={`${isPrivate ? '[Riêng tư] ' : ''}${chType === 'voice' ? 'Kênh thoại: ' : chType === 'forum' ? 'Diễn đàn: ' : 'Kênh #'}${channel.name}`}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                          {isPrivate ? (
+                            <Lock size={15} className="channel-lock-icon" style={{ color: 'var(--text-muted)' }} />
+                          ) : chType === 'voice' ? (
+                            <Volume2 size={18} className="channel-hash-icon" />
+                          ) : chType === 'forum' ? (
+                            <MessagesSquare size={18} className="channel-hash-icon" />
+                          ) : (
+                            <Hash size={18} className="channel-hash-icon" />
+                          )}
+                        </div>
+                        <span className="channel-name" title={channel.name}>
+                          {channel.name}
+                        </span>
+                        <div className="channel-actions-group" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          {onInvite && (
+                            <button
+                              type="button"
+                              className="channel-action-btn channel-invite-btn"
+                              title={`Mời vào kênh #${channel.name}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectChannel(channel);
+                                onInvite();
+                              }}
+                              aria-label={`Mời vào kênh #${channel.name}`}
+                            >
+                              <UserPlus size={14} />
+                            </button>
+                          )}
+                          {isManager && (
+                            <button
+                              type="button"
+                              className="channel-settings-btn"
+                              title={`Cài đặt kênh #${channel.name}`}
+                              onClick={(e) => openChannelSettings(channel, e)}
+                              aria-label={`Cài đặt kênh #${channel.name}`}
+                            >
+                              <Settings size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {visibleChannels.length === 0 && (
+                    <div style={{ padding: '8px 12px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                      Chưa có kênh nào trong phòng này.
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </>
         ) : (
           <div style={{ padding: '24px 16px', fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center' }}>

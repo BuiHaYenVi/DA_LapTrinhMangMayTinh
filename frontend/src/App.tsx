@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import type { User, Room, Channel, MessageItem, Friend, PendingFriendRequest, SearchUserResult } from './types/chat';
+import type { User, Room, Channel, ChannelType, MessageItem, Friend, PendingFriendRequest, SearchUserResult } from './types/chat';
 import { chatBridge } from './services/chatBridge';
 import { WorkspaceSidebar } from './components/WorkspaceSidebar';
 import { RoomSidebar } from './components/RoomSidebar';
@@ -1353,7 +1353,9 @@ export const App: React.FC = () => {
   // Tạo Kênh chat mới trong phòng đang chọn
   const handleModalCreateChannel = async (
     roomId: number,
-    channelName: string
+    channelName: string,
+    channelType: ChannelType = 'text',
+    isPrivate: boolean = false
   ): Promise<{ success: boolean; error?: string }> => {
     const trimmedName = channelName.trim();
 
@@ -1364,16 +1366,16 @@ export const App: React.FC = () => {
       return { success: false, error: 'Tên kênh không được vượt quá 50 ký tự.' };
     }
     if (channels.some(c => c.name.trim().toLowerCase() === trimmedName.toLowerCase())) {
-      return { success: false, error: `Kênh "#${trimmedName}" đã tồn tại trong phòng này.` };
+      return { success: false, error: `Kênh "${trimmedName}" đã tồn tại trong phòng này.` };
     }
 
     pendingCreateChannelRef.current = true;
 
     try {
-      const res = await chatBridge.createChannel(roomId, trimmedName);
+      const res = await chatBridge.createChannel(roomId, trimmedName, channelType, isPrivate);
       pendingCreateChannelRef.current = false;
       if (res.channel) {
-        const newCh = res.channel;
+        const newCh = { ...res.channel, type: channelType, isPrivate };
         setChannels(prev => (prev.some(c => c.id === newCh.id) ? prev : [...prev, newCh]));
         handleSelectChannel(newCh);
       }
@@ -1850,6 +1852,8 @@ export const App: React.FC = () => {
             currentUserId={currentUser ? currentUser.id : 0}
             currentUserName={currentUser?.displayName || currentUser?.username || 'Tôi'}
             currentUserRole={currentUserRole}
+            currentUser={currentUser}
+            members={members}
             isMemberListOpen={isMemberListOpen}
             onToggleMemberList={() => setIsMemberListOpen(prev => !prev)}
             isRoomMuted={currentRoom ? mutedRooms.has(currentRoom.id) : false}
