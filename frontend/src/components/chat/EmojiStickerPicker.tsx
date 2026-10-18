@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Smile, Sticker as StickerIcon, Search, X, Code, Quote, Sparkles, Flame } from 'lucide-react';
+import { Smile, Sticker as StickerIcon, Search, X, Code, Quote, Sparkles, Flame, Upload } from 'lucide-react';
 
 import { 
   STICKER_LIST, 
@@ -256,14 +256,14 @@ export const EmojiStickerPicker: React.FC<EmojiStickerPickerProps> = ({
 };
 
 interface QuickAttachMenuProps {
-  onInsertTemplate: (text: string) => void;
-  onOpenStickerTab: () => void;
+  onUploadFile: () => void;
   onClose: () => void;
+  onInsertTemplate?: (text: string) => void;
+  onOpenStickerTab?: () => void;
 }
 
 export const QuickAttachMenu: React.FC<QuickAttachMenuProps> = ({
-  onInsertTemplate,
-  onOpenStickerTab,
+  onUploadFile,
   onClose
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -282,60 +282,86 @@ export const QuickAttachMenu: React.FC<QuickAttachMenuProps> = ({
     <div ref={menuRef} className="quick-attach-popover" onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
-        className="quick-attach-item"
+        className="quick-attach-item upload-action-btn"
         onClick={() => {
-          onOpenStickerTab();
+          onUploadFile();
           onClose();
         }}
       >
-        <Sparkles size={16} style={{ color: '#f59e0b' }} />
-        <div>
-          <div className="quick-attach-title">Gửi Nhãn dán (Sticker)</div>
-          <div className="quick-attach-desc">Chọn nhãn dán cảm xúc sinh động</div>
+        <div className="quick-attach-icon-circle">
+          <Upload size={18} />
+        </div>
+        <div className="quick-attach-text-wrap">
+          <div className="quick-attach-title">Tải Lên Tệp</div>
+          <div className="quick-attach-desc">Tải ảnh hoặc tệp tin từ thiết bị của bạn</div>
         </div>
       </button>
-      <button
-        type="button"
-        className="quick-attach-item"
-        onClick={() => {
-          onInsertTemplate('`code` ');
-          onClose();
-        }}
-      >
-        <Code size={16} style={{ color: '#5865f2' }} />
-        <div>
-          <div className="quick-attach-title">Chèn đoạn mã (Code)</div>
-          <div className="quick-attach-desc">Định dạng lệnh hoặc đoạn code ngắn</div>
-        </div>
-      </button>
-      <button
-        type="button"
-        className="quick-attach-item"
-        onClick={() => {
-          onInsertTemplate('>>> ');
-          onClose();
-        }}
-      >
-        <Quote size={16} style={{ color: '#23a55a' }} />
-        <div>
-          <div className="quick-attach-title">Chèn trích dẫn (Quote)</div>
-          <div className="quick-attach-desc">Làm nổi bật thông báo quan trọng</div>
-        </div>
-      </button>
-      <button
-        type="button"
-        className="quick-attach-item"
-        onClick={() => {
-          onInsertTemplate('🔥 [Thông báo] ');
-          onClose();
-        }}
-      >
-        <Flame size={16} style={{ color: '#ef4444' }} />
-        <div>
-          <div className="quick-attach-title">Tiêu đề nổi bật</div>
-          <div className="quick-attach-desc">Tạo thông báo nhanh trong phòng</div>
-        </div>
-      </button>
+    </div>
+  );
+};
+
+interface MessageReactionPickerProps {
+  onSelectEmoji: (emoji: string) => void;
+  onClose: () => void;
+}
+
+export const MessageReactionPicker: React.FC<MessageReactionPickerProps> = ({
+  onSelectEmoji,
+  onClose
+}) => {
+  const [search, setSearch] = useState('');
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [onClose]);
+
+  const allEmojis = EMOJI_CATEGORIES.flatMap((c) => c.emojis);
+  const filteredEmojis = search.trim()
+    ? allEmojis.filter((e) => e.includes(search.trim()))
+    : allEmojis;
+
+  return (
+    <div ref={popoverRef} className="discord-reaction-picker-popover" onClick={(e) => e.stopPropagation()}>
+      <div className="discord-reaction-picker-header">
+        <span className="discord-reaction-picker-title">Thêm Biểu Cảm</span>
+        <button type="button" className="emoji-sticker-close" onClick={onClose} title="Đóng">
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="discord-reaction-picker-search">
+        <Search size={14} className="discord-reaction-search-icon" />
+        <input
+          type="text"
+          placeholder="Tìm kiếm biểu cảm..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          autoFocus
+        />
+      </div>
+
+      <div className="discord-reaction-picker-grid">
+        {filteredEmojis.slice(0, 100).map((emoji, idx) => (
+          <button
+            key={`${emoji}-${idx}`}
+            type="button"
+            className="discord-reaction-grid-btn"
+            onClick={() => {
+              onSelectEmoji(emoji);
+              onClose();
+            }}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
     </div>
   );
 };

@@ -168,6 +168,8 @@ public class UiBridgeServer {
         server.createContext("/api/friends/search", new FriendSearchHandler());
         server.createContext("/api/user/profile", new UpdateProfileHandler());
         server.createContext("/api/user/password", new ChangePasswordHandler());
+        server.createContext("/api/files/upload", new FileUploadHandler());
+        server.createContext("/api/files/download", new FileDownloadHandler());
 
         // Phục vụ frontend tĩnh với SPA fallback
         server.createContext("/", new StaticFileHandler());
@@ -2677,6 +2679,129 @@ public class UiBridgeServer {
                     session.pendingRequests.remove("CHANGE_PASSWORD");
                     sendJson(exchange, 500, Map.of("success", false, "message", "Lỗi hoặc timeout đổi mật khẩu: " + e.getMessage()));
                 }
+            }
+        }
+    }
+
+    private static File resolveUploadsDir() {
+        File[] candidates = new File[] {
+                new File("uploads"),
+                new File("../uploads"),
+                new File(System.getProperty("user.dir", "."), "uploads")
+        };
+        for (File f : candidates) {
+            if (f.exists() && f.isDirectory()) {
+                return f;
+            }
+        }
+        File defaultDir = new File("uploads");
+        defaultDir.mkdirs();
+        return defaultDir;
+    }
+
+    private class FileUploadHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                String name = (String) body.get("name");
+                String size = (String) body.get("size");
+                String type = (String) body.get("type");
+                String data = (String) body.get("data");
+
+                if (name == null || name.isBlank() || data == null || data.isBlank()) {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "Thiếu dữ liệu tệp tin"));
+                    return;
+                }
+
+                String cleanName = new File(name).getName().replaceAll("[^a-zA-Z0-9._-]", "_");
+                if (cleanName.isBlank()) cleanName = "file_" + System.currentTimeMillis();
+
+                String uniqueName = System.currentTimeMillis() + "_" + cleanName;
+                File uploadDir = resolveUploadsDir();
+                if (!uploadDir.exists()) uploadDir.mkdirs();
+
+                File targetFile = new File(uploadDir, uniqueName);
+
+                try {
+                    String base64Data = data;
+                    if (base64Data.contains(",")) {
+                        base64Data = base64Data.substring(base64Data.indexOf(",") + 1);
+                    }
+                    byte[] fileBytes = Base64.getDecoder().decode(base64Data);
+                    try (FileOutputStream fos = new FileOutputStream(targetFile)) {
+                        fos.write(fileBytes);
+                    }
+
+                    String downloadUrl = "/api/files/download/" + uniqueName;
+                    Map<String, Object> resp = new LinkedHashMap<>();
+                    resp.put("success", true);
+                    resp.put("url", downloadUrl);
+                    resp.put("name", name);
+                    resp.put("size", size != null ? size : ((fileBytes.length / 1024) + " KB"));
+                    resp.put("type", type != null ? type : "application/octet-stream");
+
+                    sendJson(exchange, 200, resp);
+                } catch (Exception ex) {
+                    sendJson(exchange, 500, Map.of("success", false, "message", "Lỗi lưu tệp: " + ex.getMessage()));
+                }
+            } else {
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
+    private class FileDownloadHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            String path = exchange.getRequestURI().getPath();
+            String fileName = path.substring(path.lastIndexOf('/') + 1);
+            File uploadDir = resolveUploadsDir();
+            File targetFile = new File(uploadDir, fileName);
+
+            if (!targetFile.exists() || !targetFile.isFile()) {
+                byte[] notFound = "{\"success\":false,\"message\":\"Không tìm thấy tệp tin\"}".getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
+                exchange.sendResponseHeaders(404, notFound.length);
+                try (OutputStream os = exchange.getResponseBody()) { os.write(notFound); }
+                return;
+            }
+
+            String mime = "application/octet-stream";
+            String lower = fileName.toLowerCase();
+            if (lower.endsWith(".png")) mime = "image/png";
+            else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) mime = "image/jpeg";
+            else if (lower.endsWith(".gif")) mime = "image/gif";
+            else if (lower.endsWith(".webp")) mime = "image/webp";
+            else if (lower.endsWith(".svg")) mime = "image/svg+xml";
+            else if (lower.endsWith(".pdf")) mime = "application/pdf";
+            else if (lower.endsWith(".txt")) mime = "text/plain; charset=UTF-8";
+            else if (lower.endsWith(".zip")) mime = "application/zip";
+
+            exchange.getResponseHeaders().set("Content-Type", mime);
+            if (mime.startsWith("image/")) {
+                exchange.getResponseHeaders().set("Content-Disposition", "inline; filename=\"" + fileName + "\"");
+            } else {
+                exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+            }
+
+            exchange.sendResponseHeaders(200, targetFile.length());
+            try (FileInputStream fis = new FileInputStream(targetFile); OutputStream os = exchange.getResponseBody()) {
+                fis.transferTo(os);
             }
         }
     }

@@ -506,6 +506,58 @@ class ChatBridgeService {
       return { success: false, message: e?.message || 'Lỗi mạng khi đổi mật khẩu' };
     }
   }
+
+  public async uploadFile(file: File): Promise<{ success: boolean; url: string; name: string; size: string; type: string }> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result as string;
+          const sizeStr = file.size > 1024 * 1024 
+            ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+            : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+
+          const res = await this.fetchWithAuth(`${this.baseUrl}/files/upload`, {
+            method: 'POST',
+            body: JSON.stringify({
+              name: file.name,
+              size: sizeStr,
+              type: file.type || 'application/octet-stream',
+              data: base64Data
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+              resolve(data);
+              return;
+            }
+          }
+
+          // Fallback nếu không có endpoint backend: dùng base64 data URL trực tiếp
+          resolve({
+            success: true,
+            url: base64Data,
+            name: file.name,
+            size: sizeStr,
+            type: file.type || 'application/octet-stream'
+          });
+        } catch {
+          const sizeStr = `${Math.max(1, Math.round(file.size / 1024))} KB`;
+          resolve({
+            success: true,
+            url: reader.result as string,
+            name: file.name,
+            size: sizeStr,
+            type: file.type || 'application/octet-stream'
+          });
+        }
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  }
 }
 
 export const chatBridge = new ChatBridgeService();
