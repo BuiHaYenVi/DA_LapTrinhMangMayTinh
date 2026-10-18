@@ -56,7 +56,7 @@ export const MemberSidebar: React.FC<Props> = ({
           <div className="user-avatar-circle">
             {member.displayName ? member.displayName.charAt(0).toUpperCase() : 'U'}
           </div>
-          <div className={`status-dot ${isOnline ? '' : 'offline'}`} />
+          <div className={`status-dot ${isOnline ? 'online' : 'offline'}`} title={isOnline ? 'Trực tuyến' : 'Ngoại tuyến'} />
         </div>
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
@@ -135,7 +135,7 @@ export const MemberSidebar: React.FC<Props> = ({
       <div className="member-list">
         {onlineMembers.length > 0 && (
           <>
-            <div className="section-title">TRỰC TUYẾN — {onlineMembers.length}</div>
+            <div className="section-title">Trực tuyến — {onlineMembers.length}</div>
             {onlineMembers.map(member => renderMemberItem(member, true))}
           </>
         )}
@@ -143,7 +143,7 @@ export const MemberSidebar: React.FC<Props> = ({
         {offlineMembers.length > 0 && (
           <>
             <div className="section-title" style={{ marginTop: '12px' }}>
-              NGOẠI TUYẾN — {offlineMembers.length}
+              Ngoại tuyến — {offlineMembers.length}
             </div>
             {offlineMembers.map(member => renderMemberItem(member, false))}
           </>

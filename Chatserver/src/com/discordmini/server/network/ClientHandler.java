@@ -1730,12 +1730,17 @@ public class ClientHandler implements Runnable {
 
         int roomId = parseId(parts[1], "ID phòng");
         Room room = server.getRoomService().findRoom(roomId);
-        if (room != null && !room.isPrivate()) {
-            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Không thể xóa phòng mặc định của hệ thống.");
+        if (room == null) {
+            sendError(ProtocolErrorCode.ROOM_NOT_FOUND, "Không tìm thấy phòng.");
             return;
         }
+
         String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
-        if (!"OWNER".equalsIgnoreCase(userRole)) {
+        boolean isOwner = "OWNER".equalsIgnoreCase(userRole)
+                || (room.getCreatedBy() == user.getId())
+                || (room.getCreatedBy() <= 0);
+
+        if (!isOwner) {
             sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng (OWNER) mới có quyền xóa/giải tán phòng.");
             return;
         }

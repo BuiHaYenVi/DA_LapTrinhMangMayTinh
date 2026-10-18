@@ -51,6 +51,10 @@ public class DatabaseMigration {
                 st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''");
                 st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS invite_code VARCHAR(20) DEFAULT ''");
                 st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE");
+                // Bỏ 3 phòng mặc định của hệ thống theo yêu cầu của người dùng
+                try {
+                    st.executeUpdate("DELETE FROM rooms WHERE LOWER(name) IN ('general', 'gaming', 'study')");
+                } catch (Exception ignored) {}
                 st.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS room_members (
                         id SERIAL PRIMARY KEY,

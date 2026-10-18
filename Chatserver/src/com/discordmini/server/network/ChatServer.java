@@ -69,19 +69,10 @@ public class ChatServer {
 
             User systemUser = userDAO.findUser("system");
             if (systemUser == null) {
-                systemUser = userDAO.register("system", "system_protected_pwd", "Hệ Thống");
-            }
-            if (systemUser != null) {
-                String[] defaultRooms = {"General", "Gaming", "Study"};
-                for (String roomName : defaultRooms) {
-                    if (roomDAO.findRoomByName(roomName) == null) {
-                        roomDAO.createRoom(roomName, systemUser.getId());
-                    }
-                }
-                System.out.println("[DB] Đã kiểm tra và đồng bộ các phòng mặc định (General, Gaming, Study).");
+                userDAO.register("system", "system_protected_pwd", "Hệ Thống");
             }
         } catch (Exception e) {
-            System.err.println("[DB WARNING] Chưa thể khởi tạo phòng mặc định: " + e.getMessage());
+            System.err.println("[DB WARNING] Lỗi kiểm tra database: " + e.getMessage());
         }
     }
 

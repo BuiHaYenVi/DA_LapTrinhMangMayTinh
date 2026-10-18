@@ -37,8 +37,7 @@ public class RoomDAO {
         try (Statement st = conn.createStatement()) {
             st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''");
             st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS invite_code VARCHAR(20) DEFAULT ''");
-            st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE");
-            st.executeUpdate("UPDATE rooms SET is_private = TRUE WHERE created_by IS NOT NULL AND created_by > 0 AND LOWER(name) NOT IN ('general', 'gaming', 'study')");
+            st.executeUpdate("UPDATE rooms SET is_private = TRUE WHERE created_by IS NOT NULL AND created_by > 0");
         } catch (Exception e) {
             System.err.println("[RoomDAO] Kiểm tra cột bảng rooms: " + e.getMessage());
         }
@@ -336,8 +335,7 @@ public class RoomDAO {
         List<Room> list = new ArrayList<>();
         String sql = "SELECT r.id, r.name, r.created_by, r.created_at, r.description, r.invite_code, r.is_private, rm.role " +
                      "FROM rooms r " +
-                     "LEFT JOIN room_members rm ON r.id = rm.room_id AND rm.user_id = ? " +
-                     "WHERE r.is_private = false OR rm.user_id IS NOT NULL " +
+                     "JOIN room_members rm ON r.id = rm.room_id AND rm.user_id = ? " +
                      "ORDER BY r.id ASC";
         try (Connection conn = DatabaseConnection.getConnection()) {
             if (conn == null) return list;
@@ -367,8 +365,7 @@ public class RoomDAO {
                     ensureRoomColumnsExist(conn);
                     String fallbackSql = "SELECT r.id, r.name, r.created_by, r.created_at, rm.role " +
                                          "FROM rooms r " +
-                                         "LEFT JOIN room_members rm ON r.id = rm.room_id AND rm.user_id = ? " +
-                                         "WHERE LOWER(r.name) IN ('general', 'gaming', 'study') OR rm.user_id IS NOT NULL " +
+                                         "JOIN room_members rm ON r.id = rm.room_id AND rm.user_id = ? " +
                                          "ORDER BY r.id ASC";
                     try (PreparedStatement ps = conn.prepareStatement(fallbackSql)) {
                         ps.setInt(1, userId);

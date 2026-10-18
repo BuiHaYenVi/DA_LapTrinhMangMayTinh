@@ -1541,8 +1541,62 @@ body {
   color: var(--text-3);
 }
 
-.status-dot.offline {
-  background-color: var(--text-3) !important;
+.member-item .user-avatar-wrap {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.member-item .status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 3px solid var(--bg-sidebar-secondary, #2b2d31);
+  box-sizing: content-box;
+  background-color: #23a55a;
+  transition: all 0.15s ease;
+}
+
+.member-item .status-dot.online {
+  background-color: #23a55a !important;
+  box-shadow: 0 0 4px rgba(35, 165, 90, 0.4);
+}
+
+.member-item .status-dot.offline {
+  background-color: #80848e !important;
+  box-shadow: none;
+}
+
+/* Badge hiển thị vai trò trong menu chuột phải */
+.context-menu-role-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.context-menu-role-tag.owner {
+  background: rgba(240, 178, 50, 0.15);
+  color: #f0b232;
+  border: 1px solid rgba(240, 178, 50, 0.3);
+}
+
+.context-menu-role-tag.admin {
+  background: rgba(88, 101, 242, 0.15);
+  color: #5865f2;
+  border: 1px solid rgba(88, 101, 242, 0.3);
+}
+
+.context-menu-role-tag.member {
+  background: var(--bg-modifier-selected, rgba(255, 255, 255, 0.06));
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .member-action-menu {
