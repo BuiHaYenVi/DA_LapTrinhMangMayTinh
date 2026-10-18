@@ -8,6 +8,7 @@ export const ROOM_CUSTOM_STORAGE_KEY = 'discord_mini_room_custom_v1';
 export interface RoomCustomStyle {
   icon?: string;
   color?: string;
+  bannerColor?: string;
 }
 
 export const ROOM_ICON_PRESETS = ['', '🚀', '🎮', '💻', '📚', '🎵', '🔥', '💎', '🌟', '☕', '🏆', '🎨'];
@@ -20,6 +21,18 @@ export const ROOM_COLOR_PRESETS = [
   '#ED4245',
   '#8B5CF6',
   '#0EA5E9'
+];
+
+export const ROOM_BANNER_PRESETS = [
+  '#1e1f22', // Đen khói (Discord Default)
+  '#eb459f', // Hồng neon
+  '#f23f43', // Đỏ rực
+  '#f57b20', // Cam lửa
+  '#fee75c', // Vàng hoàng kim
+  '#9b59b6', // Tím thạch anh
+  '#00a8fc', // Xanh lam
+  '#57f287', // Xanh lục
+  '#4e5058'  // Xám than chì
 ];
 
 export function getRoomCustomStyle(roomId?: number, roomName?: string): RoomCustomStyle {
