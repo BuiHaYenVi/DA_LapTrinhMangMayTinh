@@ -14,6 +14,7 @@ interface Props {
   onOpenInviteModal: (friend: Friend) => void;
   onBackToFriends: () => void;
   onRemoveFriend?: (friendId: number) => void;
+  onLoadMore?: (beforeId: number) => void;
 }
 
 export const DirectMessageChat: React.FC<Props> = ({
@@ -25,7 +26,8 @@ export const DirectMessageChat: React.FC<Props> = ({
   onDeleteMessage,
   onOpenInviteModal,
   onBackToFriends,
-  onRemoveFriend
+  onRemoveFriend,
+  onLoadMore
 }) => {
   const handleSend = (text: string) => {
     onSendMessage(targetUser.id, text);
@@ -129,6 +131,7 @@ export const DirectMessageChat: React.FC<Props> = ({
         onRetryMessage={handleRetry}
         onEditMessage={onEditMessage}
         onDeleteMessage={onDeleteMessage}
+        onLoadMore={onLoadMore}
       />
 
       {/* 3. Ô nhập tin nhắn luôn bám đáy (có Emoji & Sticker) */}

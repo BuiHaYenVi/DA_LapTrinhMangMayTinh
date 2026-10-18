@@ -3,7 +3,7 @@ import type { Room, Channel, MessageItem, User } from '../types/chat';
 import { 
   Hash, Search, UserPlus, Send, Edit3, Trash2,
   Users, ArrowRight, Loader2, MessageSquare, PlusCircle, Smile, Bell, BellOff, Pin, X,
-  Volume2, MessagesSquare, Lock
+  Volume2, MessagesSquare, Lock, ChevronDown
 } from 'lucide-react';
 import { Logo } from './Logo';
 import { 
@@ -316,6 +316,7 @@ export const ChatCenter: React.FC<Props> = ({
       textToSend = textToSend ? `${textToSend} ${token}` : token;
     }
     if (!textToSend) return;
+    isUserSendingRef.current = true;
     onSendMessage(textToSend);
     setInputText('');
     setPendingAttachment(null);
@@ -353,22 +354,146 @@ export const ChatCenter: React.FC<Props> = ({
     }
   };
 
+  const [newMessagesBelow, setNewMessagesBelow] = useState(0);
+  const [, setIsNearBottom] = useState(true);
+  const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false);
+  const [hasReachedHistoryEnd, setHasReachedHistoryEnd] = useState(false);
+
+  // Bộ nhớ vị trí cuộn theo từng phòng/kênh (Scroll Position Memory)
+  const channelScrollMemoryRef = useRef<Record<string, number>>({});
+  const isNearBottomRef = useRef(true);
+  const prevMessagesLengthRef = useRef(messages.length);
+  const prevFirstMsgIdRef = useRef<number | null>(messages[0]?.id || null);
+  const scrollSnapshotRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+  const isUserSendingRef = useRef(false);
+  const activeChannelKeyRef = useRef<string>('');
+
+  const currentChannelKey = `${currentRoom?.id || 0}_${currentChannel?.id || 0}`;
+
+  // Cập nhật ref kênh hiện tại
+  useEffect(() => {
+    activeChannelKeyRef.current = currentChannelKey;
+  }, [currentChannelKey]);
+
+  // Khi chuyển kênh/phòng: Lưu vị trí kênh cũ và khôi phục vị trí của kênh mới
+  useEffect(() => {
+    setNewMessagesBelow(0);
+    setIsNearBottom(true);
+    isNearBottomRef.current = true;
+    setIsLoadingMoreHistory(false);
+    setHasReachedHistoryEnd(false);
+    prevMessagesLengthRef.current = messages.length;
+    prevFirstMsgIdRef.current = messages[0]?.id || null;
+
+    const savedPos = channelScrollMemoryRef.current[currentChannelKey];
+    requestAnimationFrame(() => {
+      if (!chatMessagesRef.current) return;
+      if (typeof savedPos === 'number') {
+        chatMessagesRef.current.scrollTop = savedPos;
+      } else {
+        chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+      }
+    });
+  }, [currentRoom?.id, currentChannel?.id]);
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (chatMessagesRef.current) {
+      chatMessagesRef.current.scrollTo({
+        top: chatMessagesRef.current.scrollHeight,
+        behavior
+      });
+      setNewMessagesBelow(0);
+      setIsNearBottom(true);
+      isNearBottomRef.current = true;
+    }
+  };
+
   const handleScroll = () => {
-    if (chatMessagesRef.current && chatMessagesRef.current.scrollTop === 0) {
+    const el = chatMessagesRef.current;
+    if (!el) return;
+
+    // Lưu vị trí cuộn của kênh hiện tại
+    channelScrollMemoryRef.current[currentChannelKey] = el.scrollTop;
+
+    // Kiểm tra xem người dùng có đang ở gần đáy (trong khoảng 120px) hay không
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distanceFromBottom <= 120;
+    setIsNearBottom(nearBottom);
+    isNearBottomRef.current = nearBottom;
+
+    if (nearBottom) {
+      setNewMessagesBelow(0);
+    }
+
+    // Tự động tải thêm tin nhắn cũ khi cuộn lên gần đầu danh sách (<= 40px)
+    if (el.scrollTop <= 40 && !isLoadingMoreHistory && !hasReachedHistoryEnd) {
       if (messages.length > 0 && onLoadMore) {
+        scrollSnapshotRef.current = {
+          scrollHeight: el.scrollHeight,
+          scrollTop: el.scrollTop
+        };
+        setIsLoadingMoreHistory(true);
         onLoadMore(messages[0].id);
       }
     }
   };
 
-  // Cuộn xuống tin mới nhất (tôn trọng cài đặt autoScroll)
+  // Xử lý giữ nguyên vị trí cuộn khi tin cũ được thêm vào đầu (prepend history)
+  // và cuộn bám đáy thông minh khi có tin mới
   useEffect(() => {
-    const stored = loadStoredSettings();
-    if (stored.autoScroll === false) return;
-    if (chatMessagesRef.current && !isLoading) {
-      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    const el = chatMessagesRef.current;
+    if (!el) return;
+
+    const prevLen = prevMessagesLengthRef.current;
+    const currentLen = messages.length;
+    const prevFirstId = prevFirstMsgIdRef.current;
+    const currentFirstId = messages[0]?.id || null;
+
+    prevMessagesLengthRef.current = currentLen;
+    prevFirstMsgIdRef.current = currentFirstId;
+
+    // 1. Nếu tải thêm tin nhắn cũ vào đầu (first message id thay đổi và số tin nhắn tăng)
+    if (scrollSnapshotRef.current && currentLen > prevLen && prevFirstId !== currentFirstId) {
+      const { scrollHeight: oldHeight, scrollTop: oldTop } = scrollSnapshotRef.current;
+      const heightDifference = el.scrollHeight - oldHeight;
+      el.scrollTop = oldTop + heightDifference;
+      scrollSnapshotRef.current = null;
+      setIsLoadingMoreHistory(false);
+      return;
     }
-  }, [messages.length, isLoading]);
+
+    // Nếu đã gọi loadMore nhưng số tin nhắn không đổi -> máy chủ đã hết tin cũ
+    if (isLoadingMoreHistory && currentLen === prevLen) {
+      setIsLoadingMoreHistory(false);
+      setHasReachedHistoryEnd(true);
+    }
+
+    // 2. Nếu do chính người dùng vừa gửi tin nhắn -> lập tức cuộn xuống cuối
+    if (isUserSendingRef.current) {
+      isUserSendingRef.current = false;
+      el.scrollTop = el.scrollHeight;
+      setNewMessagesBelow(0);
+      setIsNearBottom(true);
+      isNearBottomRef.current = true;
+      return;
+    }
+
+    // 3. Nếu có tin nhắn mới tới (tin nhắn được thêm vào cuối)
+    if (currentLen > prevLen) {
+      const stored = loadStoredSettings();
+      if (stored.autoScroll === false) return;
+
+      if (isNearBottomRef.current) {
+        // Đang ở gần đáy -> tự động trượt xuống tin mới
+        el.scrollTop = el.scrollHeight;
+      } else {
+        // Đang cuộn lên đọc tin cũ -> KHÔNG kéo xuống, hiển thị nút 'Có tin nhắn mới'
+        const addedCount = currentLen - prevLen;
+        setNewMessagesBelow((prev) => prev + addedCount);
+      }
+    }
+  }, [messages, isLoading]);
+
 
   // 1. MÀN HÌNH CHẾ ĐỘ TIN NHẮN TRỰC TIẾP
   if (isDirectMessageMode) {
@@ -568,6 +693,36 @@ export const ChatCenter: React.FC<Props> = ({
           </div>
         ) : currentRoom && currentChannel ? (
           <div className="messages-flow">
+            {/* Thanh báo / nút bấm tải thêm tin nhắn cũ nếu người dùng muốn bấm chủ động */}
+            {onLoadMore && messages.length > 0 && !hasReachedHistoryEnd && (
+              <div className="chat-load-more-row">
+                <button
+                  type="button"
+                  className="chat-load-more-btn"
+                  onClick={() => {
+                    if (chatMessagesRef.current) {
+                      scrollSnapshotRef.current = {
+                        scrollHeight: chatMessagesRef.current.scrollHeight,
+                        scrollTop: chatMessagesRef.current.scrollTop
+                      };
+                    }
+                    setIsLoadingMoreHistory(true);
+                    onLoadMore(messages[0].id);
+                  }}
+                  disabled={isLoadingMoreHistory}
+                >
+                  {isLoadingMoreHistory ? (
+                    <>
+                      <Loader2 size={14} className="spin-animation" />
+                      <span>Đang tải tin nhắn cũ hơn...</span>
+                    </>
+                  ) : (
+                    <span>Tải thêm lịch sử tin nhắn</span>
+                  )}
+                </button>
+              </div>
+            )}
+
             {/* Hero Welcome Banner ở đầu kênh */}
             <div className="channel-hero-welcome">
               <div className="hero-hash-circle">
@@ -950,6 +1105,20 @@ export const ChatCenter: React.FC<Props> = ({
             <Send size={18} />
           </button>
         </div>
+
+        {/* Nút 'Có tin nhắn mới · Xuống cuối' bám trên ô nhập khi người dùng cuộn lên trên */}
+        {newMessagesBelow > 0 && (
+          <button
+            type="button"
+            className="chat-new-messages-bar"
+            onClick={() => scrollToBottom('smooth')}
+            title="Cuộn nhanh xuống tin nhắn mới nhất"
+          >
+            <ChevronDown size={16} />
+            <span>Có {newMessagesBelow} tin nhắn mới · Xuống cuối</span>
+            <span className="bar-badge">{newMessagesBelow}</span>
+          </button>
+        )}
       </div>
         </>
       )}

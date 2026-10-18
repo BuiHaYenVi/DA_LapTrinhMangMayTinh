@@ -868,10 +868,21 @@ public class UiBridgeServer {
                         String[] x = p[i].split(",", 4);
                         if (x.length >= 2) {
                             Map<String, Object> mem = new HashMap<>();
-                            mem.put("id", Integer.parseInt(x[0]));
-                            mem.put("displayName", ProtocolHandler.decode(x[1]));
+                            int memId = Integer.parseInt(x[0]);
+                            String dispName = ProtocolHandler.decode(x[1]);
+                            mem.put("id", memId);
+                            mem.put("displayName", dispName);
                             mem.put("role", x.length >= 3 ? x[2] : "MEMBER");
                             mem.put("online", x.length >= 4 && "ONLINE".equalsIgnoreCase(x[3]));
+
+                            // Tự động liên kết username nếu thành viên này đã có trong danh sách bạn bè
+                            for (Map<String, Object> f : friendCache) {
+                                Object fId = f.get("id");
+                                if (fId instanceof Number && ((Number) fId).intValue() == memId) {
+                                    mem.put("username", f.get("username"));
+                                    break;
+                                }
+                            }
                             memberCache.add(mem);
                         }
                     }

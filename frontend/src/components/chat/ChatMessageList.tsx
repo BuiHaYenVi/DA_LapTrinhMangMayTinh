@@ -1,9 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import type { MessageItem } from '../../types/chat';
-import { RotateCw, Edit3, Trash2, Smile } from 'lucide-react';
+import { RotateCw, Edit3, Trash2, Smile, ChevronDown, Loader2 } from 'lucide-react';
 import { formatDateLabel, getDateKey, shouldGroupWithPrevious, formatTime } from './chatShared';
 import { extractStickerFromContent, MessageReactionPicker } from './EmojiStickerPicker';
-import { loadStoredSettings } from '../UserSettingsModal';
 import { extractAttachmentFromContent } from './attachmentUtils';
 import { MessageAttachmentView } from './MessageAttachmentView';
 import { MessageReactionList } from './MessageReactionList';
@@ -55,22 +54,99 @@ export const ChatMessageList: React.FC<Props> = ({
     return () => window.removeEventListener('user_settings_updated', onUpdate);
   }, []);
 
-  // Tự cuộn xuống đáy khi có tin nhắn mới (tôn trọng cài đặt autoScroll)
+  const [newMessagesBelow, setNewMessagesBelow] = useState(0);
+  const [, setIsNearBottom] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasReachedEnd, setHasReachedEnd] = useState(false);
+
+  const isNearBottomRef = useRef(true);
+  const prevMessagesLengthRef = useRef(messages.length);
+  const prevFirstMsgIdRef = useRef<number | null>(messages[0]?.id || null);
+  const scrollSnapshotRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+
+  // Cuộn bám đáy hoặc giữ vị trí khi tin cũ được tải thêm
   useEffect(() => {
-    const stored = loadStoredSettings();
-    if (stored.autoScroll === false) return;
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const prevLen = prevMessagesLengthRef.current;
+    const currentLen = messages.length;
+    const prevFirstId = prevFirstMsgIdRef.current;
+    const currentFirstId = messages[0]?.id || null;
+
+    prevMessagesLengthRef.current = currentLen;
+    prevFirstMsgIdRef.current = currentFirstId;
+
+    // 1. Nếu tải thêm tin nhắn cũ vào đầu (first message id thay đổi)
+    if (scrollSnapshotRef.current && currentLen > prevLen && prevFirstId !== currentFirstId) {
+      const { scrollHeight: oldHeight, scrollTop: oldTop } = scrollSnapshotRef.current;
+      const heightDifference = el.scrollHeight - oldHeight;
+      el.scrollTop = oldTop + heightDifference;
+      scrollSnapshotRef.current = null;
+      setIsLoadingMore(false);
+      return;
     }
-  }, [messages.length]);
+
+    if (isLoadingMore && currentLen === prevLen) {
+      setIsLoadingMore(false);
+      setHasReachedEnd(true);
+    }
+
+    // 2. Nếu có tin nhắn mới tới
+    if (currentLen > prevLen) {
+      const lastMsg = messages[messages.length - 1];
+      const isMyMessage = Boolean(lastMsg?.isMe || (currentUserId && Number(lastMsg?.senderId) === Number(currentUserId)));
+
+      if (isMyMessage || isNearBottomRef.current) {
+        el.scrollTop = el.scrollHeight;
+        setNewMessagesBelow(0);
+        setIsNearBottom(true);
+        isNearBottomRef.current = true;
+      } else {
+        const addedCount = currentLen - prevLen;
+        setNewMessagesBelow(prev => prev + addedCount);
+      }
+    }
+  }, [messages, currentUserId]);
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior
+      });
+      setNewMessagesBelow(0);
+      setIsNearBottom(true);
+      isNearBottomRef.current = true;
+    }
+  };
 
   const handleScroll = () => {
-    if (scrollRef.current && scrollRef.current.scrollTop === 0) {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distanceFromBottom <= 120;
+    setIsNearBottom(nearBottom);
+    isNearBottomRef.current = nearBottom;
+
+    if (nearBottom) {
+      setNewMessagesBelow(0);
+    }
+
+    // Tự động tải tin nhắn cũ khi cuộn lên gần đầu
+    if (el.scrollTop <= 40 && !isLoadingMore && !hasReachedEnd) {
       if (messages.length > 0 && onLoadMore) {
+        scrollSnapshotRef.current = {
+          scrollHeight: el.scrollHeight,
+          scrollTop: el.scrollTop
+        };
+        setIsLoadingMore(true);
         onLoadMore(messages[0].id);
       }
     }
   };
+
 
   const handleSaveEdit = (msgId: number) => {
     const trimmed = editText.trim();
@@ -96,6 +172,36 @@ export const ChatMessageList: React.FC<Props> = ({
       aria-live="polite"
     >
       <div className="dm-scroll-inner">
+        {/* Nút bấm / trạng thái tải thêm tin nhắn cũ */}
+        {onLoadMore && messages.length > 0 && !hasReachedEnd && (
+          <div className="chat-load-more-row">
+            <button
+              type="button"
+              className="chat-load-more-btn"
+              onClick={() => {
+                if (scrollRef.current) {
+                  scrollSnapshotRef.current = {
+                    scrollHeight: scrollRef.current.scrollHeight,
+                    scrollTop: scrollRef.current.scrollTop
+                  };
+                }
+                setIsLoadingMore(true);
+                onLoadMore(messages[0].id);
+              }}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? (
+                <>
+                  <Loader2 size={14} className="spin-animation" />
+                  <span>Đang tải tin nhắn cũ hơn...</span>
+                </>
+              ) : (
+                <span>Tải thêm lịch sử tin nhắn</span>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Khối giới thiệu đầu cuộc trò chuyện (nếu có) */}
         {introComponent && (
           <div className="dm-intro-wrapper">
@@ -313,6 +419,20 @@ export const ChatMessageList: React.FC<Props> = ({
           );
         })}
       </div>
+
+      {/* Nút 'Có tin nhắn mới · Xuống cuối' khi người dùng cuộn lên trên */}
+      {newMessagesBelow > 0 && (
+        <button
+          type="button"
+          className="chat-new-messages-bar"
+          onClick={() => scrollToBottom('smooth')}
+          title="Cuộn nhanh xuống tin nhắn mới nhất"
+        >
+          <ChevronDown size={16} />
+          <span>Có {newMessagesBelow} tin nhắn mới · Xuống cuối</span>
+          <span className="bar-badge">{newMessagesBelow}</span>
+        </button>
+      )}
     </div>
   );
 };

@@ -135,19 +135,26 @@ body {
 
 /* Custom Scrollbar chuẩn Discord */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: rgba(120, 124, 133, 0.4);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-3);
+  background: rgba(148, 155, 164, 0.7);
 }
+
+/* Firefox scrollbar standard */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 124, 133, 0.4) transparent;
+}
+
 
 /* App Layout: CSS Grid 2 Hàng (Hàng 1: Thanh phòng 36px, Hàng 2: Vùng ứng dụng 1fr) */
 .app-container {
@@ -525,18 +532,27 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  border-radius: 2px;
+  border-radius: 4px;
   font-size: 13.5px;
   font-weight: 500;
-  color: var(--text-channel);
+  color: var(--text-2, #dbdee1);
   cursor: pointer;
   transition: background-color 0.1s ease, color 0.1s ease;
   margin-bottom: 2px;
 }
 
+.dropdown-item svg {
+  color: inherit;
+  flex-shrink: 0;
+}
+
 .dropdown-item:hover {
   background-color: var(--accent);
-  color: var(--on-accent);
+  color: #ffffff !important;
+}
+
+.dropdown-item:hover svg {
+  color: #ffffff !important;
 }
 
 .dropdown-item.blurple {
@@ -545,7 +561,7 @@ body {
 
 .dropdown-item.blurple:hover {
   background-color: var(--accent);
-  color: var(--on-accent);
+  color: #ffffff !important;
 }
 
 .dropdown-item.danger {
@@ -554,13 +570,76 @@ body {
 
 .dropdown-item.danger:hover {
   background-color: var(--accent-red);
-  color: #ffffff;
+  color: #ffffff !important;
 }
 
 .dropdown-divider {
   height: 1px;
   background-color: var(--border);
   margin: 4px 0;
+}
+
+/* TỐI ƯU MENU NGỮ CẢNH PHÒNG CHO CHẾ ĐỘ SÁNG (LIGHT THEME) */
+:root[data-theme="light"] .server-dropdown-menu {
+  background-color: #ffffff;
+  border: 1px solid #d1d4d9;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item {
+  color: #2e3035 !important;
+  font-weight: 500;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item svg {
+  color: #4e5058;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item:hover {
+  background-color: #5865F2 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item:hover svg {
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item.blurple {
+  color: #5865F2 !important;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item.blurple svg {
+  color: #5865F2 !important;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item.blurple:hover {
+  background-color: #5865F2 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item.blurple:hover svg {
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item.danger {
+  color: #da373c !important;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item.danger svg {
+  color: #da373c !important;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item.danger:hover {
+  background-color: #da373c !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-item.danger:hover svg {
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] .server-dropdown-menu .dropdown-divider {
+  background-color: #e3e5e8;
 }
 
 .room-section {
@@ -8521,7 +8600,7 @@ html[data-density="compact"] .dm-message-row {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
 }
 
-.dropdown-item {
+.full-profile-dropdown-menu .dropdown-item {
   width: 100%;
   padding: 7px 10px;
   background: transparent;
@@ -8534,12 +8613,12 @@ html[data-density="compact"] .dm-message-row {
   transition: all 0.12s ease;
 }
 
-.dropdown-item:hover {
+.full-profile-dropdown-menu .dropdown-item:hover {
   background-color: #5865f2;
   color: #ffffff;
 }
 
-.dropdown-item.danger:hover {
+.full-profile-dropdown-menu .dropdown-item.danger:hover {
   background-color: #da373c;
   color: #ffffff;
 }
@@ -8778,6 +8857,12 @@ html[data-density="compact"] .dm-message-row {
   animation: popoverFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+:root[data-theme="light"] .quick-attach-popover {
+  background-color: #ffffff;
+  border: 1px solid #d1d4d9;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
 .upload-action-btn {
   width: 100%;
   display: flex;
@@ -8794,6 +8879,10 @@ html[data-density="compact"] .dm-message-row {
 
 .upload-action-btn:hover {
   background-color: #35373c;
+}
+
+:root[data-theme="light"] .upload-action-btn:hover {
+  background-color: #f2f3f5;
 }
 
 .upload-action-btn:active {
@@ -8825,9 +8914,17 @@ html[data-density="compact"] .dm-message-row {
   color: #f2f3f5;
 }
 
+:root[data-theme="light"] .quick-attach-title {
+  color: #060607;
+}
+
 .quick-attach-desc {
   font-size: 11px;
   color: #949ba4;
+}
+
+:root[data-theme="light"] .quick-attach-desc {
+  color: #5c5e66;
 }
 
 /* Khung xem trước tệp đính kèm trước khi gửi */
@@ -8841,6 +8938,12 @@ html[data-density="compact"] .dm-message-row {
   gap: 10px;
   margin-bottom: 2px;
   border-bottom: 1px solid #1e1f22;
+}
+
+:root[data-theme="light"] .discord-attachment-preview-box {
+  background: #f2f3f5;
+  border: 1px solid #d1d4d9;
+  border-bottom: 1px solid #e3e5e8;
 }
 
 .discord-attachment-preview-box.uploading {
@@ -9090,6 +9193,36 @@ html[data-density="compact"] .dm-message-row {
   color: #f2f3f5;
   background: #383a40;
 }
+
+/* Light mode overrides for attachment file cards */
+:root[data-theme="light"] .discord-file-card {
+  background: #f2f3f5;
+  border-color: #e3e5e8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="light"] .discord-file-card:hover {
+  background: #e9ebed;
+  border-color: #d1d4d7;
+}
+
+:root[data-theme="light"] .discord-file-icon-wrap {
+  background: #e3e5e8;
+}
+
+:root[data-theme="light"] .discord-file-meta {
+  color: #5c5e66;
+}
+
+:root[data-theme="light"] .discord-file-download-btn {
+  color: #4e5058;
+}
+
+:root[data-theme="light"] .discord-file-download-btn:hover {
+  color: #060607;
+  background: #dcdfe3;
+}
+
 
 /* Modal Lightbox xem ảnh to chuẩn Discord */
 .discord-lightbox-backdrop {
@@ -10058,6 +10191,322 @@ html[data-density="compact"] .dm-message-row {
   background: rgba(242, 63, 67, 0.12);
   border-color: rgba(242, 63, 67, 0.3);
 }
+
+/* ==========================================================================
+   CHAT SCROLLBAR & NAVIGATION BARS (CHUẨN DISCORD)
+   ========================================================================== */
+
+/* Thanh cuộn chuyên biệt cho khung tin nhắn chat */
+.chat-messages-container,
+.dm-scroll {
+  scroll-behavior: auto;
+}
+
+.chat-messages-container::-webkit-scrollbar,
+.dm-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.chat-messages-container::-webkit-scrollbar-track,
+.dm-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages-container::-webkit-scrollbar-thumb,
+.dm-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 124, 133, 0.35);
+  border-radius: 4px;
+}
+
+.chat-messages-container::-webkit-scrollbar-thumb:hover,
+.dm-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 155, 164, 0.65);
+}
+
+:root[data-theme="light"] .chat-messages-container::-webkit-scrollbar-thumb,
+:root[data-theme="light"] .dm-scroll::-webkit-scrollbar-thumb {
+  background: rgba(100, 105, 115, 0.28);
+}
+
+:root[data-theme="light"] .chat-messages-container::-webkit-scrollbar-thumb:hover,
+:root[data-theme="light"] .dm-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(80, 85, 95, 0.5);
+}
+
+/* Nút báo 'Có tin nhắn mới · Xuống cuối' bám dưới khung chat chuẩn Discord */
+.chat-new-messages-bar {
+  position: absolute;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--accent, #5865f2);
+  color: #ffffff;
+  padding: 7px 16px;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  z-index: 50;
+  border: none;
+  outline: none;
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+  animation: slideUpFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chat-new-messages-bar:hover {
+  background-color: #4752c4;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.chat-new-messages-bar:active {
+  transform: translateX(-50%) translateY(0);
+}
+
+.chat-new-messages-bar .bar-badge {
+  background: rgba(255, 255, 255, 0.25);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Nút / Thanh tải thêm tin nhắn cũ ở đầu danh sách */
+.chat-load-more-row {
+  display: flex;
+  justify-content: center;
+  padding: 12px 16px 4px 16px;
+  width: 100%;
+}
+
+.chat-load-more-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border, #3f4147);
+  color: var(--text-2, #dbdee1);
+  padding: 6px 16px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.chat-load-more-btn:hover:not(:disabled) {
+  background: rgba(88, 101, 242, 0.15);
+  border-color: var(--accent, #5865f2);
+  color: var(--accent, #5865f2);
+}
+
+.chat-load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+:root[data-theme="light"] .chat-load-more-btn {
+  background: #f2f3f5;
+  border-color: #d1d4d9;
+  color: #313338;
+}
+
+:root[data-theme="light"] .chat-load-more-btn:hover:not(:disabled) {
+  background: rgba(88, 101, 242, 0.1);
+  border-color: var(--accent, #5865f2);
+  color: var(--accent, #5865f2);
+}
+
+/* ==========================================================================
+   LIGHT THEME SYNCHRONIZATION (PROFILE CARDS, FULL MODAL, SETTINGS PREVIEW)
+   ========================================================================== */
+
+/* 1. Profile Popout Card (Khi click vào avatar người dùng) */
+:root[data-theme="light"] .discord-profile-card {
+  background-color: #ffffff;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15), 0 0 0 1px #e3e5e8;
+}
+
+:root[data-theme="light"] .discord-profile-card-inner {
+  background-color: #f2f3f5;
+  border-color: #e3e5e8;
+}
+
+:root[data-theme="light"] .discord-profile-header-info .profile-display-name {
+  color: #060607;
+}
+
+:root[data-theme="light"] .discord-profile-header-info .profile-username,
+:root[data-theme="light"] .discord-profile-header-info .profile-you-badge {
+  color: #5c5e66;
+}
+
+:root[data-theme="light"] .profile-divider {
+  background-color: #e3e5e8;
+}
+
+:root[data-theme="light"] .profile-section-title {
+  color: #4e5058;
+}
+
+:root[data-theme="light"] .discord-profile-avatar {
+  border-color: #ffffff;
+}
+
+:root[data-theme="light"] .profile-bubble-content {
+  background-color: #f2f3f5;
+  border-color: #e3e5e8;
+  color: #313338;
+}
+
+:root[data-theme="light"] .discord-profile-status-bubble {
+  background-color: #ffffff;
+  border-color: #e3e5e8;
+  color: #313338;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="light"] .discord-profile-status-bubble::before {
+  border-right-color: #ffffff;
+}
+
+/* 2. Settings Live Preview Card (Xem trước hồ sơ trong cài đặt tài khoản) */
+:root[data-theme="light"] .settings-discord-live-card {
+  background-color: #ffffff;
+  border-color: #e3e5e8;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+:root[data-theme="light"] .settings-live-avatar {
+  border-color: #ffffff;
+}
+
+:root[data-theme="light"] .settings-live-status-dot {
+  border-color: #ffffff;
+}
+
+:root[data-theme="light"] .settings-live-card-body {
+  background-color: #f2f3f5;
+}
+
+:root[data-theme="light"] .settings-live-name {
+  color: #060607;
+}
+
+:root[data-theme="light"] .settings-live-handle {
+  color: #5c5e66;
+}
+
+:root[data-theme="light"] .settings-live-status-bubble {
+  background-color: #ffffff;
+  border-color: #e3e5e8;
+  color: #313338;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="light"] .settings-live-status-bubble::before {
+  border-right-color: #ffffff;
+}
+
+/* 3. Full Profile Modal (Hồ sơ đầy đủ 2 cột) */
+:root[data-theme="light"] .full-profile-modal-card {
+  background-color: #ffffff;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 0 0 1px #e3e5e8;
+}
+
+:root[data-theme="light"] .full-profile-left-col {
+  background-color: #f2f3f5;
+  border-right-color: #e3e5e8;
+}
+
+:root[data-theme="light"] .full-profile-right-col {
+  background-color: #ffffff;
+}
+
+:root[data-theme="light"] .full-profile-avatar {
+  border-color: #f2f3f5;
+}
+
+:root[data-theme="light"] .full-profile-status-ring {
+  border-color: #f2f3f5;
+}
+
+:root[data-theme="light"] .full-profile-display-name {
+  color: #060607;
+}
+
+:root[data-theme="light"] .full-profile-username,
+:root[data-theme="light"] .full-profile-you-tag {
+  color: #5c5e66;
+}
+
+:root[data-theme="light"] .full-profile-status-bubble {
+  background-color: #ffffff;
+  border-color: #e3e5e8;
+  color: #313338;
+}
+
+:root[data-theme="light"] .full-profile-divider {
+  background-color: #e3e5e8;
+}
+
+:root[data-theme="light"] .info-group-title {
+  color: #5c5e66;
+}
+
+:root[data-theme="light"] .info-group-val {
+  color: #313338;
+}
+
+:root[data-theme="light"] .full-profile-tabs-header {
+  border-bottom-color: #e3e5e8;
+}
+
+:root[data-theme="light"] .full-profile-tab-btn {
+  color: #5c5e66;
+}
+
+:root[data-theme="light"] .full-profile-tab-btn:hover {
+  color: #060607;
+}
+
+:root[data-theme="light"] .full-profile-tab-btn.active {
+  color: #5865f2;
+}
+
+:root[data-theme="light"] .note-display-box {
+  background: rgba(0, 0, 0, 0.04);
+  color: #313338;
+}
+
+:root[data-theme="light"] .note-display-box:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="light"] .note-textarea {
+  background: #ffffff;
+  border-color: #5865f2;
+  color: #060607;
+}
+
+
 
 
 

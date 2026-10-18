@@ -6,6 +6,43 @@ import {
   Check, ShieldAlert, Edit2
 } from 'lucide-react';
 import { loadStoredSettings, type SettingsTabId } from './UserSettingsModal';
+import { chatBridge } from '../services/chatBridge';
+
+/**
+ * Kiểm tra trạng thái bạn bè đa chiều (ID số/chuỗi, username, displayName)
+ */
+export function checkIsFriend(
+  friends: Friend[] = [],
+  user?: { id?: any; username?: string; displayName?: string } | null
+): boolean {
+  if (!user || !friends || !Array.isArray(friends) || friends.length === 0) return false;
+  return friends.some((f) => {
+    // 1. So sánh ID (chuyển đổi linh hoạt Number)
+    if (f.id != null && user.id != null && Number(f.id) === Number(user.id)) {
+      return true;
+    }
+    // 2. So sánh tên đăng nhập (username)
+    const fUsername = (f.username || '').trim().toLowerCase();
+    const uUsername = (user.username || '').trim().toLowerCase();
+    if (fUsername && uUsername && fUsername === uUsername) {
+      return true;
+    }
+    // 3. So sánh tên hiển thị (displayName)
+    const fDisplay = (f.displayName || '').trim().toLowerCase();
+    const uDisplay = (user.displayName || '').trim().toLowerCase();
+    if (fDisplay && uDisplay && fDisplay === uDisplay) {
+      return true;
+    }
+    // 4. So sánh chéo username và displayName
+    if (fUsername && uDisplay && fUsername === uDisplay) {
+      return true;
+    }
+    if (fDisplay && uUsername && fDisplay === uUsername) {
+      return true;
+    }
+    return false;
+  });
+}
 
 interface Props {
   isOpen: boolean;
@@ -80,7 +117,7 @@ export const FullProfileModal: React.FC<Props> = ({
   onOpenSettings
 }) => {
   const isMe = user.id === currentUserId;
-  const isFriend = Boolean(friends.some(f => f.id === user.id));
+  const isFriend = checkIsFriend(friends, user);
   const targetRole = roomRole || user.role || 'MEMBER';
 
   const [activeTab, setActiveTab] = useState<'rooms' | 'activity'>('rooms');
@@ -92,6 +129,7 @@ export const FullProfileModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (isOpen) {
+      chatBridge.refreshFriends().catch(() => {});
       setNote(getUserNote(user.id));
       setIsEditingNote(false);
       setShowMoreMenu(false);

@@ -1081,6 +1081,7 @@ export const App: React.FC = () => {
 
     // Đồng bộ ngầm với máy chủ (Background Sync)
     chatBridge.joinRoom(room.id);
+    chatBridge.refreshFriends().catch(() => {});
   };
 
   // Chọn kênh ở Cột 2 (RoomSidebar)
@@ -1805,6 +1806,11 @@ export const App: React.FC = () => {
               onDeleteMessage={handleDeleteDirectMessage}
               onOpenInviteModal={handleOpenInviteModal}
               onBackToFriends={() => setCurrentDirectUser(null)}
+              onLoadMore={(_beforeId) => {
+                if (currentDirectUser) {
+                  chatBridge.getDirectHistory(currentDirectUser.id, 50).catch(() => {});
+                }
+              }}
               onRemoveFriend={(friendId) => {
                 const friend = friends.find(f => f.id === friendId);
                 setActionModal({

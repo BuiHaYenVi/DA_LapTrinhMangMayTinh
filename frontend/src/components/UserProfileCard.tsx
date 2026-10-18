@@ -15,8 +15,10 @@ import {
   FullProfileModal, 
   getUserNote, 
   saveUserNote, 
-  getFriendDate 
+  getFriendDate,
+  checkIsFriend
 } from './FullProfileModal';
+import { chatBridge } from '../services/chatBridge';
 
 interface Props {
   user: User;
@@ -59,7 +61,12 @@ export const UserProfileCard: React.FC<Props> = ({
   const isAdmin = currentUserRole === 'ADMIN';
   const targetRole = roomRole || user.role || 'MEMBER';
   const canManage = !isMe && (isOwner || (isAdmin && targetRole !== 'OWNER' && targetRole !== 'ADMIN'));
-  const isFriend = Boolean(friends.some(f => f.id === user.id));
+  const isFriend = checkIsFriend(friends, user);
+
+  // Tự động làm mới danh sách bạn bè khi mở thẻ hồ sơ
+  useEffect(() => {
+    chatBridge.refreshFriends().catch(() => {});
+  }, [user.id]);
 
   // Local state
   const [storedSettings, setStoredSettings] = useState(loadStoredSettings);
