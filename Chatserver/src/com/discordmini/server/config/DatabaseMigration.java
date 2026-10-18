@@ -42,9 +42,15 @@ public class DatabaseMigration {
                         id SERIAL PRIMARY KEY,
                         name VARCHAR(100) UNIQUE NOT NULL,
                         created_by INT REFERENCES users(id) ON DELETE SET NULL,
+                        description TEXT DEFAULT '',
+                        invite_code VARCHAR(20) DEFAULT '',
+                        is_private BOOLEAN DEFAULT FALSE,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """);
+                st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''");
+                st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS invite_code VARCHAR(20) DEFAULT ''");
+                st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE");
                 st.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS room_members (
                         id SERIAL PRIMARY KEY,

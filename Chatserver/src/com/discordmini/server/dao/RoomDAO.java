@@ -13,6 +13,28 @@ import java.util.List;
  */
 public class RoomDAO {
 
+    public RoomDAO() {
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn != null) {
+                ensureRoomColumnsExist(conn);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Đảm bảo các cột mở rộng (description, invite_code, is_private) luôn tồn tại trong bảng rooms.
+     */
+    public static void ensureRoomColumnsExist(Connection conn) {
+        if (conn == null) return;
+        try (Statement st = conn.createStatement()) {
+            st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''");
+            st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS invite_code VARCHAR(20) DEFAULT ''");
+            st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE");
+        } catch (Exception e) {
+            System.err.println("[RoomDAO] Kiểm tra cột bảng rooms: " + e.getMessage());
+        }
+    }
+
     /**
      * Tạo một phòng chat mới kèm kênh mặc định 'chung' và quyền OWNER.
      * Cả 3 thao tác được thực hiện nhất quán trong một Transaction duy nhất.
@@ -205,28 +227,53 @@ public class RoomDAO {
                      "FROM rooms r JOIN room_members rm ON r.id = rm.room_id " +
                      "WHERE rm.user_id = ? ORDER BY r.id ASC";
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setInt(1, userId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Room r = new Room(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getInt("created_by"),
-                        rs.getTimestamp("created_at")
-                    );
-                    try {
-                        r.setDescription(rs.getString("description"));
-                        r.setInviteCode(rs.getString("invite_code"));
-                    } catch (Exception ignored) {}
-                    loadMemberIds(conn, r);
-                    list.add(r);
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn == null) return list;
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, userId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Room r = new Room(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getInt("created_by"),
+                            rs.getTimestamp("created_at")
+                        );
+                        try {
+                            r.setDescription(rs.getString("description"));
+                            r.setInviteCode(rs.getString("invite_code"));
+                        } catch (Exception ignored) {}
+                        loadMemberIds(conn, r);
+                        list.add(r);
+                    }
                 }
+            } catch (SQLException e) {
+                if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("description") || e.getMessage().toLowerCase().contains("invite_code"))) {
+                    ensureRoomColumnsExist(conn);
+                    String fallbackSql = "SELECT r.id, r.name, r.created_by, r.created_at " +
+                                         "FROM rooms r JOIN room_members rm ON r.id = rm.room_id " +
+                                         "WHERE rm.user_id = ? ORDER BY r.id ASC";
+                    try (PreparedStatement ps = conn.prepareStatement(fallbackSql)) {
+                        ps.setInt(1, userId);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            while (rs.next()) {
+                                Room r = new Room(
+                                    rs.getInt("id"),
+                                    rs.getString("name"),
+                                    rs.getInt("created_by"),
+                                    rs.getTimestamp("created_at")
+                                );
+                                loadMemberIds(conn, r);
+                                list.add(r);
+                            }
+                            return list;
+                        }
+                    } catch (SQLException ignored) {}
+                }
+                System.err.println("[RoomDAO ERROR] Lỗi getJoinedRooms (userID=" + userId + "): " + e.getMessage());
             }
         } catch (SQLException e) {
-            System.err.println("[RoomDAO ERROR] Lỗi getJoinedRooms (userID=" + userId + "): " + e.getMessage());
+            System.err.println("[RoomDAO ERROR] Lỗi kết nối getJoinedRooms: " + e.getMessage());
         }
         return list;
     }
@@ -272,10 +319,68 @@ public class RoomDAO {
                      "LEFT JOIN room_members rm ON r.id = rm.room_id " +
                      "WHERE r.is_private = false OR rm.user_id = ? " +
                      "ORDER BY r.id ASC";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, userId);
-            try (ResultSet rs = ps.executeQuery()) {
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn == null) return list;
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, userId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Room r = new Room(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getInt("created_by"),
+                            rs.getTimestamp("created_at")
+                        );
+                        try {
+                            r.setDescription(rs.getString("description"));
+                            r.setInviteCode(rs.getString("invite_code"));
+                        } catch (Exception ignored) {}
+                        loadMemberIds(conn, r);
+                        list.add(r);
+                    }
+                }
+            } catch (SQLException e) {
+                if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("description") || e.getMessage().toLowerCase().contains("invite_code") || e.getMessage().toLowerCase().contains("is_private"))) {
+                    ensureRoomColumnsExist(conn);
+                    String fallbackSql = "SELECT DISTINCT r.id, r.name, r.created_by, r.created_at " +
+                                         "FROM rooms r " +
+                                         "LEFT JOIN room_members rm ON r.id = rm.room_id " +
+                                         "ORDER BY r.id ASC";
+                    try (PreparedStatement ps = conn.prepareStatement(fallbackSql)) {
+                        try (ResultSet rs = ps.executeQuery()) {
+                            while (rs.next()) {
+                                Room r = new Room(
+                                    rs.getInt("id"),
+                                    rs.getString("name"),
+                                    rs.getInt("created_by"),
+                                    rs.getTimestamp("created_at")
+                                );
+                                loadMemberIds(conn, r);
+                                list.add(r);
+                            }
+                            return list;
+                        }
+                    } catch (SQLException ignored) {}
+                }
+                System.err.println("[RoomDAO ERROR] Lỗi listRoomsForUser (userID=" + userId + "): " + e.getMessage());
+            }
+        } catch (SQLException e) {
+            System.err.println("[RoomDAO ERROR] Lỗi kết nối listRoomsForUser: " + e.getMessage());
+        }
+        return list;
+    }
+
+    /**
+     * Lấy tất cả các phòng chat hiện có trong hệ thống.
+     */
+    public List<Room> listRooms() {
+        List<Room> list = new ArrayList<>();
+        String sql = "SELECT id, name, created_by, created_at, description, invite_code FROM rooms ORDER BY id ASC";
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn == null) return list;
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+
                 while (rs.next()) {
                     Room r = new Room(
                         rs.getInt("id"),
@@ -290,39 +395,29 @@ public class RoomDAO {
                     loadMemberIds(conn, r);
                     list.add(r);
                 }
+            } catch (SQLException e) {
+                if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("description") || e.getMessage().toLowerCase().contains("invite_code"))) {
+                    ensureRoomColumnsExist(conn);
+                    String fallbackSql = "SELECT id, name, created_by, created_at FROM rooms ORDER BY id ASC";
+                    try (Statement stmt = conn.createStatement();
+                         ResultSet rs = stmt.executeQuery(fallbackSql)) {
+                        while (rs.next()) {
+                            Room r = new Room(
+                                rs.getInt("id"),
+                                rs.getString("name"),
+                                rs.getInt("created_by"),
+                                rs.getTimestamp("created_at")
+                            );
+                            loadMemberIds(conn, r);
+                            list.add(r);
+                        }
+                        return list;
+                    } catch (SQLException ignored) {}
+                }
+                System.err.println("[RoomDAO ERROR] Lỗi listRooms: " + e.getMessage());
             }
         } catch (SQLException e) {
-            System.err.println("[RoomDAO ERROR] Lỗi listRoomsForUser (userID=" + userId + "): " + e.getMessage());
-        }
-        return list;
-    }
-
-    /**
-     * Lấy tất cả các phòng chat hiện có trong hệ thống.
-     */
-    public List<Room> listRooms() {
-        List<Room> list = new ArrayList<>();
-        String sql = "SELECT id, name, created_by, created_at, description, invite_code FROM rooms ORDER BY id ASC";
-        try (Connection conn = DatabaseConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-
-            while (rs.next()) {
-                Room r = new Room(
-                    rs.getInt("id"),
-                    rs.getString("name"),
-                    rs.getInt("created_by"),
-                    rs.getTimestamp("created_at")
-                );
-                try {
-                    r.setDescription(rs.getString("description"));
-                    r.setInviteCode(rs.getString("invite_code"));
-                } catch (Exception ignored) {}
-                loadMemberIds(conn, r);
-                list.add(r);
-            }
-        } catch (SQLException e) {
-            System.err.println("[RoomDAO ERROR] Lỗi listRooms: " + e.getMessage());
+            System.err.println("[RoomDAO ERROR] Lỗi kết nối listRooms: " + e.getMessage());
         }
         return list;
     }
@@ -332,28 +427,50 @@ public class RoomDAO {
      */
     public Room findRoom(int id) {
         String sql = "SELECT id, name, created_by, created_at, description, invite_code FROM rooms WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    Room r = new Room(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getInt("created_by"),
-                        rs.getTimestamp("created_at")
-                    );
-                    try {
-                        r.setDescription(rs.getString("description"));
-                        r.setInviteCode(rs.getString("invite_code"));
-                    } catch (Exception ignored) {}
-                    loadMemberIds(conn, r);
-                    return r;
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn == null) return null;
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, id);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        Room r = new Room(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getInt("created_by"),
+                            rs.getTimestamp("created_at")
+                        );
+                        try {
+                            r.setDescription(rs.getString("description"));
+                            r.setInviteCode(rs.getString("invite_code"));
+                        } catch (Exception ignored) {}
+                        loadMemberIds(conn, r);
+                        return r;
+                    }
                 }
+            } catch (SQLException e) {
+                if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("description") || e.getMessage().toLowerCase().contains("invite_code"))) {
+                    ensureRoomColumnsExist(conn);
+                    String fallbackSql = "SELECT id, name, created_by, created_at FROM rooms WHERE id = ?";
+                    try (PreparedStatement ps = conn.prepareStatement(fallbackSql)) {
+                        ps.setInt(1, id);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (rs.next()) {
+                                Room r = new Room(
+                                    rs.getInt("id"),
+                                    rs.getString("name"),
+                                    rs.getInt("created_by"),
+                                    rs.getTimestamp("created_at")
+                                );
+                                loadMemberIds(conn, r);
+                                return r;
+                            }
+                        }
+                    } catch (SQLException ignored) {}
+                }
+                System.err.println("[RoomDAO ERROR] Lỗi findRoom (ID=" + id + "): " + e.getMessage());
             }
         } catch (SQLException e) {
-            System.err.println("[RoomDAO ERROR] Lỗi findRoom (ID=" + id + "): " + e.getMessage());
+            System.err.println("[RoomDAO ERROR] Lỗi kết nối findRoom: " + e.getMessage());
         }
         return null;
     }
@@ -364,27 +481,50 @@ public class RoomDAO {
     public Room findRoomByName(String name) {
         if (name == null || name.isBlank()) return null;
         String sql = "SELECT id, name, created_by, created_at, description, invite_code FROM rooms WHERE LOWER(name) = LOWER(?)";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, name.trim());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    Room r = new Room(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getInt("created_by"),
-                        rs.getTimestamp("created_at")
-                    );
-                    try {
-                        r.setDescription(rs.getString("description"));
-                        r.setInviteCode(rs.getString("invite_code"));
-                    } catch (Exception ignored) {}
-                    loadMemberIds(conn, r);
-                    return r;
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn == null) return null;
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, name.trim());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        Room r = new Room(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getInt("created_by"),
+                            rs.getTimestamp("created_at")
+                        );
+                        try {
+                            r.setDescription(rs.getString("description"));
+                            r.setInviteCode(rs.getString("invite_code"));
+                        } catch (Exception ignored) {}
+                        loadMemberIds(conn, r);
+                        return r;
+                    }
                 }
+            } catch (SQLException e) {
+                if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("description") || e.getMessage().toLowerCase().contains("invite_code"))) {
+                    ensureRoomColumnsExist(conn);
+                    String fallbackSql = "SELECT id, name, created_by, created_at FROM rooms WHERE LOWER(name) = LOWER(?)";
+                    try (PreparedStatement ps = conn.prepareStatement(fallbackSql)) {
+                        ps.setString(1, name.trim());
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (rs.next()) {
+                                Room r = new Room(
+                                    rs.getInt("id"),
+                                    rs.getString("name"),
+                                    rs.getInt("created_by"),
+                                    rs.getTimestamp("created_at")
+                                );
+                                loadMemberIds(conn, r);
+                                return r;
+                            }
+                        }
+                    } catch (SQLException ignored) {}
+                }
+                System.err.println("[RoomDAO ERROR] Lỗi findRoomByName: " + e.getMessage());
             }
         } catch (SQLException e) {
-            System.err.println("[RoomDAO ERROR] Lỗi findRoomByName: " + e.getMessage());
+            System.err.println("[RoomDAO ERROR] Lỗi kết nối findRoomByName: " + e.getMessage());
         }
         return null;
     }
