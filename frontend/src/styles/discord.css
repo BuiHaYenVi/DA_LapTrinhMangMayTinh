@@ -1599,6 +1599,32 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Nút 3 chấm quản lý thành viên */
+.member-more-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  transition: all 0.15s ease;
+}
+
+.member-item:hover .member-more-btn,
+.member-more-btn.active {
+  opacity: 1;
+}
+
+.member-more-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-header);
+}
+
 .member-action-menu {
   position: absolute;
   top: 100%;

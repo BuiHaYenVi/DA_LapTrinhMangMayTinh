@@ -28,6 +28,14 @@ export const MemberSidebar: React.FC<Props> = ({
   const isOwner = currentUserRole === 'OWNER';
   const isAdmin = currentUserRole === 'ADMIN';
 
+  React.useEffect(() => {
+    const handleOutsideClick = () => setSelectedMember(null);
+    if (selectedMember) {
+      document.addEventListener('click', handleOutsideClick);
+      return () => document.removeEventListener('click', handleOutsideClick);
+    }
+  }, [selectedMember]);
+
   const handleAction = (type: 'role' | 'transfer' | 'kick', target: User) => {
     setSelectedMember(null);
     if (type === 'role') {
@@ -49,7 +57,14 @@ export const MemberSidebar: React.FC<Props> = ({
         key={member.id} 
         className={`member-item ${isOnline ? 'online' : 'offline'}`}
         onClick={() => !isMe && onDirectMessage(member.id, member.displayName)}
-        title={isMe ? 'Bạn' : 'Nhấn để gửi tin nhắn riêng'}
+        onContextMenu={(e) => {
+          if (canManage) {
+            e.preventDefault();
+            e.stopPropagation();
+            setSelectedMember(prev => prev?.id === member.id ? null : member);
+          }
+        }}
+        title={isMe ? 'Bạn' : (canManage ? 'Nhấn để chat riêng, click chuột phải hoặc bấm 3 chấm để quản lý' : 'Nhấn để gửi tin nhắn riêng')}
         style={{ position: 'relative' }}
       >
         <div className="user-avatar-wrap">
@@ -75,18 +90,18 @@ export const MemberSidebar: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Nút tùy chọn của Chủ phòng hoặc Quản trị viên */}
+        {/* Nút 3 chấm tùy chọn của Chủ phòng hoặc Quản trị viên */}
         {canManage && (
           <button
             type="button"
-            className="channel-settings-btn"
+            className={`member-more-btn ${selectedMember?.id === member.id ? 'active' : ''}`}
             title="Tùy chọn quản lý thành viên"
             onClick={(e) => {
               e.stopPropagation();
               setSelectedMember(selectedMember?.id === member.id ? null : member);
             }}
           >
-            <MoreVertical size={14} />
+            <MoreVertical size={16} />
           </button>
         )}
 
