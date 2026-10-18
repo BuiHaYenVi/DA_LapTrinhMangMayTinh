@@ -218,7 +218,9 @@ export const RoomSidebar: React.FC<Props> = ({
   const handleSaveSettings = () => {
     if (!editingRoom) return;
     const finalName = newName.trim() || editingRoom.name;
+    const existing = getRoomCustomStyle(editingRoom.id, editingRoom.name);
     saveRoomCustomStyle(editingRoom.id, finalName, {
+      ...existing,
       icon: roomIcon || undefined,
       color: roomColor || undefined
     });

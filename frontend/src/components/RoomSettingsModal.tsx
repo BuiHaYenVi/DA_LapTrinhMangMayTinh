@@ -11,6 +11,7 @@ import {
   ROOM_ICON_PRESETS, 
   ROOM_COLOR_PRESETS, 
   ROOM_BANNER_PRESETS,
+  ROOM_BACKGROUND_PRESETS,
   getRoomAcronym
 } from './rail/RoomRailItem';
 
@@ -53,6 +54,7 @@ export const RoomSettingsModal: React.FC<Props> = ({
   const [roomIcon, setRoomIcon] = useState('');
   const [roomColor, setRoomColor] = useState('');
   const [bannerColor, setBannerColor] = useState('#1e1f22');
+  const [chatBackground, setChatBackground] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [confirmAction, setConfirmAction] = useState<{
     type: 'delete_room' | 'leave_room' | 'kick' | 'transfer_owner';
@@ -73,6 +75,7 @@ export const RoomSettingsModal: React.FC<Props> = ({
       setRoomIcon(st.icon || '');
       setRoomColor(st.color || '');
       setBannerColor(st.bannerColor || '#1e1f22');
+      setChatBackground(st.chatBackground || '');
       setActiveTab('overview');
       setConfirmAction(null);
     }
@@ -99,7 +102,8 @@ export const RoomSettingsModal: React.FC<Props> = ({
     roomDesc.trim() !== (room.description || '') ||
     roomIcon !== (initialStyle.icon || '') ||
     roomColor !== (initialStyle.color || '') ||
-    bannerColor !== (initialStyle.bannerColor || '#1e1f22')
+    bannerColor !== (initialStyle.bannerColor || '#1e1f22') ||
+    chatBackground !== (initialStyle.chatBackground || '')
   );
 
   const handleResetChanges = () => {
@@ -108,6 +112,7 @@ export const RoomSettingsModal: React.FC<Props> = ({
     setRoomIcon(initialStyle.icon || '');
     setRoomColor(initialStyle.color || '');
     setBannerColor(initialStyle.bannerColor || '#1e1f22');
+    setChatBackground(initialStyle.chatBackground || '');
   };
 
   const handleSaveChanges = () => {
@@ -116,7 +121,8 @@ export const RoomSettingsModal: React.FC<Props> = ({
     saveRoomCustomStyle(room.id, finalName, {
       icon: roomIcon || undefined,
       color: roomColor || undefined,
-      bannerColor: bannerColor || undefined
+      bannerColor: bannerColor || undefined,
+      chatBackground: chatBackground || undefined
     });
 
     if (finalName !== room.name) {
@@ -307,6 +313,56 @@ export const RoomSettingsModal: React.FC<Props> = ({
                             title={`Biểu ngữ màu ${bCol}`}
                           >
                             {bannerColor === bCol && <Check size={16} color="#ffffff" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Nền phòng chat (Chỉ áp dụng trong vùng tin nhắn của phòng này) */}
+                    <div className="settings-field-box">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <label className="settings-field-label">Màu nền phòng chat</label>
+                        {chatBackground && (
+                          <button
+                            type="button"
+                            onClick={() => canEdit && setChatBackground('')}
+                            disabled={!canEdit}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'var(--accent)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              padding: '2px 6px'
+                            }}
+                          >
+                            Khôi phục nền mặc định
+                          </button>
+                        )}
+                      </div>
+                      <p className="settings-field-hint">
+                        Tùy chỉnh màu nền cho khu vực hiển thị tin nhắn của phòng này. Không làm thay đổi theme của ứng dụng, thanh bên hay ô nhập tin.
+                      </p>
+                      <div className="room-banner-palette-grid">
+                        {ROOM_BACKGROUND_PRESETS.map((bgCol, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            className={`room-banner-color-tile ${chatBackground === bgCol ? 'active' : ''}`}
+                            style={{ 
+                              backgroundColor: bgCol || 'var(--bg-chat)',
+                              border: !bgCol ? '2px dashed var(--border)' : undefined
+                            }}
+                            onClick={() => canEdit && setChatBackground(bgCol)}
+                            disabled={!canEdit}
+                            title={bgCol ? `Nền màu ${bgCol}` : 'Mặc định (theo theme ứng dụng)'}
+                          >
+                            {chatBackground === bgCol && (
+                              <Check size={16} color={bgCol && (bgCol.startsWith('#F') || bgCol.startsWith('#f')) ? '#0f1415' : '#ffffff'} />
+                            )}
+                            {!bgCol && !chatBackground && (
+                              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Mặc định</span>
+                            )}
                           </button>
                         ))}
                       </div>
