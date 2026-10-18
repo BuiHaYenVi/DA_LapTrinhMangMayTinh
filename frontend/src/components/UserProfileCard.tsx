@@ -1,14 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { User, PresenceStatus } from '../types/chat';
+import type { User, PresenceStatus, Room, Friend } from '../types/chat';
 import { 
   X, Crown, Shield, User as UserIcon, MessageSquare, 
-  Settings, Check, Send, MoreVertical, Edit2
+  Settings, Check, Send, MoreVertical, Edit2, Clock, 
+  FileText, UserPlus, UserCheck, ExternalLink
 } from 'lucide-react';
 import { 
   loadStoredSettings, 
   updateUserPresence, 
   updateCustomStatus 
 } from './UserSettingsModal';
+import { 
+  FullProfileModal, 
+  getUserNote, 
+  saveUserNote, 
+  getFriendDate 
+} from './FullProfileModal';
 
 interface Props {
   user: User;
@@ -16,6 +23,9 @@ interface Props {
   currentUserRole?: string;
   roomRole?: string;
   roomName?: string;
+  rooms?: Room[];
+  friends?: Friend[];
+  onSendFriendRequest?: (userId: number) => void;
   anchorRect?: DOMRect | null;
   onClose: () => void;
   onDirectMessage: (userId: number, name: string, initialMessage?: string) => void;
@@ -31,6 +41,9 @@ export const UserProfileCard: React.FC<Props> = ({
   currentUserRole,
   roomRole,
   roomName,
+  rooms = [],
+  friends = [],
+  onSendFriendRequest,
   anchorRect,
   onClose,
   onDirectMessage,
@@ -45,13 +58,17 @@ export const UserProfileCard: React.FC<Props> = ({
   const isAdmin = currentUserRole === 'ADMIN';
   const targetRole = roomRole || user.role || 'MEMBER';
   const canManage = !isMe && (isOwner || (isAdmin && targetRole !== 'OWNER' && targetRole !== 'ADMIN'));
+  const isFriend = Boolean(friends.some(f => f.id === user.id));
 
   // Local state
   const [storedSettings, setStoredSettings] = useState(loadStoredSettings);
   const [quickMsg, setQuickMsg] = useState('');
   const [isEditingCustomStatus, setIsEditingCustomStatus] = useState(false);
   const [editingStatusText, setEditingStatusText] = useState('');
-  const [showManagerMenu, setShowManagerMenu] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [isFullProfileOpen, setIsFullProfileOpen] = useState(false);
+  const [note, setNote] = useState(() => getUserNote(user.id));
+  const [isEditingNote, setIsEditingNote] = useState(false);
 
   // Sync settings when changed
   useEffect(() => {
@@ -104,23 +121,26 @@ export const UserProfileCard: React.FC<Props> = ({
     ? (storedSettings.bio || '')
     : (user.bio || '');
 
+  const effectiveUsername = user.username 
+    ? user.username 
+    : (user.displayName ? user.displayName.toLowerCase().replace(/\s+/g, '') : `user_${user.id}`);
+
+  const friendDate = getFriendDate(user.id, isFriend);
+  const mutualRoomsCount = rooms.length > 0 ? rooms.length : 1;
+
   // Calculate Popover Position (float left of anchor, align vertically, clamp within viewport)
   const cardWidth = 320;
-  const cardHeight = 440;
+  const cardHeight = 490;
   let top = 100;
   let left = 100;
 
   if (anchorRect) {
-    // Put card to the left of member sidebar item
     left = anchorRect.left - cardWidth - 12;
     if (left < 12) {
-      // If no room on left, put it on right
       left = anchorRect.right + 12;
     }
-    // Vertical alignment
     top = Math.max(12, Math.min(window.innerHeight - cardHeight - 20, anchorRect.top - 40));
   } else {
-    // Center if no anchor
     left = Math.max(12, (window.innerWidth - cardWidth) / 2);
     top = Math.max(12, (window.innerHeight - cardHeight) / 2);
   }
@@ -136,6 +156,12 @@ export const UserProfileCard: React.FC<Props> = ({
     setIsEditingCustomStatus(false);
   };
 
+  // Save quick note
+  const handleSaveNote = () => {
+    saveUserNote(user.id, note.trim());
+    setIsEditingNote(false);
+  };
+
   // Send quick DM
   const handleSendQuickDm = (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,7 +171,7 @@ export const UserProfileCard: React.FC<Props> = ({
 
   // Moderator actions
   const handleRoleAction = (type: 'role' | 'transfer' | 'kick') => {
-    setShowManagerMenu(false);
+    setShowMoreMenu(false);
     if (type === 'role') {
       const nextRole = targetRole === 'ADMIN' ? 'MEMBER' : 'ADMIN';
       if (onSetMemberRole) onSetMemberRole(user.id, nextRole);
@@ -174,291 +200,437 @@ export const UserProfileCard: React.FC<Props> = ({
   };
 
   return (
-    <div 
-      className="discord-profile-popover-backdrop"
-      onClick={onClose}
-    >
+    <>
       <div 
-        ref={cardRef}
-        className="discord-profile-card"
-        style={{ top, left }}
-        onClick={e => e.stopPropagation()}
+        className="discord-profile-popover-backdrop"
+        onClick={onClose}
       >
-        {/* 1. HEADER BANNER */}
         <div 
-          className="discord-profile-banner"
-          style={{ backgroundColor: bannerColor }}
+          ref={cardRef}
+          className="discord-profile-card"
+          style={{ top, left }}
+          onClick={e => e.stopPropagation()}
         >
-          <div className="discord-profile-banner-actions">
-            {!isMe && (
-              <button
-                type="button"
-                className="banner-icon-btn"
-                title="Nhắn tin riêng"
-                onClick={() => {
-                  onDirectMessage(user.id, user.displayName);
-                  onClose();
-                }}
-              >
-                <MessageSquare size={16} />
-              </button>
-            )}
+          {/* 1. HEADER BANNER */}
+          <div 
+            className="discord-profile-banner"
+            style={{ backgroundColor: bannerColor }}
+          >
+            <div className="discord-profile-banner-actions">
+              {!isMe && (
+                <>
+                  <button
+                    type="button"
+                    className="banner-icon-btn"
+                    title={isFriend ? 'Đã là bạn bè' : 'Gửi lời mời kết bạn'}
+                    onClick={() => {
+                      if (!isFriend && onSendFriendRequest) {
+                        onSendFriendRequest(user.id);
+                      }
+                    }}
+                  >
+                    {isFriend ? <UserCheck size={16} color="#23a55a" /> : <UserPlus size={16} />}
+                  </button>
 
-            {canManage && (
+                  <button
+                    type="button"
+                    className="banner-icon-btn"
+                    title="Nhắn tin riêng"
+                    onClick={() => {
+                      onDirectMessage(user.id, user.displayName);
+                      onClose();
+                    }}
+                  >
+                    <MessageSquare size={16} />
+                  </button>
+                </>
+              )}
+
+              {/* DẤU 3 CHẤM LUÔN CÓ CHO MỌI NGƯỜI DÙNG */}
               <div style={{ position: 'relative' }}>
                 <button
                   type="button"
                   className="banner-icon-btn"
-                  title="Quản lý thành viên"
-                  onClick={() => setShowManagerMenu(prev => !prev)}
+                  title="Tùy chọn khác"
+                  onClick={() => setShowMoreMenu(prev => !prev)}
                 >
                   <MoreVertical size={16} />
                 </button>
 
-                {showManagerMenu && (
+                {showMoreMenu && (
                   <div className="profile-manager-dropdown">
-                    {isOwner && (
+                    <button
+                      type="button"
+                      className="manager-dropdown-item highlight"
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        setIsFullProfileOpen(true);
+                      }}
+                    >
+                      <UserIcon size={14} style={{ marginRight: 6 }} /> Xem hồ sơ đầy đủ
+                    </button>
+
+                    <button
+                      type="button"
+                      className="manager-dropdown-item"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(`@${effectiveUsername}`);
+                        setShowMoreMenu(false);
+                      }}
+                    >
+                      Sao chép tên người dùng
+                    </button>
+
+                    {!isFriend && !isMe && onSendFriendRequest && (
+                      <button
+                        type="button"
+                        className="manager-dropdown-item"
+                        onClick={() => {
+                          onSendFriendRequest(user.id);
+                          setShowMoreMenu(false);
+                        }}
+                      >
+                        <UserPlus size={14} style={{ marginRight: 6 }} /> Gửi lời mời kết bạn
+                      </button>
+                    )}
+
+                    {canManage && (
                       <>
+                        <div className="dropdown-divider" />
+                        {isOwner && (
+                          <>
+                            <button
+                              type="button"
+                              className="manager-dropdown-item"
+                              onClick={() => handleRoleAction('role')}
+                            >
+                              {targetRole === 'ADMIN' ? 'Hạ xuống Thành viên' : 'Phong làm Phó nhóm'}
+                            </button>
+                            <button
+                              type="button"
+                              className="manager-dropdown-item warning"
+                              onClick={() => handleRoleAction('transfer')}
+                            >
+                              Chuyển quyền Chủ phòng
+                            </button>
+                          </>
+                        )}
                         <button
                           type="button"
-                          className="manager-dropdown-item"
-                          onClick={() => handleRoleAction('role')}
+                          className="manager-dropdown-item danger"
+                          onClick={() => handleRoleAction('kick')}
                         >
-                          {targetRole === 'ADMIN' ? 'Hạ xuống Thành viên' : 'Phong làm Phó nhóm'}
-                        </button>
-                        <button
-                          type="button"
-                          className="manager-dropdown-item warning"
-                          onClick={() => handleRoleAction('transfer')}
-                        >
-                          Chuyển quyền Chủ phòng
+                          Xóa khỏi phòng (Kick)
                         </button>
                       </>
                     )}
+
+                    <div className="dropdown-divider" />
+                    <button
+                      type="button"
+                      className="manager-dropdown-item"
+                      onClick={() => setShowMoreMenu(false)}
+                    >
+                      Bỏ qua
+                    </button>
                     <button
                       type="button"
                       className="manager-dropdown-item danger"
-                      onClick={() => handleRoleAction('kick')}
+                      onClick={() => setShowMoreMenu(false)}
                     >
-                      Xóa khỏi phòng (Kick)
+                      Chặn
+                    </button>
+                    <button
+                      type="button"
+                      className="manager-dropdown-item danger"
+                      onClick={() => setShowMoreMenu(false)}
+                    >
+                      Báo Cáo Hồ Sơ Người dùng
                     </button>
                   </div>
                 )}
               </div>
-            )}
 
-            <button
-              type="button"
-              className="banner-icon-btn close-btn"
-              title="Đóng"
-              onClick={onClose}
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* 2. AVATAR & STATUS BUBBLE ROW */}
-        <div className="discord-profile-avatar-row">
-          <div className="discord-profile-avatar-wrapper">
-            <div 
-              className="discord-profile-avatar"
-              style={{ 
-                backgroundColor: avatarColor,
-                fontSize: isMe && storedSettings.avatarIcon ? '32px' : '26px'
-              }}
-            >
-              {avatarChar}
-            </div>
-
-            {/* Chấm trạng thái có viền dày */}
-            <div 
-              className={`discord-profile-status-badge ${effectivePresence}`}
-              style={{ backgroundColor: presenceColors[effectivePresence] }}
-              title={presenceLabels[effectivePresence]}
-            />
-          </div>
-
-          {/* Bong bóng trạng thái tùy chỉnh kiểu Discord */}
-          <div className="discord-profile-bubble-container">
-            {isMe && isEditingCustomStatus ? (
-              <div className="discord-profile-bubble-edit">
-                <input
-                  type="text"
-                  maxLength={60}
-                  className="bubble-edit-input"
-                  value={editingStatusText}
-                  onChange={e => setEditingStatusText(e.target.value)}
-                  placeholder="Đặt trạng thái..."
-                  autoFocus
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') handleSaveCustomStatus();
-                    if (e.key === 'Escape') setIsEditingCustomStatus(false);
-                  }}
-                />
-                <button 
-                  type="button" 
-                  className="bubble-save-btn" 
-                  onClick={handleSaveCustomStatus}
-                  title="Lưu"
-                >
-                  <Check size={14} />
-                </button>
-              </div>
-            ) : (
-              <div 
-                className={`discord-profile-bubble ${isMe ? 'interactive' : ''}`}
-                onClick={() => {
-                  if (isMe) {
-                    setEditingStatusText(effectiveCustomStatus);
-                    setIsEditingCustomStatus(true);
-                  }
-                }}
-                title={isMe ? 'Nhấn để chỉnh sửa trạng thái tùy chỉnh' : undefined}
+              <button
+                type="button"
+                className="banner-icon-btn close-btn"
+                title="Đóng"
+                onClick={onClose}
               >
-                <div className="discord-profile-bubble-tail" />
-                <span className="bubble-text">
-                  {effectiveCustomStatus ? (
-                    `💬 ${effectiveCustomStatus}`
-                  ) : (
-                    isMe ? '+ Đặt trạng thái tùy chỉnh' : 'Trực tuyến'
-                  )}
-                </span>
-                {isMe && <Edit2 size={11} className="bubble-edit-icon" />}
-              </div>
-            )}
+                <X size={16} />
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* 3. THÔNG TIN HỒ SƠ CHI TIẾT */}
-        <div className="discord-profile-body">
-          <div className="discord-profile-card-inner">
-            {/* Tên hiển thị và Username */}
-            <div className="discord-profile-header-info">
-              <h3 className="profile-display-name">
-                {user.displayName || user.username}
-                {isMe && <span className="profile-you-badge"> (Bạn)</span>}
-              </h3>
-              <div className="profile-username">
-                @{user.username}
+          {/* 2. AVATAR & STATUS BUBBLE ROW */}
+          <div className="discord-profile-avatar-row">
+            <div className="discord-profile-avatar-wrapper">
+              <div 
+                className="discord-profile-avatar"
+                style={{ 
+                  backgroundColor: avatarColor,
+                  fontSize: isMe && storedSettings.avatarIcon ? '32px' : '26px'
+                }}
+              >
+                {avatarChar}
               </div>
+
+              {/* Chấm trạng thái có viền dày */}
+              <div 
+                className={`discord-profile-status-badge ${effectivePresence}`}
+                style={{ backgroundColor: presenceColors[effectivePresence] }}
+                title={presenceLabels[effectivePresence]}
+              />
             </div>
 
-            <div className="profile-divider" />
-
-            {/* Vai trò trong phòng */}
-            <div className="profile-section">
-              <div className="profile-section-title">VAI TRÒ TRONG PHÒNG</div>
-              <div className="profile-role-row">
-                {targetRole === 'OWNER' && (
-                  <span className="profile-role-pill owner">
-                    <Crown size={12} /> Chủ phòng
-                  </span>
-                )}
-                {targetRole === 'ADMIN' && (
-                  <span className="profile-role-pill admin">
-                    <Shield size={12} /> Phó nhóm
-                  </span>
-                )}
-                {targetRole === 'MEMBER' && (
-                  <span className="profile-role-pill member">
-                    <UserIcon size={12} /> Thành viên
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Tiểu sử giới thiệu */}
-            {effectiveBio ? (
-              <div className="profile-section">
-                <div className="profile-section-title">GIỚI THIỆU</div>
-                <div className="profile-bio-text">{effectiveBio}</div>
-              </div>
-            ) : (
-              roomName && (
-                <div className="profile-section">
-                  <div className="profile-section-title">PHÒNG CHAT HIỆN TẠI</div>
-                  <div className="profile-room-meta">📍 {roomName}</div>
+            {/* Bong bóng trạng thái tùy chỉnh kiểu Discord */}
+            <div className="discord-profile-bubble-container">
+              {isMe && isEditingCustomStatus ? (
+                <div className="discord-profile-bubble-edit">
+                  <input
+                    type="text"
+                    maxLength={60}
+                    className="bubble-edit-input"
+                    value={editingStatusText}
+                    onChange={e => setEditingStatusText(e.target.value)}
+                    placeholder="Đặt trạng thái..."
+                    autoFocus
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleSaveCustomStatus();
+                      if (e.key === 'Escape') setIsEditingCustomStatus(false);
+                    }}
+                  />
+                  <button 
+                    type="button" 
+                    className="bubble-save-btn" 
+                    onClick={handleSaveCustomStatus}
+                    title="Lưu"
+                  >
+                    <Check size={14} />
+                  </button>
                 </div>
-              )
-            )}
-
-            {/* 4. PHẦN HÀNH ĐỘNG DÀNH CHO BẢN THÂN HOẶC THÀNH VIÊN KHÁC */}
-            {isMe ? (
-              <div className="profile-self-actions">
-                {/* Nút sửa hồ sơ */}
-                <button
-                  type="button"
-                  className="profile-primary-btn"
+              ) : (
+                <div 
+                  className={`discord-profile-bubble ${isMe ? 'interactive' : ''}`}
                   onClick={() => {
-                    onClose();
-                    if (onOpenSettings) onOpenSettings();
+                    if (isMe) {
+                      setEditingStatusText(effectiveCustomStatus);
+                      setIsEditingCustomStatus(true);
+                    }
                   }}
+                  title={isMe ? 'Nhấn để chỉnh sửa trạng thái tùy chỉnh' : undefined}
                 >
-                  <Settings size={15} /> Sửa Hồ Sơ
-                </button>
+                  <div className="discord-profile-bubble-tail" />
+                  <span className="bubble-text">
+                    {effectiveCustomStatus ? (
+                      `💬 ${effectiveCustomStatus}`
+                    ) : (
+                      isMe ? '+ Đặt trạng thái tùy chỉnh' : 'Trực tuyến'
+                    )}
+                  </span>
+                  {isMe && <Edit2 size={11} className="bubble-edit-icon" />}
+                </div>
+              )}
+            </div>
+          </div>
 
-                {/* Bộ chọn trạng thái nhanh */}
-                <div className="profile-section" style={{ marginTop: '12px' }}>
-                  <div className="profile-section-title">TRẠNG THÁI HIỆN DIỆN</div>
-                  <div className="quick-presence-grid">
-                    {[
-                      { id: 'online', label: 'Trực tuyến', color: '#23a55a' },
-                      { id: 'idle', label: 'Chờ', color: '#f0b232' },
-                      { id: 'dnd', label: 'Không làm phiền', color: '#f23f43' },
-                      { id: 'invisible', label: 'Ẩn danh', color: '#80848e' }
-                    ].map(st => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        className={`quick-presence-chip ${effectivePresence === st.id ? 'active' : ''}`}
-                        onClick={() => handleSelectPresence(st.id as PresenceStatus)}
-                      >
-                        <span 
-                          className="chip-dot" 
-                          style={{ backgroundColor: st.color }} 
-                        />
-                        <span>{st.label}</span>
-                      </button>
-                    ))}
+          {/* 3. THÔNG TIN HỒ SƠ CHI TIẾT */}
+          <div className="discord-profile-body">
+            <div className="discord-profile-card-inner">
+              {/* Tên hiển thị và Username chuẩn Discord */}
+              <div className="discord-profile-header-info">
+                <h3 className="profile-display-name">
+                  {user.displayName || user.username}
+                  {isMe && <span className="profile-you-badge"> (Bạn)</span>}
+                </h3>
+                <div className="profile-username">
+                  @{effectiveUsername}
+                </div>
+              </div>
+
+              <div className="profile-divider" />
+
+              {/* VAI TRÒ TRONG PHÒNG */}
+              <div className="profile-section">
+                <div className="profile-section-title">VAI TRÒ TRONG PHÒNG</div>
+                <div className="profile-role-row">
+                  {targetRole === 'OWNER' && (
+                    <span className="profile-role-pill owner">
+                      <Crown size={12} /> Chủ phòng
+                    </span>
+                  )}
+                  {targetRole === 'ADMIN' && (
+                    <span className="profile-role-pill admin">
+                      <Shield size={12} /> Phó nhóm
+                    </span>
+                  )}
+                  {targetRole === 'MEMBER' && (
+                    <span className="profile-role-pill member">
+                      <UserIcon size={12} /> Thành viên
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* BẠN BÈ TỪ LÚC NÀO & GIA NHẬP TỪ */}
+              <div className="profile-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <div className="profile-section-title">BẠN BÈ TỪ</div>
+                  <div className="profile-meta-val" title={isFriend ? friendDate : 'Chưa kết bạn'}>
+                    <Clock size={12} className="meta-icon" />
+                    <span>{isFriend ? friendDate : (isMe ? 'Chính bạn' : 'Chưa kết bạn')}</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="profile-section-title">MÁY CHỦ CHUNG</div>
+                  <div className="profile-meta-val">
+                    <span>{mutualRoomsCount} phòng chung</span>
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="profile-other-actions">
-                {/* Ô nhắn tin nhanh đến người này */}
-                <form onSubmit={handleSendQuickDm} className="profile-quick-dm-form">
-                  <input
-                    type="text"
-                    className="profile-quick-dm-input"
-                    value={quickMsg}
-                    onChange={e => setQuickMsg(e.target.value)}
-                    placeholder={`Nhắn tin cho @${user.displayName || user.username}...`}
-                  />
-                  <button 
-                    type="submit" 
-                    className="profile-quick-dm-send-btn"
-                    title="Gửi tin nhắn"
-                  >
-                    <Send size={15} />
-                  </button>
-                </form>
 
-                <button
-                  type="button"
-                  className="profile-dm-link-btn"
-                  onClick={() => {
-                    onDirectMessage(user.id, user.displayName);
-                    onClose();
-                  }}
-                >
-                  <MessageSquare size={14} /> Mở cuộc trò chuyện riêng tư
-                </button>
+              {/* GHI CHÚ (CHỈ HIỂN THỊ CHO BẠN) */}
+              <div className="profile-section" style={{ marginTop: '8px' }}>
+                <div className="profile-section-title">GHI CHÚ (CHỈ HIỂN THỊ CHO BẠN)</div>
+                {isEditingNote ? (
+                  <div className="note-edit-box-mini">
+                    <input
+                      type="text"
+                      maxLength={120}
+                      className="note-input-mini"
+                      value={note}
+                      onChange={e => setNote(e.target.value)}
+                      placeholder="Nhấp để thêm ghi chú..."
+                      autoFocus
+                      onBlur={handleSaveNote}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleSaveNote();
+                        if (e.key === 'Escape') setIsEditingNote(false);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div 
+                    className={`note-preview-mini ${!note ? 'empty' : ''}`}
+                    onClick={() => setIsEditingNote(true)}
+                    title="Bấm để chỉnh sửa ghi chú"
+                  >
+                    <FileText size={11} />
+                    <span>{note || 'Nhấp để thêm ghi chú'}</span>
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Tiểu sử giới thiệu nếu có */}
+              {effectiveBio && (
+                <div className="profile-section">
+                  <div className="profile-section-title">GIỚI THIỆU</div>
+                  <div className="profile-bio-text">{effectiveBio}</div>
+                </div>
+              )}
+
+              {/* Nút Xem hồ sơ đầy đủ */}
+              <button
+                type="button"
+                className="profile-full-view-btn"
+                onClick={() => setIsFullProfileOpen(true)}
+              >
+                <ExternalLink size={13} /> Xem hồ sơ đầy đủ
+              </button>
+
+              {/* 4. PHẦN HÀNH ĐỘNG DÀNH CHO BẢN THÂN HOẶC THÀNH VIÊN KHÁC */}
+              {isMe ? (
+                <div className="profile-self-actions">
+                  <button
+                    type="button"
+                    className="profile-primary-btn"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenSettings) onOpenSettings();
+                    }}
+                  >
+                    <Settings size={15} /> Sửa Hồ Sơ
+                  </button>
+
+                  <div className="profile-section" style={{ marginTop: '10px' }}>
+                    <div className="profile-section-title">TRẠNG THÁI HIỆN DIỆN</div>
+                    <div className="quick-presence-grid">
+                      {[
+                        { id: 'online', label: 'Trực tuyến', color: '#23a55a' },
+                        { id: 'idle', label: 'Chờ', color: '#f0b232' },
+                        { id: 'dnd', label: 'Không làm phiền', color: '#f23f43' },
+                        { id: 'invisible', label: 'Ẩn danh', color: '#80848e' }
+                      ].map(st => (
+                        <button
+                          key={st.id}
+                          type="button"
+                          className={`quick-presence-chip ${effectivePresence === st.id ? 'active' : ''}`}
+                          onClick={() => handleSelectPresence(st.id as PresenceStatus)}
+                        >
+                          <span 
+                            className="chip-dot" 
+                            style={{ backgroundColor: st.color }} 
+                          />
+                          <span>{st.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="profile-other-actions">
+                  <form onSubmit={handleSendQuickDm} className="profile-quick-dm-form">
+                    <input
+                      type="text"
+                      className="profile-quick-dm-input"
+                      value={quickMsg}
+                      onChange={e => setQuickMsg(e.target.value)}
+                      placeholder={`Nhắn tin cho @${user.displayName || user.username}...`}
+                    />
+                    <button 
+                      type="submit" 
+                      className="profile-quick-dm-send-btn"
+                      title="Gửi tin nhắn"
+                    >
+                      <Send size={15} />
+                    </button>
+                  </form>
+
+                  <button
+                    type="button"
+                    className="profile-dm-link-btn"
+                    onClick={() => {
+                      onDirectMessage(user.id, user.displayName);
+                      onClose();
+                    }}
+                  >
+                    <MessageSquare size={14} /> Mở cuộc trò chuyện riêng tư
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* MODAL HỒ SƠ ĐẦY ĐỦ PHONG CÁCH DISCORD */}
+      {isFullProfileOpen && (
+        <FullProfileModal
+          isOpen={isFullProfileOpen}
+          onClose={() => setIsFullProfileOpen(false)}
+          user={user}
+          currentUserId={currentUserId}
+          currentUserRole={currentUserRole}
+          roomRole={targetRole}
+          roomName={roomName}
+          rooms={rooms}
+          friends={friends}
+          onDirectMessage={onDirectMessage}
+          onSendFriendRequest={onSendFriendRequest}
+        />
+      )}
+    </>
   );
 };
+
+export default UserProfileCard;

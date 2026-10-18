@@ -7222,6 +7222,583 @@ html[data-density="compact"] .dm-message-row {
   color: #ffffff;
 }
 
+/* ==========================================================================
+   DISCORD FULL PROFILE MODAL & ENHANCED CARD DETAILS
+   ========================================================================== */
+
+/* Nút Xem hồ sơ đầy đủ trên mini card */
+.profile-full-view-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #dbdee1;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.profile-full-view-btn:hover {
+  background-color: #5865f2;
+  border-color: #5865f2;
+  color: #ffffff;
+}
+
+.profile-meta-val {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #dbdee1;
+  margin-top: 2px;
+}
+
+.profile-meta-val .meta-icon {
+  color: #949ba4;
+}
+
+.note-edit-box-mini {
+  margin-top: 4px;
+}
+
+.note-input-mini {
+  width: 100%;
+  background: #1e1f22;
+  border: 1px solid #5865f2;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 12px;
+  padding: 4px 6px;
+  outline: none;
+}
+
+.note-preview-mini {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #dbdee1;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.note-preview-mini.empty {
+  color: #949ba4;
+  font-style: italic;
+}
+
+.note-preview-mini:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.manager-dropdown-item.highlight {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: #2b2d31;
+  margin: 4px 0;
+}
+
+/* Backdrop cho Full Profile Modal */
+.full-profile-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+
+.full-profile-modal-card {
+  position: relative;
+  width: 680px;
+  max-width: 92vw;
+  height: 520px;
+  max-height: 90vh;
+  background-color: #232428;
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: popoverSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.full-profile-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #dbdee1;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.15s ease;
+}
+
+.full-profile-close-btn:hover {
+  background: rgba(242, 63, 67, 0.85);
+  color: #ffffff;
+}
+
+.full-profile-toast {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: popoverSlideIn 0.2s ease;
+}
+
+.full-profile-toast.success {
+  background-color: #23a55a;
+  color: #ffffff;
+}
+
+.full-profile-toast.notice {
+  background-color: #5865f2;
+  color: #ffffff;
+}
+
+.full-profile-layout {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+/* CỘT TRÁI: THÔNG TIN HỒ SƠ */
+.full-profile-left-col {
+  width: 300px;
+  background-color: #111214;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-y: auto;
+}
+
+.full-profile-banner {
+  height: 110px;
+  width: 100%;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #23a55a, #10b981);
+}
+
+.full-profile-avatar-container {
+  position: relative;
+  width: 86px;
+  height: 86px;
+  margin-top: -46px;
+  margin-left: 18px;
+  flex-shrink: 0;
+}
+
+.full-profile-avatar {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  border: 6px solid #111214;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 32px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.full-profile-status-ring {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 4px solid #111214;
+  box-sizing: content-box;
+}
+
+.full-profile-status-ring.online {
+  background-color: #23a55a;
+}
+.full-profile-status-ring.idle {
+  background-color: #f0b232;
+}
+.full-profile-status-ring.dnd {
+  background-color: #f23f43;
+}
+.full-profile-status-ring.invisible,
+.full-profile-status-ring.offline {
+  background-color: #80848e;
+}
+
+.full-profile-left-content {
+  padding: 12px 18px 20px;
+  flex: 1;
+}
+
+.full-profile-display-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f2f3f5;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.full-profile-you-tag {
+  font-size: 14px;
+  font-weight: 500;
+  color: #949ba4;
+}
+
+.full-profile-username {
+  font-size: 13.5px;
+  color: #949ba4;
+  margin-top: 2px;
+}
+
+.full-profile-status-bubble {
+  margin-top: 10px;
+  padding: 6px 12px;
+  background-color: #1e1f22;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: #f2f3f5;
+  font-size: 12px;
+  display: inline-block;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.full-profile-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.full-profile-btn-primary {
+  flex: 1;
+  padding: 7px 12px;
+  background-color: #5865f2;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.full-profile-btn-primary:hover {
+  background-color: #4752c4;
+}
+
+.full-profile-btn-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background-color: #2b2d31;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #dbdee1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.full-profile-btn-icon:hover {
+  background-color: #35373c;
+  color: #ffffff;
+}
+
+.full-profile-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background-color: #111214;
+  border: 1px solid #2b2d31;
+  border-radius: 8px;
+  padding: 6px;
+  z-index: 30;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #dbdee1;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.dropdown-item:hover {
+  background-color: #5865f2;
+  color: #ffffff;
+}
+
+.dropdown-item.danger:hover {
+  background-color: #da373c;
+  color: #ffffff;
+}
+
+.full-profile-divider {
+  height: 1px;
+  background-color: #2b2d31;
+  margin: 14px 0;
+}
+
+.full-profile-info-group {
+  margin-bottom: 12px;
+}
+
+.info-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b5bac1;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 4px;
+}
+
+.info-group-val {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #dbdee1;
+}
+
+.info-group-val .info-icon {
+  color: #949ba4;
+}
+
+.note-edit-box {
+  margin-top: 4px;
+}
+
+.note-textarea {
+  width: 100%;
+  background: #1e1f22;
+  border: 1px solid #5865f2;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 12.5px;
+  padding: 6px 8px;
+  outline: none;
+  resize: none;
+}
+
+.note-save-btn {
+  padding: 3px 10px;
+  background: #5865f2;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.note-display-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  color: #dbdee1;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.note-display-box.empty {
+  color: #949ba4;
+  font-style: italic;
+}
+
+.note-display-box:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* CỘT PHẢI: MÁY CHỦ CHUNG & VAI TRÒ */
+.full-profile-right-col {
+  flex: 1;
+  background-color: #232428;
+  display: flex;
+  flex-direction: column;
+}
+
+.full-profile-tabs-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.full-profile-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 4px 12px;
+  color: #949ba4;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.full-profile-tab-btn:hover {
+  color: #dbdee1;
+}
+
+.full-profile-tab-btn.active {
+  color: #ffffff;
+  border-bottom-color: #5865f2;
+}
+
+.full-profile-tabs-content {
+  flex: 1;
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.mutual-rooms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mutual-room-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background-color: #1e1f22;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background-color 0.15s ease;
+}
+
+.mutual-room-item:hover {
+  background-color: #2b2d31;
+}
+
+.mutual-room-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #5865f2;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mutual-room-details {
+  flex: 1;
+  overflow: hidden;
+}
+
+.mutual-room-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f2f3f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mutual-room-sub {
+  font-size: 12px;
+  color: #949ba4;
+  margin-top: 2px;
+}
+
+.activity-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.activity-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b5bac1;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+
+.activity-role-pill-wrap {
+  display: flex;
+  gap: 8px;
+}
+
+.activity-bio-box {
+  background: #1e1f22;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #dbdee1;
+  line-height: 1.45;
+}
+
+.activity-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #dbdee1;
+}
+
 
 
 

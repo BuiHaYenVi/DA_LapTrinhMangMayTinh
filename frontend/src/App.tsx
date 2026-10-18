@@ -1839,7 +1839,10 @@ export const App: React.FC = () => {
             currentUserId={currentUser?.id}
             currentUserRole={currentUserRole}
             roomName={currentRoom?.name}
+            rooms={rooms}
+            friends={friends}
             onDirectMessage={handleMemberDirectMessage}
+            onSendFriendRequest={handleSendFriendRequest}
             onOpenSettings={() => setIsUserSettingsOpen(true)}
             onSetMemberRole={handleSetMemberRole}
             onTransferOwner={handleTransferOwner}

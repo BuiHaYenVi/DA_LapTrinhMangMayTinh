@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { User } from '../types/chat';
+import type { User, Room, Friend } from '../types/chat';
 import { Crown, Shield, MoreVertical } from 'lucide-react';
 import { UserProfileCard } from './UserProfileCard';
 
@@ -8,7 +8,10 @@ interface Props {
   currentUserId?: number;
   currentUserRole?: string;
   roomName?: string;
+  rooms?: Room[];
+  friends?: Friend[];
   onDirectMessage: (userId: number, name: string, initialMessage?: string) => void;
+  onSendFriendRequest?: (userId: number) => void;
   onOpenSettings?: () => void;
   onSetMemberRole?: (userId: number, role: string) => void;
   onTransferOwner?: (userId: number) => void;
@@ -20,7 +23,10 @@ export const MemberSidebar: React.FC<Props> = ({
   currentUserId,
   currentUserRole,
   roomName,
+  rooms = [],
+  friends = [],
   onDirectMessage,
+  onSendFriendRequest,
   onOpenSettings,
   onSetMemberRole,
   onTransferOwner,
@@ -222,6 +228,9 @@ export const MemberSidebar: React.FC<Props> = ({
           currentUserRole={currentUserRole}
           roomRole={activeProfile.user.role}
           roomName={roomName}
+          rooms={rooms}
+          friends={friends}
+          onSendFriendRequest={onSendFriendRequest}
           anchorRect={activeProfile.anchorRect}
           onClose={() => setActiveProfile(null)}
           onDirectMessage={onDirectMessage}
