@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Hash, Volume2, MessagesSquare, Smile, Lock, Search } from 'lucide-react';
+import { X, Hash, MessagesSquare, Smile, Lock, Search } from 'lucide-react';
 import type { Room, Channel, ChannelType } from '../types/chat';
 import { EMOJI_CATEGORIES } from './chat/EmojiStickerPicker';
 
@@ -148,8 +148,6 @@ export const CreateChannelModal: React.FC<Props> = ({
 
   const currentPrefixIcon = () => {
     switch (channelType) {
-      case 'voice':
-        return <Volume2 size={18} />;
       case 'forum':
         return <MessagesSquare size={18} />;
       case 'text':
@@ -160,8 +158,6 @@ export const CreateChannelModal: React.FC<Props> = ({
 
   const currentPlaceholder = () => {
     switch (channelType) {
-      case 'voice':
-        return 'phòng-đàm-thoại';
       case 'forum':
         return 'diễn-đàn-thảo-luận';
       case 'text':
@@ -202,7 +198,7 @@ export const CreateChannelModal: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Section: LOẠI KÊNH (3 Lựa chọn: Văn bản, Giọng nói, Diễn đàn) */}
+          {/* Section: LOẠI KÊNH (2 Lựa chọn: Văn bản, Diễn đàn) */}
           <div className="channel-modal-section">
             <label className="channel-section-label">Loại Kênh</label>
 
@@ -225,29 +221,6 @@ export const CreateChannelModal: React.FC<Props> = ({
                 <div className="channel-type-name">Văn bản</div>
                 <div className="channel-type-desc">
                   Gửi tin nhắn, hình ảnh, ảnh GIF, emoji, ý kiến, và chơi chữ
-                </div>
-              </div>
-            </div>
-
-            {/* 2. Kênh Giọng Nói */}
-            <div
-              className={`channel-type-option ${channelType === 'voice' ? 'active' : ''}`}
-              onClick={() => setChannelType('voice')}
-              role="radio"
-              aria-checked={channelType === 'voice'}
-              tabIndex={0}
-              onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') setChannelType('voice'); }}
-            >
-              <div className="channel-radio-indicator">
-                <div className="channel-radio-dot" />
-              </div>
-              <div className="channel-type-icon">
-                <Volume2 size={22} />
-              </div>
-              <div className="channel-type-info">
-                <div className="channel-type-name">Giọng nói</div>
-                <div className="channel-type-desc">
-                  Cùng gặp mặt bằng gọi thoại, video, và chia sẻ màn hình
                 </div>
               </div>
             </div>
