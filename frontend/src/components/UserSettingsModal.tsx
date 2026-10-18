@@ -31,9 +31,9 @@ export interface UserSettingsModalProps {
 }
 
 export const AVATAR_COLORS = [
-  '#5865F2', // Blurple
-  '#2DD4BF', // Teal
+  '#2DD4BF', // Teal (Huddle primary)
   '#0EA5E9', // Sky
+  '#5865F2', // Blurple
   '#6366F1', // Indigo
   '#EC4899', // Pink
   '#F43F5E', // Rose
@@ -91,7 +91,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
   enterToSend: true,
   showTyping: true,
   autoReconnect: true,
-  avatarColor: '#5865F2',
+  avatarColor: '#2DD4BF',
   avatarIcon: '',
   bannerColor: '#23A55A',
   bio: '',

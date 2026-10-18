@@ -2,21 +2,21 @@
 
 :root,
 :root[data-theme="dark"] {
-  --bg-0: #1e1f22;
-  --bg-1: #2b2d31;
-  --bg-2: #313338;
-  --bg-3: #383a40;
-  --border: #3f4147;
-  --text-1: #f2f3f5;
-  --text-2: #dbdee1;
-  --text-3: #949ba4;
-  --accent: #5865F2;
-  --accent-strong: #4752C4;
-  --accent-soft: rgba(88, 101, 242, 0.16);
-  --on-accent: #FFFFFF;
-  --rail-item-bg: #2b2d31;
-  --rail-item-text: #dbdee1;
-  --danger: #f23f43;
+  --bg-0: #0F1415;
+  --bg-1: #151B1D;
+  --bg-2: #1A2124;
+  --bg-3: #222B2E;
+  --border: #263033;
+  --text-1: #E6F1F0;
+  --text-2: #A9BDBB;
+  --text-3: #7F9593;
+  --accent: #2DD4BF;
+  --accent-strong: #5EEAD4;
+  --accent-soft: rgba(45, 212, 191, 0.14);
+  --on-accent: #04201C;
+  --rail-item-bg: #232C2F;
+  --rail-item-text: #CFE3E1;
+  --danger: #ED4245;
   --tooltip-bg: #111214;
   --tooltip-text: #FFFFFF;
 
@@ -30,15 +30,15 @@
   --bg-user-bar: var(--bg-1);
   --bg-card: var(--bg-2);
   --bg-secondary: var(--bg-1);
-  --bg-hover: rgba(255, 255, 255, 0.06);
-  --bg-active: rgba(255, 255, 255, 0.10);
+  --bg-hover: rgba(45, 212, 191, 0.08);
+  --bg-active: rgba(45, 212, 191, 0.16);
   --bg-modifier-selected: var(--accent-soft);
   
-  --accent-blurple: #5865F2;
-  --accent-blurple-hover: #4752C4;
-  --accent-hover: #4752C4;
+  --accent-blurple: var(--accent);
+  --accent-blurple-hover: var(--accent-strong);
+  --accent-hover: var(--accent-strong);
   --accent-green: #23a55a;
-  --accent-red: #f23f43;
+  --accent-red: #da373c;
   --accent-yellow: #f0b232;
   
   --text-header: var(--text-1);
@@ -46,29 +46,29 @@
   --text-muted: var(--text-3);
   --text-channel: var(--text-3);
   --text-channel-hover: var(--text-1);
-  --text-channel-active: #FFFFFF;
+  --text-channel-active: var(--accent-strong);
   
   --border-color: var(--border);
   --border-subtle: var(--border);
-  --font-family: 'gg sans', 'Noto Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+  --font-family: 'Inter', 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
 }
 
 :root[data-theme="light"] {
-  --bg-0: #e3e5e8;
-  --bg-1: #f2f3f5;
-  --bg-2: #ffffff;
-  --bg-3: #ebedef;
-  --border: #d1d4d9;
-  --text-1: #060607;
-  --text-2: #313338;
-  --text-3: #5c5e66;
-  --accent: #5865F2;
-  --accent-strong: #4752C4;
-  --accent-soft: rgba(88, 101, 242, 0.12);
+  --bg-0: #E6ECEC;
+  --bg-1: #EEF3F3;
+  --bg-2: #FFFFFF;
+  --bg-3: #EAF0F0;
+  --border: #D5DEDE;
+  --text-1: #12201F;
+  --text-2: #3F5352;
+  --text-3: #5B6F6E;
+  --accent: #0F766E;
+  --accent-strong: #0B5F58;
+  --accent-soft: #D7EFEC;
   --on-accent: #FFFFFF;
-  --rail-item-bg: #e3e5e8;
-  --rail-item-text: #313338;
-  --danger: #da373c;
+  --rail-item-bg: #D3DDDD;
+  --rail-item-text: #1F3534;
+  --danger: #DA373C;
   --tooltip-bg: #111214;
   --tooltip-text: #FFFFFF;
 
@@ -80,15 +80,15 @@
   --bg-chat: var(--bg-2);
   --bg-input: var(--bg-3);
   --bg-user-bar: var(--bg-1);
-  --bg-card: #ffffff;
-  --bg-secondary: #f2f3f5;
-  --bg-hover: rgba(0, 0, 0, 0.05);
-  --bg-active: rgba(0, 0, 0, 0.08);
+  --bg-card: var(--bg-2);
+  --bg-secondary: var(--bg-1);
+  --bg-hover: rgba(15, 118, 110, 0.08);
+  --bg-active: rgba(15, 118, 110, 0.16);
   --bg-modifier-selected: var(--accent-soft);
   
-  --accent-blurple: #5865F2;
-  --accent-blurple-hover: #4752C4;
-  --accent-hover: #4752C4;
+  --accent-blurple: var(--accent);
+  --accent-blurple-hover: var(--accent-strong);
+  --accent-hover: var(--accent-strong);
   --accent-green: #23a55a;
   --accent-red: #da373c;
   --accent-yellow: #f0b232;
@@ -98,7 +98,7 @@
   --text-muted: var(--text-3);
   --text-channel: var(--text-3);
   --text-channel-hover: var(--text-1);
-  --text-channel-active: #5865F2;
+  --text-channel-active: var(--accent-strong);
   
   --border-color: var(--border);
   --border-subtle: var(--border);
@@ -596,7 +596,7 @@ body {
 }
 
 :root[data-theme="light"] .server-dropdown-menu .dropdown-item:hover {
-  background-color: #5865F2 !important;
+  background-color: var(--accent) !important;
   color: #ffffff !important;
 }
 
@@ -605,15 +605,15 @@ body {
 }
 
 :root[data-theme="light"] .server-dropdown-menu .dropdown-item.blurple {
-  color: #5865F2 !important;
+  color: var(--accent) !important;
 }
 
 :root[data-theme="light"] .server-dropdown-menu .dropdown-item.blurple svg {
-  color: #5865F2 !important;
+  color: var(--accent) !important;
 }
 
 :root[data-theme="light"] .server-dropdown-menu .dropdown-item.blurple:hover {
-  background-color: #5865F2 !important;
+  background-color: var(--accent) !important;
   color: #ffffff !important;
 }
 
@@ -2627,27 +2627,27 @@ body {
   transition: 0s;
 }
 
-/* 1. NÚT CHÍNH (PRIMARY - DISCORD BLURPLE #5865F2) */
+/* 1. NÚT CHÍNH (PRIMARY - HUDDLE ACCENT) */
 .btn-primary,
 .modal-footer .btn-primary {
-  background-color: var(--accent, #5865F2) !important;
-  color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(88, 101, 242, 0.35);
+  background-color: var(--accent) !important;
+  color: var(--on-accent, #ffffff) !important;
+  box-shadow: 0 4px 14px var(--accent-soft, rgba(45, 212, 191, 0.35));
 }
 
 .btn-primary:hover:not(:disabled),
 .modal-footer .btn-primary:hover:not(:disabled) {
-  background-color: #4752c4 !important;
-  color: #ffffff !important;
+  background-color: var(--accent-strong) !important;
+  color: var(--on-accent, #ffffff) !important;
   transform: translateY(-1.5px);
-  box-shadow: 0 6px 20px rgba(88, 101, 242, 0.45);
+  box-shadow: 0 6px 20px var(--accent-soft, rgba(45, 212, 191, 0.45));
 }
 
 .btn-primary:active:not(:disabled),
 .modal-footer .btn-primary:active:not(:disabled) {
-  background-color: #3c45a5 !important;
+  background-color: var(--accent-strong) !important;
   transform: scale(0.95) translateY(1px) !important;
-  box-shadow: 0 2px 6px rgba(88, 101, 242, 0.25) !important;
+  box-shadow: 0 2px 6px var(--accent-soft, rgba(45, 212, 191, 0.25)) !important;
 }
 
 /* 2. NÚT HỦY / THỨ CẤP (CANCEL / SECONDARY) - ĐỒNG BỘ CẢ SÁNG VÀ TỐI */
@@ -10240,8 +10240,8 @@ html[data-density="compact"] .dm-message-row {
   bottom: 84px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: var(--accent, #5865f2);
-  color: #ffffff;
+  background-color: var(--accent);
+  color: var(--on-accent, #ffffff);
   padding: 7px 16px;
   border-radius: 18px;
   font-size: 13px;
@@ -10260,7 +10260,7 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .chat-new-messages-bar:hover {
-  background-color: #4752c4;
+  background-color: var(--accent-strong);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
   transform: translateX(-50%) translateY(-2px);
 }
@@ -10270,7 +10270,7 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .chat-new-messages-bar .bar-badge {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.2);
   padding: 1px 6px;
   border-radius: 10px;
   font-size: 11px;
@@ -10297,9 +10297,9 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .chat-load-more-btn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border, #3f4147);
-  color: var(--text-2, #dbdee1);
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  color: var(--text-2);
   padding: 6px 16px;
   border-radius: 16px;
   font-size: 12px;
@@ -10312,9 +10312,9 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .chat-load-more-btn:hover:not(:disabled) {
-  background: rgba(88, 101, 242, 0.15);
-  border-color: var(--accent, #5865f2);
-  color: var(--accent, #5865f2);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .chat-load-more-btn:disabled {
@@ -10323,15 +10323,15 @@ html[data-density="compact"] .dm-message-row {
 }
 
 :root[data-theme="light"] .chat-load-more-btn {
-  background: #f2f3f5;
-  border-color: #d1d4d9;
-  color: #313338;
+  background: var(--bg-1);
+  border-color: var(--border);
+  color: var(--text-2);
 }
 
 :root[data-theme="light"] .chat-load-more-btn:hover:not(:disabled) {
-  background: rgba(88, 101, 242, 0.1);
-  border-color: var(--accent, #5865f2);
-  color: var(--accent, #5865f2);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ==========================================================================
@@ -10488,7 +10488,7 @@ html[data-density="compact"] .dm-message-row {
 }
 
 :root[data-theme="light"] .full-profile-tab-btn.active {
-  color: #5865f2;
+  color: var(--accent);
 }
 
 :root[data-theme="light"] .note-display-box {
@@ -10502,7 +10502,7 @@ html[data-density="compact"] .dm-message-row {
 
 :root[data-theme="light"] .note-textarea {
   background: #ffffff;
-  border-color: #5865f2;
+  border-color: var(--accent);
   color: #060607;
 }
 
