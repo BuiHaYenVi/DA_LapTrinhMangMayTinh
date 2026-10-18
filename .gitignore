@@ -18,6 +18,7 @@ nbdist/
 # 2. Java Compiled & Binary Artifacts (Quy chế: cấm commit file nhị phân lớn)
 *.class
 *.jar
+!Chatserver/lib/*.jar
 *.war
 *.ear
 *.zip

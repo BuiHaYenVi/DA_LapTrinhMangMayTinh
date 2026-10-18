@@ -25,6 +25,13 @@ COPY Chatserver/lib ./Chatserver/lib
 COPY Chatserver/src ./Chatserver/src
 COPY ChatClient/src ./ChatClient/src
 
+# Đảm bảo driver JDBC PostgreSQL luôn hiện diện (tự tải nếu chưa có trong repo)
+RUN mkdir -p Chatserver/lib && \
+    if [ ! -f Chatserver/lib/postgresql*.jar ]; then \
+      apt-get update && apt-get install -y curl && \
+      curl -sSL https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar -o Chatserver/lib/postgresql-42.7.3.jar ; \
+    fi
+
 # Biên dịch ChatServer với thư viện PostgreSQL JDBC
 RUN mkdir -p Chatserver/build/classes && \
     javac -encoding UTF-8 -cp "Chatserver/lib/*" -d Chatserver/build/classes $(find Chatserver/src -name "*.java")
