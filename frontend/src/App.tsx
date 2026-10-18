@@ -1442,7 +1442,7 @@ export const App: React.FC = () => {
     if (!currentRoom) return;
     const target = members.find(m => m.id === userId);
     const targetName = target ? target.displayName : `User #${userId}`;
-    const roleText = role === 'ADMIN' ? 'bổ nhiệm làm Quản trị viên (ADMIN)' : 'hạ xuống Thành viên (MEMBER)';
+    const roleText = role === 'ADMIN' ? 'bổ nhiệm làm Phó nhóm (ADMIN)' : 'hạ xuống Thành viên (MEMBER)';
     setActionModal({
       isOpen: true,
       title: 'Thay Đổi Vai Trò',
@@ -1464,7 +1464,7 @@ export const App: React.FC = () => {
     setActionModal({
       isOpen: true,
       title: 'Chuyển Quyền Trưởng Nhóm',
-      message: `CẢNH BÁO: Bạn có chắc chắn muốn chuyển giao toàn quyền Chủ phòng cho "${targetName}"? Bạn sẽ trở thành Quản trị viên.`,
+      message: `CẢNH BÁO: Bạn có chắc chắn muốn chuyển giao toàn quyền Chủ phòng cho "${targetName}"? Bạn sẽ trở thành Phó nhóm.`,
       confirmText: 'Chuyển Quyền',
       cancelText: 'Hủy bỏ',
       isDanger: true,

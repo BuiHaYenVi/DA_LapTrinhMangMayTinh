@@ -84,13 +84,13 @@ export const MemberSidebar: React.FC<Props> = ({
             </span>
           )}
           {member.role === 'ADMIN' && (
-            <span title="Quản trị viên" style={{ display: 'inline-flex' }}>
+            <span title="Phó nhóm" style={{ display: 'inline-flex' }}>
               <Shield size={14} color="var(--accent)" />
             </span>
           )}
         </div>
 
-        {/* Nút 3 chấm tùy chọn của Chủ phòng hoặc Quản trị viên */}
+        {/* Nút 3 chấm tùy chọn của Chủ phòng hoặc Phó nhóm */}
         {canManage && (
           <button
             type="button"
@@ -115,7 +115,7 @@ export const MemberSidebar: React.FC<Props> = ({
                   className="member-action-btn"
                   onClick={() => handleAction('role', member)}
                 >
-                  {member.role === 'ADMIN' ? 'Hạ xuống Thành viên' : 'Phong làm Quản trị viên'}
+                  {member.role === 'ADMIN' ? 'Hạ xuống Thành viên' : 'Phong làm Phó nhóm'}
                 </button>
 
                 <button

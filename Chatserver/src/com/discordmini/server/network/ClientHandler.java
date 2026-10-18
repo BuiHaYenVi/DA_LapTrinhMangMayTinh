@@ -722,7 +722,7 @@ public class ClientHandler implements Runnable {
         // Quyền: Chỉ OWNER hoặc ADMIN
         String role = server.getRoomService().getMemberRole(roomId, user.getId());
         if (role == null || (!"OWNER".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role))) {
-            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ chủ phòng hoặc quản trị viên mới có quyền tạo kênh.");
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Phó nhóm mới có quyền tạo kênh.");
             return;
         }
 
@@ -847,7 +847,7 @@ public class ClientHandler implements Runnable {
 
         String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
         if (!"OWNER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
-            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Quản trị viên mới được đổi tên kênh.");
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Phó nhóm mới được đổi tên kênh.");
             return;
         }
 
@@ -884,7 +884,7 @@ public class ClientHandler implements Runnable {
 
         String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
         if (!"OWNER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
-            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Quản trị viên mới được xóa kênh.");
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Phó nhóm mới được xóa kênh.");
             return;
         }
 
@@ -1268,7 +1268,7 @@ public class ClientHandler implements Runnable {
         boolean isAdmin = "ADMIN".equalsIgnoreCase(userRole);
 
         if (!isOwner && !isAdmin) {
-            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Trưởng nhóm (OWNER) hoặc Quản trị viên (ADMIN) mới có quyền xóa thành viên.");
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng (OWNER) hoặc Phó nhóm (ADMIN) mới có quyền xóa thành viên.");
             return;
         }
 
@@ -1279,12 +1279,12 @@ public class ClientHandler implements Runnable {
 
         String targetRole = server.getRoomService().getMemberRole(roomId, targetUserId);
         if ("OWNER".equalsIgnoreCase(targetRole)) {
-            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Không thể xóa Trưởng nhóm (OWNER) khỏi phòng.");
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Không thể xóa Chủ phòng (OWNER) khỏi phòng.");
             return;
         }
 
         if (isAdmin && "ADMIN".equalsIgnoreCase(targetRole)) {
-            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Quản trị viên không được phép xóa Quản trị viên khác.");
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Phó nhóm không được phép xóa Phó nhóm khác.");
             return;
         }
 
@@ -1299,7 +1299,7 @@ public class ClientHandler implements Runnable {
 
         User targetUser = server.getUserDAO().findById(targetUserId);
         String targetName = (targetUser != null) ? targetUser.getDisplayName() : ("User#" + targetUserId);
-        String kickerTitle = isOwner ? "Trưởng nhóm" : "Quản trị viên";
+        String kickerTitle = isOwner ? "Chủ phòng" : "Phó nhóm";
 
         connection.send("OK|KICK_ROOM|" + roomId + "|" + targetUserId);
 
@@ -1705,7 +1705,7 @@ public class ClientHandler implements Runnable {
 
         String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
         if (!"OWNER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
-            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Quản trị viên mới được đổi tên phòng.");
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Phó nhóm mới được đổi tên phòng.");
             return;
         }
 
@@ -1771,7 +1771,7 @@ public class ClientHandler implements Runnable {
 
         String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
         if (!"OWNER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
-            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Quản trị viên mới được cập nhật mô tả phòng.");
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng hoặc Phó nhóm mới được cập nhật mô tả phòng.");
             return;
         }
 
@@ -1850,7 +1850,7 @@ public class ClientHandler implements Runnable {
         if (ok) {
             User targetUser = server.getUserDAO().findById(targetUserId);
             String targetName = (targetUser != null) ? targetUser.getDisplayName() : ("User#" + targetUserId);
-            String roleText = "ADMIN".equals(role) ? "Quản trị viên" : "Thành viên";
+            String roleText = "ADMIN".equals(role) ? "Phó nhóm" : "Thành viên";
 
             connection.send("OK|SET_MEMBER_ROLE|" + roomId + "|" + targetUserId + "|" + role);
             broadcastToRoom(roomId, "SYSTEM|" + ProtocolHandler.encode(targetName + " đã được bổ nhiệm làm " + roleText + "."));

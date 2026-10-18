@@ -239,7 +239,7 @@ export const RoomContextMenu: React.FC<Props> = ({
       <div className="context-menu-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
         <span className="context-menu-title" title={room.name}>{room.name}</span>
         <span className={`context-menu-role-tag ${isRoomOwner ? 'owner' : (currentUserRole === 'ADMIN' ? 'admin' : 'member')}`}>
-          {isRoomOwner ? '👑 Chủ phòng' : (currentUserRole === 'ADMIN' ? '🛡️ Quản trị' : '👤 Thành viên')}
+          {isRoomOwner ? '👑 Chủ phòng' : (currentUserRole === 'ADMIN' ? '🛡️ Phó nhóm' : '👤 Thành viên')}
         </span>
       </div>
 
