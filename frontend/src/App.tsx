@@ -63,6 +63,10 @@ export const App: React.FC = () => {
 
   // Bộ nhớ đệm danh sách kênh theo từng phòng (giúp chuyển phòng ngay lập tức không bị xoay chờ)
   const channelsByRoomRef = useRef<Record<number, Channel[]>>({});
+  // Bộ nhớ đệm danh sách thành viên theo từng phòng
+  const membersByRoomRef = useRef<Record<number, User[]>>({});
+  // Bộ nhớ đệm lịch sử tin nhắn theo từng kênh (0ms instant switch như Discord!)
+  const messagesByChannelRef = useRef<Record<number, MessageItem[]>>({});
 
   // Trạng thái đang tải tin nhắn kênh (Loading state chống race condition)
   const [isLoadingChannelMessages, setIsLoadingChannelMessages] = useState<boolean>(false);
@@ -300,8 +304,18 @@ export const App: React.FC = () => {
           setCurrentChannel(data.currentChannel);
           currentChannelRef.current = data.currentChannel;
         }
-        if (data.messages) setMessages(data.messages);
-        if (data.members) setMembers(data.members);
+        if (data.messages) {
+          setMessages(data.messages);
+          if (data.currentChannel) {
+            messagesByChannelRef.current[data.currentChannel.id] = data.messages;
+          }
+        }
+        if (data.members) {
+          setMembers(data.members);
+          if (data.currentRoom) {
+            membersByRoomRef.current[data.currentRoom.id] = data.members;
+          }
+        }
         if (data.friends) setFriends(data.friends);
         if (data.pendingRequests) setPendingRequests(data.pendingRequests);
       }
@@ -362,8 +376,15 @@ export const App: React.FC = () => {
             }
           }
 
-          setMessages([]);
-          setIsLoadingChannelMessages(true);
+          // TỐI ƯU INSTANT SWITCH: Nếu kênh đã có tin nhắn trong cache, giữ nguyên hiển thị không xóa trắng!
+          const activeChId = payload.channel?.id || currentChannelRef.current?.id;
+          if (activeChId && messagesByChannelRef.current[activeChId]) {
+            setMessages(messagesByChannelRef.current[activeChId]);
+            setIsLoadingChannelMessages(false);
+          } else {
+            setMessages([]);
+            setIsLoadingChannelMessages(true);
+          }
 
           // Chỉ tải danh sách kênh nếu chưa có kênh được chọn
           if (newRoom?.id && !payload.channel) {
@@ -403,7 +424,10 @@ export const App: React.FC = () => {
           if (currentRoomRef.current?.id === payload.roomId) {
             setCurrentChannel(payload.channel);
             currentChannelRef.current = payload.channel;
-            setIsLoadingChannelMessages(false);
+            if (payload.channel?.id && messagesByChannelRef.current[payload.channel.id]) {
+              setMessages(messagesByChannelRef.current[payload.channel.id]);
+              setIsLoadingChannelMessages(false);
+            }
           }
           break;
         }
@@ -475,6 +499,16 @@ export const App: React.FC = () => {
           const senderId = Number(payload.message?.senderId || 0);
           const isOtherSender = senderId > 0 && (!currentUser || senderId !== currentUser.id);
 
+          // Cập nhật bộ nhớ đệm cache của channel nhận tin nhắn (Background Cache Update)
+          if (targetChannelId && payload.message) {
+            const cached = messagesByChannelRef.current[targetChannelId];
+            if (cached) {
+              if (!cached.some(m => m.id === payload.message.id)) {
+                messagesByChannelRef.current[targetChannelId] = [...cached, payload.message];
+              }
+            }
+          }
+
           // Nếu tin nhắn thuộc phòng khác hoặc đang ở chế độ tin nhắn riêng -> tăng unread
           if (targetRoomId && (isDirectMessageModeRef.current || !currentRoomRef.current || targetRoomId !== currentRoomRef.current.id)) {
             incrementRoomUnread(targetRoomId);
@@ -498,11 +532,21 @@ export const App: React.FC = () => {
                 return prev;
               }
             }
-            return [...prev, payload.message];
+            const updated = [...prev, payload.message];
+            if (currentChannelRef.current?.id) {
+              messagesByChannelRef.current[currentChannelRef.current.id] = updated;
+            }
+            return updated;
           });
           break;
         }
-        case 'MESSAGE_EDITED':
+        case 'MESSAGE_EDITED': {
+          const targetChannelId = payload.channelId || currentChannelRef.current?.id;
+          if (targetChannelId && messagesByChannelRef.current[targetChannelId]) {
+            messagesByChannelRef.current[targetChannelId] = messagesByChannelRef.current[targetChannelId].map((m) =>
+              m.id === payload.messageId ? { ...m, content: payload.content, isEdited: true } : m
+            );
+          }
           setMessages((prev) =>
             prev.map((m) =>
               m.id === payload.messageId
@@ -511,22 +555,44 @@ export const App: React.FC = () => {
             )
           );
           break;
-        case 'MESSAGE_DELETED':
+        }
+        case 'MESSAGE_DELETED': {
+          const targetChannelId = payload.channelId || currentChannelRef.current?.id;
+          if (targetChannelId && messagesByChannelRef.current[targetChannelId]) {
+            messagesByChannelRef.current[targetChannelId] = messagesByChannelRef.current[targetChannelId].filter(
+              (m) => m.id !== payload.messageId
+            );
+          }
           setMessages((prev) => prev.filter((m) => m.id !== payload.messageId));
           break;
-        case 'HISTORY':
-          setMessages(payload.messages || []);
-          setIsLoadingChannelMessages(false);
+        }
+        case 'HISTORY': {
+          const histMessages: MessageItem[] = payload.messages || [];
+          const channelId = payload.channelId || currentChannelRef.current?.id;
+          if (channelId) {
+            messagesByChannelRef.current[channelId] = histMessages;
+          }
+          if (!channelId || currentChannelRef.current?.id === channelId) {
+            setMessages(histMessages);
+            setIsLoadingChannelMessages(false);
+          }
           break;
-        case 'HISTORY_PAGE':
+        }
+        case 'HISTORY_PAGE': {
           if (payload.messages && payload.messages.length > 0) {
+            const channelId = payload.channelId || currentChannelRef.current?.id;
             setMessages((prev) => {
               const existingIds = new Set(prev.map((m) => m.id));
               const older = payload.messages.filter((m: any) => !existingIds.has(m.id));
-              return [...older, ...prev];
+              const merged = [...older, ...prev];
+              if (channelId) {
+                messagesByChannelRef.current[channelId] = merged;
+              }
+              return merged;
             });
           }
           break;
+        }
         case 'ROOM_RENAMED':
           setRooms((prev) =>
             prev.map((r) => (r.id === payload.roomId ? { ...r, name: payload.name } : r))
@@ -537,6 +603,8 @@ export const App: React.FC = () => {
           break;
         case 'ROOM_DELETED':
           setRooms((prev) => prev.filter((r) => r.id !== payload.roomId));
+          delete channelsByRoomRef.current[payload.roomId];
+          delete membersByRoomRef.current[payload.roomId];
           if (currentRoomRef.current?.id === payload.roomId) {
             setCurrentRoom(null);
             currentRoomRef.current = null;
@@ -560,9 +628,17 @@ export const App: React.FC = () => {
               : prev
           );
           break;
-        case 'MEMBERS':
-          setMembers(payload.members || []);
+        case 'MEMBERS': {
+          const memberList: User[] = payload.members || [];
+          const rId = payload.roomId || currentRoomRef.current?.id;
+          if (rId) {
+            membersByRoomRef.current[rId] = memberList;
+          }
+          if (!rId || currentRoomRef.current?.id === rId) {
+            setMembers(memberList);
+          }
           break;
+        }
         case 'FRIENDS':
           setFriends(payload.friends || []);
           break;
@@ -900,6 +976,9 @@ export const App: React.FC = () => {
         setMembers([]);
         setFriends([]);
         setPendingRequests([]);
+        channelsByRoomRef.current = {};
+        membersByRoomRef.current = {};
+        messagesByChannelRef.current = {};
         setPrefilledSuccessMsg('Bạn đã đăng xuất an toàn.');
         setAuthStatus('login');
       } else if (result.networkError) {
@@ -940,24 +1019,38 @@ export const App: React.FC = () => {
     setCurrentRoom(room);
     currentRoomRef.current = room;
 
-    // Xóa ngay danh sách thành viên của phòng cũ để không bao giờ hiển thị nhầm bạn bè là "Đã tham gia"
-    setMembers(currentUser ? [{ ...currentUser, role: room.role || 'MEMBER', online: true }] : []);
+    // 1. TỐI ƯU UX THÀNH VIÊN: Khôi phục danh sách thành viên từ cache (nếu đã có)
+    const cachedMembers = membersByRoomRef.current[room.id];
+    if (cachedMembers && cachedMembers.length > 0) {
+      setMembers(cachedMembers);
+    } else {
+      setMembers(currentUser ? [{ ...currentUser, role: room.role || 'MEMBER', online: true }] : []);
+    }
 
-    // TỐI ƯU UX: Kiểm tra danh sách kênh đã lưu trong cache
+    // 2. TỐI ƯU UX KÊNH: Kiểm tra danh sách kênh đã lưu trong cache
     const cachedChannels = channelsByRoomRef.current[room.id];
+    let defChannel: Channel | null = null;
     if (cachedChannels && cachedChannels.length > 0) {
       setChannels(cachedChannels);
-      const def = cachedChannels.find(c => c.name.toLowerCase() === 'chung') || cachedChannels[0];
-      setCurrentChannel(def);
-      currentChannelRef.current = def;
+      defChannel = cachedChannels.find(c => c.name.toLowerCase() === 'chung') || cachedChannels[0];
+      setCurrentChannel(defChannel);
+      currentChannelRef.current = defChannel;
     } else {
       setChannels([]);
       setCurrentChannel(null);
       currentChannelRef.current = null;
     }
 
-    setMessages([]);
-    setIsLoadingChannelMessages(true);
+    // 3. TỐI ƯU INSTANT SWITCH CHO TIN NHẮN (0ms! Không giật, không xoay chờ):
+    if (defChannel && messagesByChannelRef.current[defChannel.id]) {
+      setMessages(messagesByChannelRef.current[defChannel.id]);
+      setIsLoadingChannelMessages(false);
+    } else {
+      setMessages([]);
+      setIsLoadingChannelMessages(true);
+    }
+
+    // Đồng bộ ngầm với máy chủ (Background Sync)
     chatBridge.joinRoom(room.id);
   };
 
@@ -968,8 +1061,16 @@ export const App: React.FC = () => {
 
     setCurrentChannel(channel);
     currentChannelRef.current = channel;
-    setMessages([]);
-    setIsLoadingChannelMessages(true);
+
+    // TỐI ƯU INSTANT SWITCH CHO KÊNH (0ms!):
+    if (messagesByChannelRef.current[channel.id]) {
+      setMessages(messagesByChannelRef.current[channel.id]);
+      setIsLoadingChannelMessages(false);
+    } else {
+      setMessages([]);
+      setIsLoadingChannelMessages(true);
+    }
+
     chatBridge.joinChannel(currentRoomRef.current.id, channel.id);
   };
 
@@ -1474,6 +1575,8 @@ export const App: React.FC = () => {
           setMessages([]);
           setMembers([]);
         }
+        delete channelsByRoomRef.current[roomToLeave.id];
+        delete membersByRoomRef.current[roomToLeave.id];
       }
     });
   };
