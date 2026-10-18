@@ -101,8 +101,30 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
           {errorMessage && (
             <div className="auth-alert error" role="alert">
-              <AlertCircle size={18} className="alert-icon" />
-              <span>{errorMessage}</span>
+              <AlertCircle size={18} className="alert-icon" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span>{errorMessage}</span>
+                {errorMessage.includes('chưa được đăng ký') && (
+                  <button
+                    type="button"
+                    onClick={onSwitchToRegister}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#00a8fc',
+                      padding: 0,
+                      fontWeight: 600,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                      fontSize: '13px',
+                      marginTop: '2px'
+                    }}
+                  >
+                    👉 Bấm vào đây để Đăng ký tài khoản ngay
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

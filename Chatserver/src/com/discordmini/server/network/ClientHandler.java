@@ -161,7 +161,7 @@ public class ClientHandler implements Runnable {
             if (created == null) {
                 sendError(
                         ProtocolErrorCode.USERNAME_TAKEN,
-                        "Username đã tồn tại hoặc dữ liệu không hợp lệ."
+                        "Tên đăng nhập '" + username + "' đã được sử dụng. Vui lòng chọn tên đăng nhập khác."
                 );
             } else {
                 connection.send(
@@ -170,9 +170,11 @@ public class ClientHandler implements Runnable {
                 );
             }
         } catch (SQLException e) {
+            System.err.println("[REGISTER DB ERROR] " + e.getMessage());
+            e.printStackTrace();
             sendError(
                     ProtocolErrorCode.INTERNAL_ERROR,
-                    "Lỗi cơ sở dữ liệu khi đăng ký: " + e.getMessage()
+                    "Không thể hoàn tất đăng ký do hệ thống cơ sở dữ liệu đang cập nhật. Vui lòng thử lại sau ít giây."
             );
         }
     }
@@ -192,7 +194,7 @@ public class ClientHandler implements Runnable {
         String password = ProtocolHandler.decode(parts[2]);
 
         if (username.isBlank() || username.length() > MAX_USERNAME_LENGTH) {
-            sendError(ProtocolErrorCode.BAD_REQUEST, "Username không hợp lệ.");
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tên đăng nhập không hợp lệ.");
             return;
         }
 
@@ -200,24 +202,44 @@ public class ClientHandler implements Runnable {
         try {
             found = server.getAuthService().login(username, password);
         } catch (SQLException e) {
+            System.err.println("[LOGIN DB ERROR] " + e.getMessage());
+            e.printStackTrace();
             sendError(
                     ProtocolErrorCode.INTERNAL_ERROR,
-                    "Lỗi cơ sở dữ liệu khi đăng nhập: " + e.getMessage()
+                    "Máy chủ đang cập nhật cơ sở dữ liệu. Vui lòng thử lại sau ít giây."
             );
             return;
         } catch (Exception e) {
+            System.err.println("[LOGIN SYS ERROR] " + e.getMessage());
+            e.printStackTrace();
             sendError(
                     ProtocolErrorCode.INTERNAL_ERROR,
-                    "Lỗi hệ thống khi đăng nhập: " + e.getMessage()
+                    "Lỗi hệ thống khi đăng nhập. Vui lòng thử lại sau."
             );
             return;
         }
 
         if (found == null) {
-            sendError(
-                    ProtocolErrorCode.AUTH_FAILED,
-                    "Sai username hoặc password."
-            );
+            // Kiểm tra xem tên tài khoản đã tồn tại trong CSDL hay chưa để đưa thông báo chính xác
+            try {
+                User existingUser = server.getUserDAO().findUser(username);
+                if (existingUser == null) {
+                    sendError(
+                            ProtocolErrorCode.AUTH_FAILED,
+                            "Tài khoản '" + username + "' chưa được đăng ký trên hệ thống. Vui lòng bấm 'Đăng ký ngay' ở bên dưới để tạo tài khoản mới."
+                    );
+                } else {
+                    sendError(
+                            ProtocolErrorCode.AUTH_FAILED,
+                            "Mật khẩu không chính xác. Vui lòng kiểm tra lại mật khẩu của bạn."
+                    );
+                }
+            } catch (Exception ex) {
+                sendError(
+                        ProtocolErrorCode.AUTH_FAILED,
+                        "Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại."
+                );
+            }
             return;
         }
 
@@ -225,7 +247,7 @@ public class ClientHandler implements Runnable {
         if (!server.getClientManager().tryAdd(found, this)) {
             sendError(
                     ProtocolErrorCode.ALREADY_ONLINE,
-                    "Tài khoản đang được đăng nhập ở nơi khác."
+                    "Tài khoản đang được đăng nhập ở một thiết bị hoặc trình duyệt khác."
             );
             return;
         }

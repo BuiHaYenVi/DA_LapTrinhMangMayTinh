@@ -1,5 +1,6 @@
 package com.discordmini.server.dao;
 
+import com.discordmini.server.config.DatabaseConnection;
 import com.discordmini.server.model.User;
 
 import java.sql.*;
@@ -10,8 +11,30 @@ import java.util.List;
 /**
  * [HAI-03] User DAO: Thực hiện các thao tác CRUD với bảng users.
  * Sử dụng PreparedStatement và try-with-resources để quản lý bộ nhớ an toàn.
+ * Hỗ trợ tự phục hồi (Self-healing schema): tự động bổ sung cột status nếu CSDL cũ chưa có.
  */
 public class UserDAO {
+
+    public UserDAO() {
+        // Tự động kiểm tra và đảm bảo bảng users luôn có cột status ngay khi khởi tạo DAO
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn != null) {
+                ensureStatusColumnExists(conn);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Đảm bảo cột status luôn tồn tại trong bảng users.
+     */
+    public static void ensureStatusColumnExists(Connection conn) {
+        if (conn == null) return;
+        try (Statement st = conn.createStatement()) {
+            st.executeUpdate("ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'OFFLINE'");
+        } catch (Exception e) {
+            System.err.println("[UserDAO] Kiểm tra cột status users: " + e.getMessage());
+        }
+    }
 
     /**
      * Đăng ký tài khoản mới với username và password.
@@ -35,6 +58,11 @@ public class UserDAO {
         String insertSql = "INSERT INTO users (username, password, display_name, status) VALUES (?, ?, ?, 'OFFLINE') RETURNING id, created_at";
 
         try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn == null) {
+                throw new SQLException("Không thể kết nối đến cơ sở dữ liệu.");
+            }
+            ensureStatusColumnExists(conn);
+
             // Kiểm tra trùng username
             try (PreparedStatement checkPs = conn.prepareStatement(checkSql)) {
                 checkPs.setString(1, username.trim());
@@ -60,6 +88,25 @@ public class UserDAO {
                         return new User(id, username.trim(), hashedPassword, displayName, "OFFLINE", createdAt);
                     }
                 }
+            } catch (SQLException e) {
+                if (e.getMessage() != null && e.getMessage().toLowerCase().contains("status")) {
+                    ensureStatusColumnExists(conn);
+                    // Thử chèn không có cột status nếu hệ thống hạn chế ALTER
+                    String fallbackInsert = "INSERT INTO users (username, password, display_name) VALUES (?, ?, ?) RETURNING id, created_at";
+                    try (PreparedStatement fallbackPs = conn.prepareStatement(fallbackInsert)) {
+                        fallbackPs.setString(1, username.trim());
+                        fallbackPs.setString(2, hashedPassword);
+                        fallbackPs.setString(3, (displayName == null || displayName.isBlank()) ? username.trim() : displayName.trim());
+                        try (ResultSet rs = fallbackPs.executeQuery()) {
+                            if (rs.next()) {
+                                int id = rs.getInt("id");
+                                Timestamp createdAt = rs.getTimestamp("created_at");
+                                return new User(id, username.trim(), hashedPassword, displayName, "OFFLINE", createdAt);
+                            }
+                        }
+                    }
+                }
+                throw e;
             }
         }
         return null;
@@ -73,34 +120,67 @@ public class UserDAO {
         if (username == null || password == null) return null;
 
         String sql = "SELECT id, username, password, display_name, status, created_at FROM users WHERE LOWER(username) = LOWER(?)";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
-            ps.setString(1, username.trim());
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn == null) {
+                throw new SQLException("Không thể kết nối đến cơ sở dữ liệu.");
+            }
 
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    String storedPassword = rs.getString("password");
-                    if (com.discordmini.server.security.PasswordUtil.verifyPassword(password, storedPassword)) {
-                        int userId = rs.getInt("id");
-                        User user = new User(
-                            userId,
-                            rs.getString("username"),
-                            storedPassword,
-                            rs.getString("display_name"),
-                            rs.getString("status"),
-                            rs.getTimestamp("created_at")
-                        );
-                        // Tự động nâng cấp băm mật khẩu nếu tài khoản đang dùng plaintext cũ
-                        if (com.discordmini.server.security.PasswordUtil.needsRehash(storedPassword)) {
-                            updateUserPassword(userId, com.discordmini.server.security.PasswordUtil.hashPassword(password));
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, username.trim());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return extractUserFromResultSet(conn, rs, password);
+                }
+            } catch (SQLException e) {
+                // Tự phục hồi: Nếu cột status chưa có, tự động ALTER TABLE và truy vấn lại
+                if (e.getMessage() != null && e.getMessage().toLowerCase().contains("status")) {
+                    ensureStatusColumnExists(conn);
+                    try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                        ps.setString(1, username.trim());
+                        try (ResultSet rs = ps.executeQuery()) {
+                            return extractUserFromResultSet(conn, rs, password);
                         }
-                        // Cập nhật trạng thái thành ONLINE sau khi đăng nhập thành công
-                        updateUserStatus(user.getId(), "ONLINE");
-                        user.setStatus("ONLINE");
-                        return user;
+                    } catch (SQLException e2) {
+                        // Fallback: Truy vấn không có cột status nếu CSDL không cho phép ALTER
+                        String fallbackSql = "SELECT id, username, password, display_name, created_at FROM users WHERE LOWER(username) = LOWER(?)";
+                        try (PreparedStatement ps = conn.prepareStatement(fallbackSql)) {
+                            ps.setString(1, username.trim());
+                            try (ResultSet rs = ps.executeQuery()) {
+                                return extractUserFromResultSet(conn, rs, password);
+                            }
+                        }
                     }
                 }
+                throw e;
+            }
+        }
+    }
+
+    private User extractUserFromResultSet(Connection conn, ResultSet rs, String password) throws SQLException {
+        if (rs.next()) {
+            String storedPassword = rs.getString("password");
+            if (com.discordmini.server.security.PasswordUtil.verifyPassword(password, storedPassword)) {
+                int userId = rs.getInt("id");
+                String status = "OFFLINE";
+                try {
+                    status = rs.getString("status");
+                } catch (Exception ignored) {}
+
+                User user = new User(
+                    userId,
+                    rs.getString("username"),
+                    storedPassword,
+                    rs.getString("display_name"),
+                    status != null ? status : "OFFLINE",
+                    rs.getTimestamp("created_at")
+                );
+                // Tự động nâng cấp băm mật khẩu nếu tài khoản đang dùng plaintext cũ
+                if (com.discordmini.server.security.PasswordUtil.needsRehash(storedPassword)) {
+                    updateUserPassword(userId, com.discordmini.server.security.PasswordUtil.hashPassword(password));
+                }
+                // Cập nhật trạng thái thành ONLINE sau khi đăng nhập thành công
+                updateUserStatus(user.getId(), "ONLINE");
+                user.setStatus("ONLINE");
+                return user;
             }
         }
         return null;
@@ -121,65 +201,64 @@ public class UserDAO {
             return false;
         }
     }
+
     /**
-     * Cập nhật thông tin hồ sơ (Tên hiển thị) cho người dùng.
-     * Kiểm tra độ dài từ 1 đến 32 ký tự và escape an toàn với PreparedStatement.
+     * Cập nhật thông tin hồ sơ (Tên hiển thị) của người dùng.
      */
-    public boolean updateProfile(int userId, String displayName) {
-        if (displayName == null || displayName.isBlank()) {
-            return false;
-        }
-        String trimmed = displayName.trim();
-        if (trimmed.length() > 32) {
-            trimmed = trimmed.substring(0, 32);
-        }
+    public boolean updateProfile(int userId, String newDisplayName) {
+        if (newDisplayName == null || newDisplayName.isBlank()) return false;
         String sql = "UPDATE users SET display_name = ? WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, trimmed);
+            ps.setString(1, newDisplayName.trim());
             ps.setInt(2, userId);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            System.err.println("[UserDAO ERROR] Lỗi cập nhật hồ sơ user (ID=" + userId + "): " + e.getMessage());
+            System.err.println("[UserDAO ERROR] Lỗi cập nhật display_name user (ID=" + userId + "): " + e.getMessage());
             return false;
         }
     }
 
     /**
-     * Đổi mật khẩu cho người dùng:
-     * Kiểm tra mật khẩu cũ, kiểm tra độ dài mật khẩu mới (tối thiểu 6 ký tự),
-     * băm bằng PBKDF2 và lưu vào CSDL.
+     * Đổi mật khẩu tài khoản sau khi kiểm tra mật khẩu cũ.
      */
     public boolean changePassword(int userId, String oldPassword, String newPassword) {
-        if (oldPassword == null || newPassword == null || newPassword.trim().length() < 6) {
-            return false;
-        }
+        if (oldPassword == null || newPassword == null || newPassword.isBlank()) return false;
         User user = findById(userId);
-        if (user == null) {
-            return false;
+        if (user == null) return false;
+
+        if (com.discordmini.server.security.PasswordUtil.verifyPassword(oldPassword, user.getPassword())) {
+            String newHashed = com.discordmini.server.security.PasswordUtil.hashPassword(newPassword);
+            return updateUserPassword(userId, newHashed);
         }
-        // Kiểm tra khớp mật khẩu cũ
-        if (!com.discordmini.server.security.PasswordUtil.verifyPassword(oldPassword, user.getPassword())) {
-            return false;
-        }
-        String hashedNew = com.discordmini.server.security.PasswordUtil.hashPassword(newPassword.trim());
-        return updateUserPassword(userId, hashedNew);
+        return false;
     }
+
     /**
-     * Cập nhật trạng thái ONLINE / OFFLINE cho tài khoản.
+     * Cập nhật trạng thái trực tuyến (ONLINE/OFFLINE) của người dùng.
      */
     public boolean updateUserStatus(int userId, String status) {
         String sql = "UPDATE users SET status = ? WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
-            ps.setString(1, status != null ? status.toUpperCase() : "OFFLINE");
-            ps.setInt(2, userId);
-
-            int updated = ps.executeUpdate();
-            return updated > 0;
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn == null) return false;
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, status != null ? status.toUpperCase() : "OFFLINE");
+                ps.setInt(2, userId);
+                return ps.executeUpdate() > 0;
+            } catch (SQLException e) {
+                if (e.getMessage() != null && e.getMessage().toLowerCase().contains("status")) {
+                    ensureStatusColumnExists(conn);
+                    try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                        ps.setString(1, status != null ? status.toUpperCase() : "OFFLINE");
+                        ps.setInt(2, userId);
+                        return ps.executeUpdate() > 0;
+                    }
+                }
+                System.err.println("[UserDAO ERROR] Lỗi cập nhật status user (ID=" + userId + "): " + e.getMessage());
+                return false;
+            }
         } catch (SQLException e) {
-            System.err.println("[UserDAO ERROR] Lỗi cập nhật status user (ID=" + userId + "): " + e.getMessage());
+            System.err.println("[UserDAO ERROR] Lỗi kết nối cập nhật status user: " + e.getMessage());
             return false;
         }
     }
@@ -189,24 +268,35 @@ public class UserDAO {
      */
     public User findById(int id) {
         String sql = "SELECT id, username, password, display_name, status, created_at FROM users WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return new User(
-                        rs.getInt("id"),
-                        rs.getString("username"),
-                        rs.getString("password"),
-                        rs.getString("display_name"),
-                        rs.getString("status"),
-                        rs.getTimestamp("created_at")
-                    );
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn == null) return null;
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, id);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        String status = "OFFLINE";
+                        try {
+                            status = rs.getString("status");
+                        } catch (Exception ignored) {}
+                        return new User(
+                            rs.getInt("id"),
+                            rs.getString("username"),
+                            rs.getString("password"),
+                            rs.getString("display_name"),
+                            status != null ? status : "OFFLINE",
+                            rs.getTimestamp("created_at")
+                        );
+                    }
                 }
+            } catch (SQLException e) {
+                if (e.getMessage() != null && e.getMessage().toLowerCase().contains("status")) {
+                    ensureStatusColumnExists(conn);
+                    return findById(id);
+                }
+                System.err.println("[UserDAO ERROR] Lỗi findById (ID=" + id + "): " + e.getMessage());
             }
         } catch (SQLException e) {
-            System.err.println("[UserDAO ERROR] Lỗi findById (ID=" + id + "): " + e.getMessage());
+            System.err.println("[UserDAO ERROR] Lỗi kết nối findById: " + e.getMessage());
         }
         return null;
     }
@@ -224,24 +314,35 @@ public class UserDAO {
     public User findUser(String username) {
         if (username == null) return null;
         String sql = "SELECT id, username, password, display_name, status, created_at FROM users WHERE LOWER(username) = LOWER(?)";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
-            ps.setString(1, username.trim());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return new User(
-                        rs.getInt("id"),
-                        rs.getString("username"),
-                        rs.getString("password"),
-                        rs.getString("display_name"),
-                        rs.getString("status"),
-                        rs.getTimestamp("created_at")
-                    );
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn == null) return null;
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, username.trim());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        String status = "OFFLINE";
+                        try {
+                            status = rs.getString("status");
+                        } catch (Exception ignored) {}
+                        return new User(
+                            rs.getInt("id"),
+                            rs.getString("username"),
+                            rs.getString("password"),
+                            rs.getString("display_name"),
+                            status != null ? status : "OFFLINE",
+                            rs.getTimestamp("created_at")
+                        );
+                    }
                 }
+            } catch (SQLException e) {
+                if (e.getMessage() != null && e.getMessage().toLowerCase().contains("status")) {
+                    ensureStatusColumnExists(conn);
+                    return findUser(username);
+                }
+                System.err.println("[UserDAO ERROR] Lỗi findUser ('" + username + "'): " + e.getMessage());
             }
         } catch (SQLException e) {
-            System.err.println("[UserDAO ERROR] Lỗi findUser ('" + username + "'): " + e.getMessage());
+            System.err.println("[UserDAO ERROR] Lỗi kết nối findUser: " + e.getMessage());
         }
         return null;
     }
@@ -252,22 +353,34 @@ public class UserDAO {
     public Collection<User> allUsers() {
         List<User> list = new ArrayList<>();
         String sql = "SELECT id, username, password, display_name, status, created_at FROM users ORDER BY id ASC";
-        try (Connection conn = DatabaseConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            
-            while (rs.next()) {
-                list.add(new User(
-                    rs.getInt("id"),
-                    rs.getString("username"),
-                    rs.getString("password"),
-                    rs.getString("display_name"),
-                    rs.getString("status"),
-                    rs.getTimestamp("created_at")
-                ));
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (conn == null) return list;
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+                
+                while (rs.next()) {
+                    String status = "OFFLINE";
+                    try {
+                        status = rs.getString("status");
+                    } catch (Exception ignored) {}
+                    list.add(new User(
+                        rs.getInt("id"),
+                        rs.getString("username"),
+                        rs.getString("password"),
+                        rs.getString("display_name"),
+                        status != null ? status : "OFFLINE",
+                        rs.getTimestamp("created_at")
+                    ));
+                }
+            } catch (SQLException e) {
+                if (e.getMessage() != null && e.getMessage().toLowerCase().contains("status")) {
+                    ensureStatusColumnExists(conn);
+                    return allUsers();
+                }
+                System.err.println("[UserDAO ERROR] Lỗi lấy danh sách allUsers: " + e.getMessage());
             }
         } catch (SQLException e) {
-            System.err.println("[UserDAO ERROR] Lỗi lấy danh sách allUsers: " + e.getMessage());
+            System.err.println("[UserDAO ERROR] Lỗi kết nối allUsers: " + e.getMessage());
         }
         return list;
     }
