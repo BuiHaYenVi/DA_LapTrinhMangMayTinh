@@ -86,7 +86,10 @@ export const RoomRailItem: React.FC<Props> = ({
           ref={buttonRef}
           type="button"
           className={`rail-btn room-rail-btn ${isSelected ? 'active' : ''}`}
-          onClick={() => onSelect(room)}
+          onClick={(e) => {
+            (e.currentTarget as HTMLElement).blur();
+            onSelect(room);
+          }}
           onContextMenu={handleContextMenu}
           onKeyDown={handleKeyDown}
           aria-label={`Phòng ${room.name}`}

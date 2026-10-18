@@ -610,6 +610,23 @@ export const App: React.FC = () => {
             if (data?.rooms) setRooms(data.rooms);
           }).catch(() => {});
           break;
+        case 'USER_ONLINE':
+        case 'USER_OFFLINE': {
+          const uId = Number(payload.userId);
+          const isOnline = event === 'USER_ONLINE' ? true : Boolean(payload.online);
+          if (uId > 0) {
+            setMembers((prev) =>
+              prev.map((m) => (m.id === uId ? { ...m, online: isOnline } : m))
+            );
+            setFriends((prev) =>
+              prev.map((f) => (f.id === uId ? { ...f, online: isOnline } : f))
+            );
+            setCurrentDirectUser((prev) =>
+              prev && prev.id === uId ? { ...prev, online: isOnline } : prev
+            );
+          }
+          break;
+        }
         case 'UNAUTHORIZED':
           handleSessionExpired();
           break;

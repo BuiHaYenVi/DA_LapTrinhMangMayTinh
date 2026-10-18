@@ -91,9 +91,6 @@ public class RoomService {
         if (name == null || name.isBlank() || name.trim().length() > 50) {
             return null;
         }
-        if (existsByName(name.trim())) {
-            return null;
-        }
         return roomDAO.createRoom(name.trim(), createdByUserId);
     }
 

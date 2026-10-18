@@ -210,13 +210,20 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
-.rail-item-wrapper:hover .rail-tooltip,
-.rail-item-wrapper:focus-within .rail-tooltip {
+.rail-tooltip.visible,
+.rail-tooltip-wrapper:has(:focus-visible) .rail-tooltip {
   opacity: 1;
   visibility: visible;
   transform: translateY(-50%) scale(1);
-  transition-delay: 150ms; /* Hiện sau 150ms */
 }
+
+/* Khi đang nhấn chuột (active), ẩn ngay tooltip để không che màn hình */
+.rail-tooltip-wrapper:active .rail-tooltip {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transition: none !important;
+}
+
 
 /* Mũi tên nhỏ trỏ về nút */
 .rail-tooltip::before {

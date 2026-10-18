@@ -12,13 +12,21 @@ import java.util.List;
  * Sử dụng PreparedStatement và try-with-resources để phòng tránh rò rỉ kết nối.
  */
 public class RoomDAO {
+    private static volatile boolean schemaChecked = false;
 
     public RoomDAO() {
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            if (conn != null) {
-                ensureRoomColumnsExist(conn);
+        if (!schemaChecked) {
+            synchronized (RoomDAO.class) {
+                if (!schemaChecked) {
+                    try (Connection conn = DatabaseConnection.getConnection()) {
+                        if (conn != null) {
+                            ensureRoomColumnsExist(conn);
+                            schemaChecked = true;
+                        }
+                    } catch (Exception ignored) {}
+                }
             }
-        } catch (Exception ignored) {}
+        }
     }
 
     /**
@@ -100,6 +108,7 @@ public class RoomDAO {
             conn.commit();
 
             Room room = new Room(roomId, trimmedName, createdBy, createdAt);
+            room.setUserRole("OWNER");
             if (createdBy > 0) {
                 room.getMemberIds().add(createdBy);
             }
@@ -223,7 +232,7 @@ public class RoomDAO {
      */
     public List<Room> getJoinedRooms(int userId) {
         List<Room> list = new ArrayList<>();
-        String sql = "SELECT r.id, r.name, r.created_by, r.created_at, r.description, r.invite_code " +
+        String sql = "SELECT r.id, r.name, r.created_by, r.created_at, r.description, r.invite_code, rm.role " +
                      "FROM rooms r JOIN room_members rm ON r.id = rm.room_id " +
                      "WHERE rm.user_id = ? ORDER BY r.id ASC";
 
@@ -242,15 +251,17 @@ public class RoomDAO {
                         try {
                             r.setDescription(rs.getString("description"));
                             r.setInviteCode(rs.getString("invite_code"));
+                            String role = rs.getString("role");
+                            r.setUserRole(role != null ? role : (r.getCreatedBy() == userId ? "OWNER" : "MEMBER"));
                         } catch (Exception ignored) {}
-                        loadMemberIds(conn, r);
                         list.add(r);
                     }
                 }
+                loadMemberIdsBatch(conn, list);
             } catch (SQLException e) {
                 if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("description") || e.getMessage().toLowerCase().contains("invite_code"))) {
                     ensureRoomColumnsExist(conn);
-                    String fallbackSql = "SELECT r.id, r.name, r.created_by, r.created_at " +
+                    String fallbackSql = "SELECT r.id, r.name, r.created_by, r.created_at, rm.role " +
                                          "FROM rooms r JOIN room_members rm ON r.id = rm.room_id " +
                                          "WHERE rm.user_id = ? ORDER BY r.id ASC";
                     try (PreparedStatement ps = conn.prepareStatement(fallbackSql)) {
@@ -263,9 +274,11 @@ public class RoomDAO {
                                     rs.getInt("created_by"),
                                     rs.getTimestamp("created_at")
                                 );
-                                loadMemberIds(conn, r);
+                                String role = rs.getString("role");
+                                r.setUserRole(role != null ? role : (r.getCreatedBy() == userId ? "OWNER" : "MEMBER"));
                                 list.add(r);
                             }
+                            loadMemberIdsBatch(conn, list);
                             return list;
                         }
                     } catch (SQLException ignored) {}
@@ -279,11 +292,11 @@ public class RoomDAO {
     }
 
     /**
-     * Lấy danh sách tất cả thành viên (đối tượng User) trong một phòng chat.
+     * Lấy danh sách tất cả thành viên (đối tượng User kèm role trong phòng) trong một phòng chat.
      */
     public List<User> getRoomMembers(int roomId) {
         List<User> members = new ArrayList<>();
-        String sql = "SELECT u.id, u.username, u.password, u.display_name, u.status, u.created_at " +
+        String sql = "SELECT u.id, u.username, u.password, u.display_name, u.status, u.created_at, rm.role " +
                      "FROM users u JOIN room_members rm ON u.id = rm.user_id " +
                      "WHERE rm.room_id = ? ORDER BY u.id ASC";
 
@@ -293,14 +306,17 @@ public class RoomDAO {
             ps.setInt(1, roomId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    members.add(new User(
+                    User u = new User(
                         rs.getInt("id"),
                         rs.getString("username"),
                         rs.getString("password"),
                         rs.getString("display_name"),
                         rs.getString("status"),
                         rs.getTimestamp("created_at")
-                    ));
+                    );
+                    String role = rs.getString("role");
+                    u.setRole(role != null ? role : "MEMBER");
+                    members.add(u);
                 }
             }
         } catch (SQLException e) {
@@ -314,10 +330,10 @@ public class RoomDAO {
      */
     public List<Room> listRoomsForUser(int userId) {
         List<Room> list = new ArrayList<>();
-        String sql = "SELECT DISTINCT r.id, r.name, r.created_by, r.created_at, r.description, r.invite_code " +
+        String sql = "SELECT r.id, r.name, r.created_by, r.created_at, r.description, r.invite_code, rm.role " +
                      "FROM rooms r " +
-                     "LEFT JOIN room_members rm ON r.id = rm.room_id " +
-                     "WHERE r.is_private = false OR rm.user_id = ? " +
+                     "LEFT JOIN room_members rm ON r.id = rm.room_id AND rm.user_id = ? " +
+                     "WHERE r.is_private = false OR rm.user_id IS NOT NULL " +
                      "ORDER BY r.id ASC";
         try (Connection conn = DatabaseConnection.getConnection()) {
             if (conn == null) return list;
@@ -334,19 +350,22 @@ public class RoomDAO {
                         try {
                             r.setDescription(rs.getString("description"));
                             r.setInviteCode(rs.getString("invite_code"));
+                            String role = rs.getString("role");
+                            r.setUserRole(role != null ? role : (r.getCreatedBy() == userId ? "OWNER" : "MEMBER"));
                         } catch (Exception ignored) {}
-                        loadMemberIds(conn, r);
                         list.add(r);
                     }
                 }
+                loadMemberIdsBatch(conn, list);
             } catch (SQLException e) {
                 if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("description") || e.getMessage().toLowerCase().contains("invite_code") || e.getMessage().toLowerCase().contains("is_private"))) {
                     ensureRoomColumnsExist(conn);
-                    String fallbackSql = "SELECT DISTINCT r.id, r.name, r.created_by, r.created_at " +
+                    String fallbackSql = "SELECT r.id, r.name, r.created_by, r.created_at, rm.role " +
                                          "FROM rooms r " +
-                                         "LEFT JOIN room_members rm ON r.id = rm.room_id " +
+                                         "LEFT JOIN room_members rm ON r.id = rm.room_id AND rm.user_id = ? " +
                                          "ORDER BY r.id ASC";
                     try (PreparedStatement ps = conn.prepareStatement(fallbackSql)) {
+                        ps.setInt(1, userId);
                         try (ResultSet rs = ps.executeQuery()) {
                             while (rs.next()) {
                                 Room r = new Room(
@@ -355,9 +374,11 @@ public class RoomDAO {
                                     rs.getInt("created_by"),
                                     rs.getTimestamp("created_at")
                                 );
-                                loadMemberIds(conn, r);
+                                String role = rs.getString("role");
+                                r.setUserRole(role != null ? role : (r.getCreatedBy() == userId ? "OWNER" : "MEMBER"));
                                 list.add(r);
                             }
+                            loadMemberIdsBatch(conn, list);
                             return list;
                         }
                     } catch (SQLException ignored) {}
@@ -543,6 +564,33 @@ public class RoomDAO {
             }
         } catch (SQLException e) {
             System.err.println("[RoomDAO ERROR] Lỗi loadMemberIds (roomID=" + room.getId() + "): " + e.getMessage());
+        }
+    }
+
+    /**
+     * Nạp tập hợp ID thành viên cho danh sách nhiều phòng chỉ trong 1 truy vấn SQL.
+     */
+    private void loadMemberIdsBatch(Connection conn, List<Room> rooms) {
+        if (rooms == null || rooms.isEmpty()) return;
+        java.util.Map<Integer, Room> map = new java.util.HashMap<>();
+        StringBuilder sb = new StringBuilder("SELECT room_id, user_id FROM room_members WHERE room_id IN (");
+        for (int i = 0; i < rooms.size(); i++) {
+            Room r = rooms.get(i);
+            map.put(r.getId(), r);
+            if (i > 0) sb.append(',');
+            sb.append(r.getId());
+        }
+        sb.append(')');
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sb.toString())) {
+            while (rs.next()) {
+                Room r = map.get(rs.getInt("room_id"));
+                if (r != null) {
+                    r.getMemberIds().add(rs.getInt("user_id"));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[RoomDAO ERROR] Lỗi loadMemberIdsBatch: " + e.getMessage());
         }
     }
 

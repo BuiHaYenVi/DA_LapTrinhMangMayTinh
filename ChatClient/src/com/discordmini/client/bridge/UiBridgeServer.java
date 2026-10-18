@@ -52,7 +52,11 @@ public class UiBridgeServer {
 
     private HttpServer server;
     private ExecutorService httpExecutor;
+    private ScheduledExecutorService sseHeartbeatScheduler;
     private int actualPort;
+
+    private volatile long lastStatusCheckMs = 0;
+    private volatile boolean lastStatusOnline = false;
 
     private final Map<String, UserSession> sessions = new ConcurrentHashMap<>();
 
@@ -171,9 +175,25 @@ public class UiBridgeServer {
         });
         server.setExecutor(httpExecutor);
         server.start();
+
+        sseHeartbeatScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "UiBridge-SseHeartbeat");
+            t.setDaemon(true);
+            return t;
+        });
+        sseHeartbeatScheduler.scheduleAtFixedRate(() -> {
+            for (UserSession s : sessions.values()) {
+                try {
+                    s.sendHeartbeat();
+                } catch (Exception ignored) {}
+            }
+        }, 20, 20, TimeUnit.SECONDS);
     }
 
     public void stop() {
+        if (sseHeartbeatScheduler != null) {
+            sseHeartbeatScheduler.shutdownNow();
+        }
         for (UserSession s : sessions.values()) {
             try {
                 s.close();
@@ -253,9 +273,35 @@ public class UiBridgeServer {
                 try {
                     writer.print("data: " + json + "\n\n");
                     writer.flush();
+                    if (writer.checkError()) {
+                        sseClients.remove(writer);
+                    }
                 } catch (Exception e) {
                     sseClients.remove(writer);
                 }
+            }
+        }
+
+        public void sendHeartbeat() {
+            for (PrintWriter writer : sseClients) {
+                try {
+                    writer.print(": keepalive\n\n");
+                    writer.flush();
+                    if (writer.checkError()) {
+                        sseClients.remove(writer);
+                    }
+                } catch (Exception e) {
+                    sseClients.remove(writer);
+                }
+            }
+        }
+
+        private static int parseSafeInt(String s, int fallback) {
+            if (s == null || s.isBlank()) return fallback;
+            try {
+                return Integer.parseInt(s.trim());
+            } catch (NumberFormatException e) {
+                return fallback;
             }
         }
 
@@ -384,12 +430,16 @@ public class UiBridgeServer {
                     String content;
                     String time;
                     boolean isEdited = false;
+                    int sId = 0;
                     if (p.length >= 7) {
                         channelId = Integer.parseInt(p[2]);
                         sender = ProtocolHandler.decode(p[3]);
                         content = ProtocolHandler.decode(p[4]);
                         time = ProtocolHandler.decode(p[5]);
                         isEdited = "EDITED".equalsIgnoreCase(p[6]);
+                        if (p.length >= 8) {
+                            sId = parseSafeInt(p[7], 0);
+                        }
                     } else if (p.length >= 6) {
                         sender = ProtocolHandler.decode(p[2]);
                         content = ProtocolHandler.decode(p[3]);
@@ -400,10 +450,13 @@ public class UiBridgeServer {
                         content = ProtocolHandler.decode(p[3]);
                         time = ProtocolHandler.decode(p[4]);
                     }
+                    if (sId <= 0 && sender.equalsIgnoreCase(displayName)) {
+                        sId = userId;
+                    }
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", msgId);
                     m.put("channelId", channelId);
-                    m.put("senderId", sender.equalsIgnoreCase(displayName) ? userId : 0);
+                    m.put("senderId", sId);
                     m.put("senderName", sender);
                     m.put("content", content);
                     m.put("timestamp", time);
@@ -418,9 +471,13 @@ public class UiBridgeServer {
                     String content = ProtocolHandler.decode(p[3]);
                     String time = ProtocolHandler.decode(p[4]);
                     boolean isEdited = p.length >= 6 && "EDITED".equalsIgnoreCase(p[5]);
+                    int sId = (p.length >= 7) ? parseSafeInt(p[6], 0) : 0;
+                    if (sId <= 0 && sender.equalsIgnoreCase(displayName)) {
+                        sId = userId;
+                    }
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", msgId);
-                    m.put("senderId", sender.equalsIgnoreCase(displayName) ? userId : 0);
+                    m.put("senderId", sId);
                     m.put("senderName", sender);
                     m.put("content", content);
                     m.put("timestamp", time);
@@ -442,12 +499,16 @@ public class UiBridgeServer {
                     String content;
                     String time;
                     boolean isEdited = false;
+                    int sId = 0;
                     if (p.length >= 8) {
                         chId = Integer.parseInt(p[3]);
                         sender = ProtocolHandler.decode(p[4]);
                         content = ProtocolHandler.decode(p[5]);
                         time = ProtocolHandler.decode(p[6]);
                         isEdited = "EDITED".equalsIgnoreCase(p[7]);
+                        if (p.length >= 9) {
+                            sId = parseSafeInt(p[8], 0);
+                        }
                     } else if (p.length >= 7) {
                         chId = Integer.parseInt(p[3]);
                         sender = ProtocolHandler.decode(p[4]);
@@ -458,11 +519,14 @@ public class UiBridgeServer {
                         content = ProtocolHandler.decode(p[4]);
                         time = ProtocolHandler.decode(p[5]);
                     }
+                    if (sId <= 0 && sender.equalsIgnoreCase(displayName)) {
+                        sId = userId;
+                    }
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", msgId);
                     m.put("roomId", rId);
                     m.put("channelId", chId);
-                    m.put("senderId", sender.equalsIgnoreCase(displayName) ? userId : 0);
+                    m.put("senderId", sId);
                     m.put("senderName", sender);
                     m.put("content", content);
                     m.put("timestamp", time);
@@ -729,11 +793,19 @@ public class UiBridgeServer {
                 case "FRIEND_REQUEST_RECEIVED" -> {
                     friendService.getPendingRequests();
                     Map<String, Object> req = new HashMap<>();
-                    req.put("requestId", Integer.parseInt(p[1]));
-                    req.put("senderId", Integer.parseInt(p[2]));
-                    req.put("senderUsername", ProtocolHandler.decode(p[3]));
-                    req.put("senderDisplayName", ProtocolHandler.decode(p[4]));
-                    req.put("time", p.length >= 6 ? ProtocolHandler.decode(p[5]) : "");
+                    if (p.length >= 5) {
+                        req.put("requestId", parseSafeInt(p[1], 0));
+                        req.put("senderId", parseSafeInt(p[2], 0));
+                        req.put("senderUsername", ProtocolHandler.decode(p[3]));
+                        req.put("senderDisplayName", ProtocolHandler.decode(p[4]));
+                        req.put("time", p.length >= 6 ? ProtocolHandler.decode(p[5]) : "");
+                    } else if (p.length >= 4) {
+                        req.put("requestId", 0);
+                        req.put("senderId", parseSafeInt(p[1], 0));
+                        req.put("senderUsername", ProtocolHandler.decode(p[2]));
+                        req.put("senderDisplayName", ProtocolHandler.decode(p[3]));
+                        req.put("time", "");
+                    }
                     broadcastSse("FRIEND_REQUEST_RECEIVED", Map.of("request", req));
                 }
                 case "FRIEND_REQUEST_ACCEPTED" -> {
@@ -741,22 +813,27 @@ public class UiBridgeServer {
                     friendService.getPendingRequests();
                     Map<String, Object> data = new HashMap<>();
                     if (p.length >= 5) {
-                        data.put("requesterId", Integer.parseInt(p[1]));
-                        data.put("acceptedUserId", Integer.parseInt(p[2]));
+                        data.put("requesterId", parseSafeInt(p[1], 0));
+                        data.put("acceptedUserId", parseSafeInt(p[2], 0));
                         data.put("acceptedUsername", ProtocolHandler.decode(p[3]));
                         data.put("acceptedDisplayName", ProtocolHandler.decode(p[4]));
+                    } else if (p.length >= 4) {
+                        data.put("requesterId", userId);
+                        data.put("acceptedUserId", parseSafeInt(p[1], 0));
+                        data.put("acceptedUsername", ProtocolHandler.decode(p[2]));
+                        data.put("acceptedDisplayName", ProtocolHandler.decode(p[3]));
                     }
                     broadcastSse("FRIEND_REQUEST_ACCEPTED", data);
                 }
                 case "FRIEND_REQUEST_DECLINED" -> {
                     friendService.getPendingRequests();
-                    int reqId = p.length > 1 ? Integer.parseInt(p[1]) : 0;
-                    int declinedById = p.length > 2 ? Integer.parseInt(p[2]) : 0;
+                    int reqId = p.length > 1 ? parseSafeInt(p[1], 0) : 0;
+                    int declinedById = p.length > 2 ? parseSafeInt(p[2], 0) : 0;
                     broadcastSse("FRIEND_REQUEST_DECLINED", Map.of("requestId", reqId, "declinedByUserId", declinedById));
                 }
                 case "FRIEND_REMOVED" -> {
                     friendService.getFriendList();
-                    int friendId = p.length > 1 ? Integer.parseInt(p[1]) : 0;
+                    int friendId = p.length > 1 ? parseSafeInt(p[1], 0) : 0;
                     broadcastSse("FRIEND_REMOVED", Map.of("friendId", friendId));
                 }
                 case "INCOMING_FRIEND_REQUEST" -> {
@@ -783,6 +860,34 @@ public class UiBridgeServer {
                     m.put("isEdited", false);
                     messageCache.add(m);
                     broadcastSse("NEW_MESSAGE", Map.of("message", m));
+                }
+                case "USER_ONLINE", "USER_OFFLINE" -> {
+                    if (p.length >= 2) {
+                        int uId = parseSafeInt(p[1], 0);
+                        String dName = p.length >= 3 ? ProtocolHandler.decode(p[2]) : "";
+                        boolean isOnline = "USER_ONLINE".equals(opcode);
+                        boolean memberUpdated = false;
+                        for (Map<String, Object> mem : memberCache) {
+                            if (mem.get("id") instanceof Number n && n.intValue() == uId) {
+                                mem.put("online", isOnline);
+                                memberUpdated = true;
+                            }
+                        }
+                        boolean friendUpdated = false;
+                        for (Map<String, Object> f : friendCache) {
+                            if (f.get("id") instanceof Number n && n.intValue() == uId) {
+                                f.put("online", isOnline);
+                                friendUpdated = true;
+                            }
+                        }
+                        broadcastSse(opcode, Map.of("userId", uId, "displayName", dName, "online", isOnline));
+                        if (memberUpdated) {
+                            broadcastSse("MEMBERS", Map.of("members", memberCache));
+                        }
+                        if (friendUpdated) {
+                            broadcastSse("FRIENDS", Map.of("friends", friendCache));
+                        }
+                    }
                 }
                 case "USER_PROFILE_UPDATED" -> {
                     if (p.length >= 3) {
@@ -979,10 +1084,29 @@ public class UiBridgeServer {
             }
 
             boolean online = false;
-            try (Socket s = new Socket()) {
-                s.connect(new InetSocketAddress(chatServerHost, chatServerPort), 1200);
-                online = true;
-            } catch (Exception ignored) {}
+            for (UserSession s : sessions.values()) {
+                if (s.socketClient != null && s.socketClient.isConnected()) {
+                    online = true;
+                    break;
+                }
+            }
+
+            if (!online) {
+                long now = System.currentTimeMillis();
+                if (now - lastStatusCheckMs < 30_000 && lastStatusOnline) {
+                    online = true;
+                } else {
+                    try (Socket s = new Socket()) {
+                        s.connect(new InetSocketAddress(chatServerHost, chatServerPort), 1200);
+                        online = true;
+                    } catch (Exception ignored) {}
+                    lastStatusCheckMs = now;
+                    lastStatusOnline = online;
+                }
+            } else {
+                lastStatusCheckMs = System.currentTimeMillis();
+                lastStatusOnline = true;
+            }
 
             sendJson(exchange, 200, Map.of(
                     "serverOnline", online,

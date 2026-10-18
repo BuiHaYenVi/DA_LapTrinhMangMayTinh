@@ -14,14 +14,22 @@ import java.util.List;
  * Hỗ trợ tự phục hồi (Self-healing schema): tự động bổ sung cột status nếu CSDL cũ chưa có.
  */
 public class UserDAO {
+    private static volatile boolean schemaChecked = false;
 
     public UserDAO() {
-        // Tự động kiểm tra và đảm bảo bảng users luôn có cột status ngay khi khởi tạo DAO
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            if (conn != null) {
-                ensureStatusColumnExists(conn);
+        // Tự động kiểm tra và đảm bảo bảng users luôn có cột status một lần khi khởi tạo DAO
+        if (!schemaChecked) {
+            synchronized (UserDAO.class) {
+                if (!schemaChecked) {
+                    try (Connection conn = DatabaseConnection.getConnection()) {
+                        if (conn != null) {
+                            ensureStatusColumnExists(conn);
+                            schemaChecked = true;
+                        }
+                    } catch (Exception ignored) {}
+                }
             }
-        } catch (Exception ignored) {}
+        }
     }
 
     /**
@@ -61,7 +69,6 @@ public class UserDAO {
             if (conn == null) {
                 throw new SQLException("Không thể kết nối đến cơ sở dữ liệu.");
             }
-            ensureStatusColumnExists(conn);
 
             // Kiểm tra trùng username
             try (PreparedStatement checkPs = conn.prepareStatement(checkSql)) {

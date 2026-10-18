@@ -48,7 +48,9 @@ public class ClientHandler implements Runnable {
                 handle(line);
             }
         } catch (IOException e) {
-            System.out.println("[DISCONNECT] " + (user != null ? user.getUsername() : "unknown"));
+            if (user != null) {
+                System.out.println("[DISCONNECT] " + user.getUsername());
+            }
         } finally {
             cleanup();
         }
@@ -321,9 +323,16 @@ public class ClientHandler implements Runnable {
                             + "|"
                             + ProtocolHandler.encode(room.getName())
             );
-            for (ClientHandler client : server.getClientManager().all()) {
-                client.sendRooms();
-            }
+            this.sendRooms();
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                for (ClientHandler client : server.getClientManager().all()) {
+                    if (client != this) {
+                        try {
+                            client.sendRooms();
+                        } catch (Exception ignored) {}
+                    }
+                }
+            });
         }
     }
 
@@ -481,7 +490,9 @@ public class ClientHandler implements Runnable {
                 + message.getChannelId() + "|"
                 + ProtocolHandler.encode(message.getSender()) + "|"
                 + ProtocolHandler.encode(message.getContent()) + "|"
-                + ProtocolHandler.encode(message.getTimestamp());
+                + ProtocolHandler.encode(message.getTimestamp()) + "|"
+                + (message.isEdited() ? "EDITED" : "NORMAL") + "|"
+                + message.getSenderId();
 
         broadcastRoom(packet, true);
     }
@@ -607,6 +618,8 @@ public class ClientHandler implements Runnable {
                             + ProtocolHandler.encode(m.getTimestamp())
                             + "|"
                             + (m.isEdited() ? "EDITED" : "NORMAL")
+                            + "|"
+                            + m.getSenderId()
             );
         }
 
@@ -745,8 +758,8 @@ public class ClientHandler implements Runnable {
                 : server.getRoomService().listRooms();
 
         for (Room r : rooms) {
-            String role = (user != null) ? server.getRoomService().getMemberRole(r.getId(), user.getId()) : "MEMBER";
-            if (role == null) role = "MEMBER";
+            String role = (user != null) ? r.getUserRole() : "MEMBER";
+            if (role == null || role.isBlank()) role = "MEMBER";
             sb.append('|')
                     .append(r.getId())
                     .append(',')
@@ -777,11 +790,12 @@ public class ClientHandler implements Runnable {
         if (currentRoomId == null) return;
 
         StringBuilder sb = new StringBuilder("ROOM_MEMBERS");
-        for (ClientHandler c : server.getRoomManager().clientsIn(currentRoomId)) {
-            User u = c.getUser();
-            if (u != null) {
-                String role = server.getRoomService().getMemberRole(currentRoomId, u.getId());
-                if (role == null) role = "MEMBER";
+        List<User> roomMembers = server.getRoomService().getRoomMembers(currentRoomId);
+        if (roomMembers != null && !roomMembers.isEmpty()) {
+            for (User u : roomMembers) {
+                String role = u.getRole();
+                if (role == null || role.isBlank()) role = "MEMBER";
+                boolean isOnline = server.getClientManager().isOnline(u.getId());
 
                 sb.append('|')
                         .append(u.getId())
@@ -790,7 +804,24 @@ public class ClientHandler implements Runnable {
                         .append(',')
                         .append(role.toUpperCase())
                         .append(',')
-                        .append("ONLINE");
+                        .append(isOnline ? "ONLINE" : "OFFLINE");
+            }
+        } else {
+            for (ClientHandler c : server.getRoomManager().clientsIn(currentRoomId)) {
+                User u = c.getUser();
+                if (u != null) {
+                    String role = server.getRoomService().getMemberRole(currentRoomId, u.getId());
+                    if (role == null) role = "MEMBER";
+
+                    sb.append('|')
+                            .append(u.getId())
+                            .append(',')
+                            .append(ProtocolHandler.encode(u.getDisplayName()))
+                            .append(',')
+                            .append(role.toUpperCase())
+                            .append(',')
+                            .append("ONLINE");
+                }
             }
         }
         connection.send(sb.toString());
@@ -978,8 +1009,10 @@ public class ClientHandler implements Runnable {
         // Thông báo cho phòng
         broadcastRoom("SYSTEM|" + ProtocolHandler.encode(targetUser.getDisplayName() + " đã được " + user.getDisplayName() + " mời vào phòng."), true);
 
-        // Cập nhật lại danh sách thành viên cho các client trong phòng
-        sendRoomMembers();
+        // Cập nhật lại danh sách thành viên cho tất cả các client đang xem phòng
+        for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
+            c.sendRoomMembers();
+        }
 
         // Gửi thông báo và cập nhật danh sách phòng cho người được mời nếu đang online
         var targetHandler = server.getClientManager().get(targetUserId);
@@ -1041,7 +1074,9 @@ public class ClientHandler implements Runnable {
             targetHandler.sendRooms();
         }
 
-        sendRoomMembers();
+        for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
+            c.sendRoomMembers();
+        }
     }
 
     /* =========================================================================
@@ -1099,8 +1134,8 @@ public class ClientHandler implements Runnable {
                 }
 
                 if (targetHandler != null) {
-                    // Sự kiện theo bảng đặc tả: FRIEND_REQUEST_RECEIVED
-                    targetHandler.connection.send("FRIEND_REQUEST_RECEIVED|" + user.getId() + "|" + ProtocolHandler.encode(user.getUsername()) + "|" + ProtocolHandler.encode(user.getDisplayName()));
+                    // Sự kiện theo bảng đặc tả: FRIEND_REQUEST_RECEIVED|<requestId>|<senderId>|<username>|<displayName>
+                    targetHandler.connection.send("FRIEND_REQUEST_RECEIVED|0|" + user.getId() + "|" + ProtocolHandler.encode(user.getUsername()) + "|" + ProtocolHandler.encode(user.getDisplayName()));
                     targetHandler.connection.send("INCOMING_FRIEND_REQUEST|" + user.getId() + "|" + ProtocolHandler.encode(user.getUsername()) + "|" + ProtocolHandler.encode(user.getDisplayName()));
                     targetHandler.handleFriendPendingList();
                 }
@@ -1163,8 +1198,8 @@ public class ClientHandler implements Runnable {
             }
 
             if (otherHandler != null) {
-                // Gửi sự kiện thời gian thực cho người gửi lời mời: FRIEND_REQUEST_ACCEPTED
-                otherHandler.connection.send("FRIEND_REQUEST_ACCEPTED|" + user.getId() + "|" + ProtocolHandler.encode(user.getUsername()) + "|" + ProtocolHandler.encode(user.getDisplayName()));
+                // Gửi sự kiện thời gian thực cho người gửi lời mời: FRIEND_REQUEST_ACCEPTED|<requesterId>|<acceptedUserId>|<username>|<displayName>
+                otherHandler.connection.send("FRIEND_REQUEST_ACCEPTED|" + requesterId + "|" + user.getId() + "|" + ProtocolHandler.encode(user.getUsername()) + "|" + ProtocolHandler.encode(user.getDisplayName()));
                 otherHandler.connection.send("FRIEND_ACCEPTED|" + user.getId() + "|" + ProtocolHandler.encode(user.getDisplayName()));
                 otherHandler.handleFriendList();
                 otherHandler.handleFriendPendingList();
@@ -1507,7 +1542,10 @@ public class ClientHandler implements Runnable {
         int beforeId = parseId(parts[2], "ID tin nhắn trước đó");
         int limit = parseId(parts[3], "Số lượng tin nhắn");
 
-        List<Message> history = server.getChatService().historyBefore(roomId, beforeId, limit);
+        int targetChannelId = (currentChannelId != null && currentChannelId > 0) ? currentChannelId : 0;
+        List<Message> history = (targetChannelId > 0)
+                ? server.getChatService().channelHistoryBefore(targetChannelId, beforeId, limit)
+                : server.getChatService().historyBefore(roomId, beforeId, limit);
 
         connection.send("HISTORY_PAGE_BEGIN|" + roomId);
         for (Message m : history) {
@@ -1522,6 +1560,8 @@ public class ClientHandler implements Runnable {
                             + ProtocolHandler.encode(m.getTimestamp())
                             + "|"
                             + (m.isEdited() ? "EDITED" : "NORMAL")
+                            + "|"
+                            + m.getSenderId()
             );
         }
         connection.send("HISTORY_PAGE_END|" + roomId);

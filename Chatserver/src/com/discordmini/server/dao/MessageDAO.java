@@ -321,10 +321,10 @@ public class MessageDAO {
     }
 
     /**
-     * [GIAI ĐOẠN 2] Lấy thông tin tin nhắn để kiểm tra quyền và room_id.
+     * [GIAI ĐOẠN 2] Lấy thông tin tin nhắn để kiểm tra quyền và room_id / channel_id.
      */
     public Message getMessageById(int messageId) {
-        String sql = "SELECT m.id, m.room_id, m.sender_id, u.display_name, m.content, m.sent_at, m.is_edited " +
+        String sql = "SELECT m.id, m.room_id, m.channel_id, m.sender_id, u.display_name, m.content, m.sent_at, m.is_edited " +
                      "FROM messages m JOIN users u ON m.sender_id = u.id WHERE m.id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -337,6 +337,7 @@ public class MessageDAO {
                     return new Message(
                         rs.getInt("id"),
                         rs.getInt("room_id"),
+                        rs.getInt("channel_id"),
                         rs.getInt("sender_id"),
                         rs.getString("display_name"),
                         rs.getString("content"),

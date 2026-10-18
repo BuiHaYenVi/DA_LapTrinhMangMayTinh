@@ -65,7 +65,10 @@ export const RoomRail: React.FC<Props> = ({
           <button
             type="button"
             className={`rail-btn home-rail-btn ${isDirectMessageMode ? 'active' : ''}`}
-            onClick={onDirectMessageClick}
+            onClick={(e) => {
+              (e.currentTarget as HTMLElement).blur();
+              onDirectMessageClick();
+            }}
             aria-label="Tin nhắn trực tiếp"
             aria-current={isDirectMessageMode ? 'true' : undefined}
           >
@@ -105,7 +108,10 @@ export const RoomRail: React.FC<Props> = ({
           <button
             type="button"
             className="rail-btn add-room-rail-btn"
-            onClick={onCreateRoom}
+            onClick={(e) => {
+              (e.currentTarget as HTMLElement).blur();
+              onCreateRoom();
+            }}
             aria-label="Tạo phòng mới"
           >
             <Plus size={22} />
