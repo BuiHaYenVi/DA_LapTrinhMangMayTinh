@@ -187,54 +187,57 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
 }
 
-.rail-tooltip {
-  position: absolute;
-  left: calc(100% + 12px);
-  top: 50%;
-  transform: translateY(-50%) scale(0.96);
-  background: var(--tooltip-bg);
-  color: var(--tooltip-text);
-  padding: 7px 12px;
+/* Tooltip Portal nổi độc lập trên toàn bộ giao diện */
+@keyframes railTooltipFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+.rail-portal-tooltip {
+  position: fixed;
+  animation: railTooltipFadeIn 0.14s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: left center;
+  background: var(--tooltip-bg, #111214);
+  color: var(--tooltip-text, #f2f3f5);
+  padding: 8px 12px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
-  white-space: nowrap;
+  letter-spacing: 0.1px;
+  max-width: 240px;
+  word-break: break-word;
+  white-space: normal;
+  line-height: 1.35;
   pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
-  transition-delay: 0s;
-  z-index: 9999;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  z-index: 999999;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  display: inline-flex;
+  align-items: center;
 }
 
-.rail-tooltip.visible,
-.rail-tooltip-wrapper:has(:focus-visible) .rail-tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(-50%) scale(1);
+.rail-portal-tooltip-text {
+  display: block;
+  user-select: none;
 }
 
-/* Khi đang nhấn chuột (active), ẩn ngay tooltip để không che màn hình */
-.rail-tooltip-wrapper:active .rail-tooltip {
-  opacity: 0 !important;
-  visibility: hidden !important;
-  transition: none !important;
-}
-
-
-/* Mũi tên nhỏ trỏ về nút */
-.rail-tooltip::before {
-  content: '';
+/* Mũi tên nhỏ trỏ về biểu tượng nhóm/phòng */
+.rail-portal-tooltip-arrow {
   position: absolute;
   left: -4px;
   top: 50%;
   transform: translateY(-50%) rotate(45deg);
   width: 8px;
   height: 8px;
-  background: var(--tooltip-bg);
+  background: var(--tooltip-bg, #111214);
   border-radius: 1px;
 }
 

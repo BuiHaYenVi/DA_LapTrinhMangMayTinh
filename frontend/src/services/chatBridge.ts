@@ -266,8 +266,11 @@ class ChatBridgeService {
     return data;
   }
 
-  public async leaveRoom(): Promise<void> {
-    await this.fetchWithAuth(`${this.baseUrl}/rooms/leave`, { method: 'POST' });
+  public async leaveRoom(roomId?: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/leave`, {
+      method: 'POST',
+      body: JSON.stringify(roomId ? { roomId } : {})
+    });
   }
 
   public async getChannels(roomId: number): Promise<Channel[]> {
@@ -277,15 +280,16 @@ class ChatBridgeService {
     return data.channels || [];
   }
 
-  public async createChannel(roomId: number, name: string): Promise<void> {
+  public async createChannel(roomId: number, name: string): Promise<{ success: boolean; channel?: Channel; message?: string }> {
     const res = await this.fetchWithAuth(`${this.baseUrl}/channels/create`, {
       method: 'POST',
       body: JSON.stringify({ roomId, name })
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || `HTTP ${res.status}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      throw new Error(data.message || `HTTP ${res.status}`);
     }
+    return data;
   }
 
   public async joinChannel(roomId: number, channelId: number): Promise<void> {
@@ -338,10 +342,13 @@ class ChatBridgeService {
     });
   }
 
-  public async inviteMember(roomId: number, targetUserId: number): Promise<void> {
+  public async inviteMember(roomId: number, target: number | string): Promise<void> {
+    const payload = typeof target === 'number'
+      ? { roomId, targetUserId: target }
+      : { roomId, targetUsername: target.trim() };
     await this.fetchWithAuth(`${this.baseUrl}/rooms/invite`, {
       method: 'POST',
-      body: JSON.stringify({ roomId, targetUserId })
+      body: JSON.stringify(payload)
     });
   }
 

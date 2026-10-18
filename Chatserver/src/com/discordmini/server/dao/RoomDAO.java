@@ -38,6 +38,7 @@ public class RoomDAO {
             st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''");
             st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS invite_code VARCHAR(20) DEFAULT ''");
             st.executeUpdate("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE");
+            st.executeUpdate("UPDATE rooms SET is_private = TRUE WHERE created_by IS NOT NULL AND created_by > 0 AND LOWER(name) NOT IN ('general', 'gaming', 'study')");
         } catch (Exception e) {
             System.err.println("[RoomDAO] Kiểm tra cột bảng rooms: " + e.getMessage());
         }
@@ -53,7 +54,8 @@ public class RoomDAO {
         if (trimmedName.length() > 50) return null;
         if (findRoomByName(trimmedName) != null) return null;
 
-        String insertRoomSql = "INSERT INTO rooms (name, created_by) VALUES (?, ?) RETURNING id, created_at";
+        boolean isPrivateRoom = createdBy > 0;
+        String insertRoomSql = "INSERT INTO rooms (name, created_by, is_private) VALUES (?, ?, ?) RETURNING id, created_at";
         String insertMemberSql = "INSERT INTO room_members (room_id, user_id, role) VALUES (?, ?, ?) ON CONFLICT (room_id, user_id) DO UPDATE SET role = EXCLUDED.role";
         String insertChannelSql = "INSERT INTO channels (room_id, name) VALUES (?, ?) ON CONFLICT (room_id, name) DO NOTHING";
 
@@ -74,6 +76,7 @@ public class RoomDAO {
                 } else {
                     psRoom.setNull(2, Types.INTEGER);
                 }
+                psRoom.setBoolean(3, isPrivateRoom);
                 try (ResultSet rs = psRoom.executeQuery()) {
                     if (rs.next()) {
                         roomId = rs.getInt("id");
@@ -109,6 +112,7 @@ public class RoomDAO {
 
             Room room = new Room(roomId, trimmedName, createdBy, createdAt);
             room.setUserRole("OWNER");
+            room.setPrivate(isPrivateRoom);
             if (createdBy > 0) {
                 room.getMemberIds().add(createdBy);
             }
@@ -330,7 +334,7 @@ public class RoomDAO {
      */
     public List<Room> listRoomsForUser(int userId) {
         List<Room> list = new ArrayList<>();
-        String sql = "SELECT r.id, r.name, r.created_by, r.created_at, r.description, r.invite_code, rm.role " +
+        String sql = "SELECT r.id, r.name, r.created_by, r.created_at, r.description, r.invite_code, r.is_private, rm.role " +
                      "FROM rooms r " +
                      "LEFT JOIN room_members rm ON r.id = rm.room_id AND rm.user_id = ? " +
                      "WHERE r.is_private = false OR rm.user_id IS NOT NULL " +
@@ -350,6 +354,7 @@ public class RoomDAO {
                         try {
                             r.setDescription(rs.getString("description"));
                             r.setInviteCode(rs.getString("invite_code"));
+                            r.setPrivate(rs.getBoolean("is_private"));
                             String role = rs.getString("role");
                             r.setUserRole(role != null ? role : (r.getCreatedBy() == userId ? "OWNER" : "MEMBER"));
                         } catch (Exception ignored) {}
@@ -363,6 +368,7 @@ public class RoomDAO {
                     String fallbackSql = "SELECT r.id, r.name, r.created_by, r.created_at, rm.role " +
                                          "FROM rooms r " +
                                          "LEFT JOIN room_members rm ON r.id = rm.room_id AND rm.user_id = ? " +
+                                         "WHERE LOWER(r.name) IN ('general', 'gaming', 'study') OR rm.user_id IS NOT NULL " +
                                          "ORDER BY r.id ASC";
                     try (PreparedStatement ps = conn.prepareStatement(fallbackSql)) {
                         ps.setInt(1, userId);
@@ -396,7 +402,7 @@ public class RoomDAO {
      */
     public List<Room> listRooms() {
         List<Room> list = new ArrayList<>();
-        String sql = "SELECT id, name, created_by, created_at, description, invite_code FROM rooms ORDER BY id ASC";
+        String sql = "SELECT id, name, created_by, created_at, description, invite_code, is_private FROM rooms ORDER BY id ASC";
         try (Connection conn = DatabaseConnection.getConnection()) {
             if (conn == null) return list;
             try (Statement stmt = conn.createStatement();
@@ -412,12 +418,13 @@ public class RoomDAO {
                     try {
                         r.setDescription(rs.getString("description"));
                         r.setInviteCode(rs.getString("invite_code"));
+                        r.setPrivate(rs.getBoolean("is_private"));
                     } catch (Exception ignored) {}
                     loadMemberIds(conn, r);
                     list.add(r);
                 }
             } catch (SQLException e) {
-                if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("description") || e.getMessage().toLowerCase().contains("invite_code"))) {
+                if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("description") || e.getMessage().toLowerCase().contains("invite_code") || e.getMessage().toLowerCase().contains("is_private"))) {
                     ensureRoomColumnsExist(conn);
                     String fallbackSql = "SELECT id, name, created_by, created_at FROM rooms ORDER BY id ASC";
                     try (Statement stmt = conn.createStatement();
@@ -447,7 +454,7 @@ public class RoomDAO {
      * Tìm thông tin chi tiết phòng theo ID.
      */
     public Room findRoom(int id) {
-        String sql = "SELECT id, name, created_by, created_at, description, invite_code FROM rooms WHERE id = ?";
+        String sql = "SELECT id, name, created_by, created_at, description, invite_code, is_private FROM rooms WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection()) {
             if (conn == null) return null;
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -463,13 +470,14 @@ public class RoomDAO {
                         try {
                             r.setDescription(rs.getString("description"));
                             r.setInviteCode(rs.getString("invite_code"));
+                            r.setPrivate(rs.getBoolean("is_private"));
                         } catch (Exception ignored) {}
                         loadMemberIds(conn, r);
                         return r;
                     }
                 }
             } catch (SQLException e) {
-                if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("description") || e.getMessage().toLowerCase().contains("invite_code"))) {
+                if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("description") || e.getMessage().toLowerCase().contains("invite_code") || e.getMessage().toLowerCase().contains("is_private"))) {
                     ensureRoomColumnsExist(conn);
                     String fallbackSql = "SELECT id, name, created_by, created_at FROM rooms WHERE id = ?";
                     try (PreparedStatement ps = conn.prepareStatement(fallbackSql)) {
@@ -501,7 +509,7 @@ public class RoomDAO {
      */
     public Room findRoomByName(String name) {
         if (name == null || name.isBlank()) return null;
-        String sql = "SELECT id, name, created_by, created_at, description, invite_code FROM rooms WHERE LOWER(name) = LOWER(?)";
+        String sql = "SELECT id, name, created_by, created_at, description, invite_code, is_private FROM rooms WHERE LOWER(name) = LOWER(?)";
         try (Connection conn = DatabaseConnection.getConnection()) {
             if (conn == null) return null;
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -517,6 +525,7 @@ public class RoomDAO {
                         try {
                             r.setDescription(rs.getString("description"));
                             r.setInviteCode(rs.getString("invite_code"));
+                            r.setPrivate(rs.getBoolean("is_private"));
                         } catch (Exception ignored) {}
                         loadMemberIds(conn, r);
                         return r;

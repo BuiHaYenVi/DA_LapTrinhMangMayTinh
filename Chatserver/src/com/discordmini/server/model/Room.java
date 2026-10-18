@@ -13,6 +13,7 @@ public class Room {
     private String description = "";
     private String inviteCode = "";
     private String userRole = "MEMBER";
+    private boolean isPrivate = false;
     private final Set<Integer> memberIds = Collections.synchronizedSet(new LinkedHashSet<>());
 
     public Room(int id, String name) {
@@ -46,6 +47,9 @@ public class Room {
 
     public String getUserRole() { return userRole != null ? userRole : "MEMBER"; }
     public void setUserRole(String userRole) { this.userRole = userRole != null ? userRole : "MEMBER"; }
+
+    public boolean isPrivate() { return isPrivate; }
+    public void setPrivate(boolean isPrivate) { this.isPrivate = isPrivate; }
 
     public Set<Integer> getMemberIds() { return memberIds; }
 

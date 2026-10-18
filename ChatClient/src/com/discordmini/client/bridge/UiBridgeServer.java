@@ -363,8 +363,17 @@ public class UiBridgeServer {
                         channelCache.clear();
                         Map<String, Object> data = new HashMap<>();
                         data.put("room", Map.of("id", currentRoomId, "name", currentRoomName));
-                        if (currentChannelId != null) {
-                            data.put("channel", Map.of("id", currentChannelId, "name", currentChannelName, "roomId", currentRoomId));
+                        if (currentChannelId != null && currentChannelId > 0) {
+                            Map<String, Object> defCh = new HashMap<>();
+                            defCh.put("id", currentChannelId);
+                            defCh.put("roomId", currentRoomId);
+                            defCh.put("name", currentChannelName);
+                            data.put("channel", defCh);
+                            channelCache.add(defCh);
+                            List<Map<String, Object>> rChs = channelCacheByRoom.computeIfAbsent(currentRoomId, k -> new CopyOnWriteArrayList<>());
+                            if (rChs.stream().noneMatch(c -> Objects.equals(c.get("id"), currentChannelId))) {
+                                rChs.add(defCh);
+                            }
                         }
                         broadcastSse("ROOM_JOINED", data);
                     } else if (p.length > 1 && "JOIN_CHANNEL".equals(p[1])) {
@@ -413,14 +422,22 @@ public class UiBridgeServer {
                         }
                         roomService.listRooms();
                     } else if (p.length > 1 && "LEAVE_ROOM".equals(p[1])) {
-                        currentRoomId = null;
-                        currentRoomName = "";
-                        currentChannelId = null;
-                        currentChannelName = "";
-                        channelCache.clear();
-                        messageCache.clear();
-                        memberCache.clear();
-                        broadcastSse("ROOM_LEFT", Map.of());
+                        int leftRoomId = p.length > 2 ? parseSafeInt(p[2], 0) : (currentRoomId != null ? currentRoomId : 0);
+                        if (currentRoomId != null && (leftRoomId == 0 || currentRoomId == leftRoomId)) {
+                            currentRoomId = null;
+                            currentRoomName = "";
+                            currentChannelId = null;
+                            currentChannelName = "";
+                            channelCache.clear();
+                            messageCache.clear();
+                            memberCache.clear();
+                        }
+                        broadcastSse("ROOM_LEFT", Map.of("roomId", leftRoomId));
+                    } else if (p.length > 1 && "INVITE_ROOM".equals(p[1])) {
+                        int rId = p.length > 2 ? parseSafeInt(p[2], 0) : 0;
+                        int uId = p.length > 3 ? parseSafeInt(p[3], 0) : 0;
+                        String targetName = p.length > 4 ? ProtocolHandler.decode(p[4]) : "";
+                        broadcastSse("INVITE_SUCCESS", Map.of("roomId", rId, "targetUserId", uId, "targetDisplayName", targetName));
                     } else if (p.length > 1 && "FRIEND_ACCEPT".equals(p[1])) {
                         friendService.getPendingRequests();
                         friendService.getFriendList();
@@ -1610,10 +1627,10 @@ public class UiBridgeServer {
             }
 
             if (roomId > 0) {
-                if (!session.channelCacheByRoom.containsKey(roomId)) {
+                if (!session.channelCacheByRoom.containsKey(roomId) || session.channelCacheByRoom.get(roomId).isEmpty()) {
                     session.roomService.listChannels(roomId);
-                    for (int i = 0; i < 15; i++) {
-                        if (session.channelCacheByRoom.containsKey(roomId)) {
+                    for (int i = 0; i < 30; i++) {
+                        if (session.channelCacheByRoom.containsKey(roomId) && !session.channelCacheByRoom.get(roomId).isEmpty()) {
                             break;
                         }
                         try {
@@ -1879,12 +1896,28 @@ public class UiBridgeServer {
             if (session == null) return;
 
             if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                session.roomService.leaveRoom();
-                session.currentRoomId = null;
-                session.currentRoomName = "";
-                session.currentChannelId = null;
-                session.currentChannelName = "";
-                session.channelCache.clear();
+                int roomId = 0;
+                try {
+                    String rawBody = readBody(exchange);
+                    if (rawBody != null && !rawBody.isBlank()) {
+                        Map<String, Object> body = JsonHelper.parseObject(rawBody);
+                        roomId = parseJsonInt(body, "roomId", 0);
+                    }
+                } catch (Exception ignored) {}
+
+                if (roomId > 0) {
+                    session.roomService.leaveRoom(roomId);
+                } else {
+                    session.roomService.leaveRoom();
+                }
+
+                if (roomId <= 0 || (session.currentRoomId != null && session.currentRoomId == roomId)) {
+                    session.currentRoomId = null;
+                    session.currentRoomName = "";
+                    session.currentChannelId = null;
+                    session.currentChannelName = "";
+                    session.channelCache.clear();
+                }
                 sendJson(exchange, 200, Map.of("success", true));
             }
         }
@@ -2014,10 +2047,19 @@ public class UiBridgeServer {
 
             if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
                 Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
-                int rId = ((Number) body.get("roomId")).intValue();
-                int uId = ((Number) body.get("targetUserId")).intValue();
-                session.roomService.inviteMember(rId, uId);
-                sendJson(exchange, 200, Map.of("success", true));
+                int rId = parseJsonInt(body, "roomId", 0);
+                int uId = parseJsonInt(body, "targetUserId", 0);
+                String targetUsername = body.get("targetUsername") instanceof String s ? s.trim() : "";
+
+                if (rId > 0 && uId > 0) {
+                    session.roomService.inviteMember(rId, uId);
+                    sendJson(exchange, 200, Map.of("success", true));
+                } else if (rId > 0 && !targetUsername.isEmpty()) {
+                    session.roomService.inviteMemberByUsername(rId, targetUsername);
+                    sendJson(exchange, 200, Map.of("success", true));
+                } else {
+                    sendJson(exchange, 400, Map.of("success", false, "message", "Thông tin mời vào phòng không hợp lệ."));
+                }
             }
         }
     }

@@ -85,7 +85,7 @@ public class ClientHandler implements Runnable {
                 case LIST_ROOMS -> sendRooms();
                 case CREATE_ROOM -> handleCreateRoom(parts);
                 case JOIN_ROOM -> handleJoinRoom(parts);
-                case LEAVE_ROOM -> handleLeaveRoom();
+                case LEAVE_ROOM -> handleLeaveRoom(parts);
                 case SEND_MESSAGE -> handleSendMessage(parts);
                 case SEND_PRIVATE_MESSAGE -> handleSendPrivateMessage(parts);
                 case GET_HISTORY -> handleHistory();
@@ -326,15 +326,6 @@ public class ClientHandler implements Runnable {
                             + ProtocolHandler.encode(room.getName())
             );
             this.sendRooms();
-            java.util.concurrent.CompletableFuture.runAsync(() -> {
-                for (ClientHandler client : server.getClientManager().all()) {
-                    if (client != this) {
-                        try {
-                            client.sendRooms();
-                        } catch (Exception ignored) {}
-                    }
-                }
-            });
         }
     }
 
@@ -354,6 +345,15 @@ public class ClientHandler implements Runnable {
             return;
         }
 
+        // Phòng riêng tư (do người dùng tạo): bắt buộc phải là thành viên trong room_members mới được vào
+        if (room.isPrivate() && !room.getMemberIds().contains(user.getId())) {
+            sendError(
+                    ProtocolErrorCode.PERMISSION_DENIED,
+                    "Bạn không phải là thành viên của phòng này."
+            );
+            return;
+        }
+
         // Không thực hiện join lại nếu client đang ở chính phòng đó.
         if (currentRoomId != null && currentRoomId == roomId) {
             sendError(
@@ -366,8 +366,10 @@ public class ClientHandler implements Runnable {
         leaveCurrentRoom(false);
 
         currentRoomId = roomId;
-        server.getRoomService().joinRoom(roomId, user.getId());
-        room.getMemberIds().add(user.getId());
+        if (!room.getMemberIds().contains(user.getId())) {
+            server.getRoomService().joinRoom(roomId, user.getId());
+            room.getMemberIds().add(user.getId());
+        }
         server.getRoomManager().join(room, this);
 
         com.discordmini.server.model.Channel defCh = server.getRoomService().getDefaultChannel(roomId);
@@ -404,9 +406,49 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private void handleLeaveRoom() {
+    private void handleLeaveRoom(String[] parts) {
         requireLogin();
-        leaveCurrentRoom(true);
+
+        int targetRoomId = 0;
+        if (parts.length >= 2 && parts[1] != null && !parts[1].isBlank() && !ProtocolHandler.REQUEST_ID_MARKER.equals(parts[1])) {
+            try {
+                targetRoomId = parseId(parts[1], "ID phòng");
+            } catch (Exception ignored) {}
+        }
+        if (targetRoomId <= 0 && currentRoomId != null) {
+            targetRoomId = currentRoomId;
+        }
+
+        if (targetRoomId <= 0) {
+            connection.send("OK|LEAVE_ROOM|0");
+            return;
+        }
+
+        String role = server.getRoomService().getMemberRole(targetRoomId, user.getId());
+        if ("OWNER".equalsIgnoreCase(role)) {
+            sendError(
+                    ProtocolErrorCode.PERMISSION_DENIED,
+                    "Chủ phòng không thể rời phòng. Vui lòng chuyển quyền Chủ phòng hoặc xóa phòng."
+            );
+            return;
+        }
+
+        Room room = server.getRoomService().findRoom(targetRoomId);
+        server.getRoomService().removeMember(targetRoomId, user.getId());
+        if (room != null) {
+            room.getMemberIds().remove(user.getId());
+        }
+
+        if (currentRoomId != null && currentRoomId == targetRoomId) {
+            leaveCurrentRoom(true);
+        } else {
+            for (ClientHandler c : server.getRoomManager().clientsIn(targetRoomId)) {
+                c.sendRoomMembers();
+            }
+        }
+
+        connection.send("OK|LEAVE_ROOM|" + targetRoomId);
+        sendRooms();
     }
 
     private void handleSendMessage(String[] parts) throws Exception {
@@ -1097,7 +1139,7 @@ public class ClientHandler implements Runnable {
         requireArgs(parts, 3);
 
         int roomId = parseId(parts[1], "ID phòng");
-        int targetUserId = parseId(parts[2], "ID người được mời");
+        String rawTarget = parts[2] != null ? parts[2].trim() : "";
 
         Room room = server.getRoomService().findRoom(roomId);
         if (room == null) {
@@ -1111,12 +1153,26 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        User targetUser = server.getUserDAO().findById(targetUserId);
+        User targetUser = null;
+        try {
+            int parsedId = parseId(rawTarget, "ID người được mời");
+            targetUser = server.getUserDAO().findById(parsedId);
+        } catch (Exception ignored) {
+            String decodedUsername = ProtocolHandler.decode(rawTarget).trim();
+            if (decodedUsername.startsWith("@")) {
+                decodedUsername = decodedUsername.substring(1).trim();
+            }
+            if (!decodedUsername.isEmpty()) {
+                targetUser = server.getUserDAO().findUser(decodedUsername);
+            }
+        }
+
         if (targetUser == null) {
             sendError(ProtocolErrorCode.USER_NOT_FOUND, "Không tìm thấy người dùng được mời.");
             return;
         }
 
+        int targetUserId = targetUser.getId();
         if (room.getMemberIds().contains(targetUserId)) {
             sendError(ProtocolErrorCode.BAD_REQUEST, "Người dùng này đã là thành viên của phòng.");
             return;
@@ -1137,7 +1193,10 @@ public class ClientHandler implements Runnable {
         }
 
         // Gửi thông báo và cập nhật danh sách phòng cho người được mời nếu đang online
-        var targetHandler = server.getClientManager().get(targetUserId);
+        ClientHandler targetHandler = server.getClientManager().getByUsername(targetUser.getUsername());
+        if (targetHandler == null) {
+            targetHandler = server.getClientManager().get(targetUserId);
+        }
         if (targetHandler != null) {
             targetHandler.connection.send("ROOM_INVITATION|" + roomId + "|" + ProtocolHandler.encode(room.getName()) + "|" + ProtocolHandler.encode(user.getDisplayName()));
             targetHandler.sendRooms();
@@ -1554,6 +1613,11 @@ public class ClientHandler implements Runnable {
         requireArgs(parts, 2);
 
         int roomId = parseId(parts[1], "ID phòng");
+        Room room = server.getRoomService().findRoom(roomId);
+        if (room != null && !room.isPrivate()) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Không thể xóa phòng mặc định của hệ thống.");
+            return;
+        }
         String userRole = server.getRoomService().getMemberRole(roomId, user.getId());
         if (!"OWNER".equalsIgnoreCase(userRole)) {
             sendError(ProtocolErrorCode.PERMISSION_DENIED, "Chỉ Chủ phòng (OWNER) mới có quyền xóa/giải tán phòng.");

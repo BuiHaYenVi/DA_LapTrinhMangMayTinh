@@ -204,21 +204,34 @@ public class RoomService {
      * Cập nhật currentRoom = null để UI không còn cho phép gửi tin vào phòng đã rời.
      */
     public void leaveRoom() {
-        int epoch = roomEpoch.incrementAndGet();
-        this.lastLeaveEpoch = epoch;
-        this.currentRoom = null;
-        this.currentChannel = null;
-        this.pendingJoinRoomId = null;
-        this.lastSuccessfulRoomId = null; // Người dùng chủ động rời phòng: reconnect không được tự đưa lại phòng này
+        leaveRoom(0);
+    }
 
-        if (chatService != null) {
-            chatService.clearRoomState();
+    public void leaveRoom(int targetRoomId) {
+        int currentId = (this.currentRoom != null) ? this.currentRoom.id() : 0;
+        if (targetRoomId <= 0 || currentId == targetRoomId) {
+            int epoch = roomEpoch.incrementAndGet();
+            this.lastLeaveEpoch = epoch;
+            this.currentRoom = null;
+            this.currentChannel = null;
+            this.pendingJoinRoomId = null;
+            this.lastSuccessfulRoomId = null;
+
+            if (chatService != null) {
+                chatService.clearRoomState();
+            }
         }
 
         if (client.isConnected()) {
-            client.sendCommand("LEAVE_ROOM");
+            if (targetRoomId > 0) {
+                client.sendWithId("LEAVE_ROOM|" + targetRoomId);
+            } else {
+                client.sendCommand("LEAVE_ROOM");
+            }
         }
-        notifyListeners(RoomEventListener::onRoomLeft);
+        if (targetRoomId <= 0 || currentId == targetRoomId) {
+            notifyListeners(RoomEventListener::onRoomLeft);
+        }
     }
 
     /**
@@ -408,10 +421,15 @@ public class RoomService {
     }
 
     public void inviteMember(int roomId, int targetUserId) {
-        client.sendCommand("INVITE_ROOM", String.valueOf(roomId), String.valueOf(targetUserId));
+        client.sendWithId("INVITE_ROOM|" + roomId + "|" + targetUserId);
+    }
+
+    public void inviteMemberByUsername(int roomId, String targetUsername) {
+        if (targetUsername == null || targetUsername.isBlank()) return;
+        client.sendCommand("INVITE_ROOM", String.valueOf(roomId), targetUsername.trim());
     }
 
     public void kickMember(int roomId, int targetUserId) {
-        client.sendCommand("KICK_ROOM", String.valueOf(roomId), String.valueOf(targetUserId));
+        client.sendWithId("KICK_ROOM|" + roomId + "|" + targetUserId);
     }
 }
