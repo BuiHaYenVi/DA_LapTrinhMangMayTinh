@@ -469,76 +469,98 @@ public class UiBridgeServer {
                     broadcastSse("NEW_MESSAGE", Map.of("message", m, "roomId", rId, "channelId", chId));
                 }
                 case "DM_RECEIVED" -> {
-                    int msgId = Integer.parseInt(p[1]);
+                    long msgId = Long.parseLong(p[1]);
                     int sId = Integer.parseInt(p[2]);
-                    String sUsername = ProtocolHandler.decode(p[3]);
+                    String sUsername = ProtocolHandler.decode(p[3]).toLowerCase();
                     String sDisplayName = ProtocolHandler.decode(p[4]);
                     String content = ProtocolHandler.decode(p[5]);
-                    String time = ProtocolHandler.decode(p[6]);
+                    String sentAt = p.length > 6 ? p[6] : String.valueOf(System.currentTimeMillis());
+                    int targetId = p.length > 7 ? Integer.parseInt(p[7]) : userId;
+                    String targetUsername = p.length > 8 ? ProtocolHandler.decode(p[8]).toLowerCase() : (username != null ? username.toLowerCase() : "");
+
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", msgId);
+                    m.put("from", sUsername);
+                    m.put("to", targetUsername);
                     m.put("senderId", sId);
                     m.put("senderUsername", sUsername);
                     m.put("senderName", sDisplayName);
+                    m.put("targetId", targetId);
+                    m.put("targetUsername", targetUsername);
                     m.put("content", content);
-                    m.put("timestamp", time);
+                    m.put("sentAt", sentAt);
+                    m.put("timestamp", sentAt);
                     m.put("isEdited", false);
                     m.put("isDirect", true);
                     m.put("isMine", false);
-                    broadcastSse("DM_RECEIVED", Map.of(
-                            "message", m,
-                            "senderId", sId,
-                            "senderUsername", sUsername,
-                            "senderDisplayName", sDisplayName,
-                            "content", content,
-                            "timestamp", time
-                    ));
-                    broadcastSse("NEW_PRIVATE_MESSAGE", Map.of(
-                            "message", m,
-                            "senderId", sId,
-                            "senderName", sDisplayName,
-                            "content", content,
-                            "time", time
-                    ));
+
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("message", m);
+                    data.put("id", msgId);
+                    data.put("from", sUsername);
+                    data.put("to", targetUsername);
+                    data.put("senderId", sId);
+                    data.put("senderUsername", sUsername);
+                    data.put("senderDisplayName", sDisplayName);
+                    data.put("targetId", targetId);
+                    data.put("content", content);
+                    data.put("sentAt", sentAt);
+                    data.put("timestamp", sentAt);
+                    broadcastSse("DM_RECEIVED", data);
                 }
                 case "DM_SENT" -> {
-                    int msgId = Integer.parseInt(p[1]);
+                    long msgId = Long.parseLong(p[1]);
                     int targetId = Integer.parseInt(p[2]);
-                    String content = ProtocolHandler.decode(p[3]);
-                    String time = ProtocolHandler.decode(p[4]);
+                    String targetUsername = p.length > 3 ? ProtocolHandler.decode(p[3]).toLowerCase() : "";
+                    String content = p.length > 4 ? ProtocolHandler.decode(p[4]) : "";
+                    String sentAt = p.length > 5 ? p[5] : String.valueOf(System.currentTimeMillis());
+                    String myUsername = username != null ? username.toLowerCase() : "";
+
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", msgId);
+                    m.put("from", myUsername);
+                    m.put("to", targetUsername);
                     m.put("senderId", userId);
-                    m.put("senderUsername", username);
+                    m.put("senderUsername", myUsername);
                     m.put("senderName", displayName);
+                    m.put("targetId", targetId);
+                    m.put("targetUsername", targetUsername);
                     m.put("content", content);
-                    m.put("timestamp", time);
+                    m.put("sentAt", sentAt);
+                    m.put("timestamp", sentAt);
                     m.put("isEdited", false);
                     m.put("isDirect", true);
                     m.put("isMine", true);
-                    broadcastSse("DM_SENT", Map.of(
-                            "message", m,
-                            "targetUserId", targetId,
-                            "content", content,
-                            "timestamp", time
-                    ));
+
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("message", m);
+                    data.put("id", msgId);
+                    data.put("from", myUsername);
+                    data.put("to", targetUsername);
+                    data.put("targetUserId", targetId);
+                    data.put("content", content);
+                    data.put("sentAt", sentAt);
+                    data.put("timestamp", sentAt);
+                    broadcastSse("DM_SENT", data);
                 }
                 case "DM_HISTORY_BEGIN" -> dmHistoryBuffer.clear();
                 case "DM_HISTORY_ITEM" -> {
-                    int msgId = Integer.parseInt(p[1]);
+                    long msgId = Long.parseLong(p[1]);
                     int sId = Integer.parseInt(p[2]);
-                    String sUsername = ProtocolHandler.decode(p[3]);
+                    String sUsername = ProtocolHandler.decode(p[3]).toLowerCase();
                     String sDisplayName = ProtocolHandler.decode(p[4]);
                     String content = ProtocolHandler.decode(p[5]);
-                    String time = ProtocolHandler.decode(p[6]);
-                    boolean isMine = p.length >= 8 && "true".equalsIgnoreCase(p[7]);
+                    String sentAt = p.length > 6 ? p[6] : "";
+                    boolean isMine = p.length >= 8 ? "true".equalsIgnoreCase(p[7]) : (sId == userId);
+
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", msgId);
                     m.put("senderId", sId);
                     m.put("senderUsername", sUsername);
                     m.put("senderName", sDisplayName);
                     m.put("content", content);
-                    m.put("timestamp", time);
+                    m.put("sentAt", sentAt);
+                    m.put("timestamp", sentAt);
                     m.put("isEdited", false);
                     m.put("isDirect", true);
                     m.put("isMine", isMine);
@@ -550,34 +572,34 @@ public class UiBridgeServer {
                     dmHistoryBuffer.clear();
                     broadcastSse("DM_HISTORY", Map.of("targetUserId", targetId, "messages", msgs));
                 }
-                case "NEW_PRIVATE_MESSAGE" -> {
-                    int sId = Integer.parseInt(p[1]);
-                    String sName = ProtocolHandler.decode(p[2]);
-                    String content = ProtocolHandler.decode(p[3]);
-                    String time = ProtocolHandler.decode(p[4]);
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("id", (int) (System.currentTimeMillis() % 100000));
-                    m.put("senderId", sId);
-                    m.put("senderName", sName);
-                    m.put("content", content);
-                    m.put("timestamp", time);
-                    m.put("isEdited", false);
-                    m.put("isDirect", true);
-                    m.put("isMine", false);
-                    broadcastSse("NEW_PRIVATE_MESSAGE", Map.of(
-                            "message", m,
-                            "senderId", sId,
-                            "senderName", sName,
-                            "content", content,
-                            "time", time
-                    ));
-                    broadcastSse("PRIVATE_MESSAGE", Map.of(
-                            "message", m,
-                            "senderId", sId,
-                            "senderName", sName,
-                            "content", content,
-                            "time", time
-                    ));
+                case "DM_HISTORY" -> {
+                    if (p.length > 1) {
+                        int targetId = Integer.parseInt(p[1]);
+                        List<Map<String, Object>> msgs = new ArrayList<>();
+                        for (int i = 2; i < p.length; i++) {
+                            String[] x = p[i].split(",", 7);
+                            if (x.length >= 5) {
+                                long mId = Long.parseLong(x[0]);
+                                int sId = Integer.parseInt(x[1]);
+                                String sName = ProtocolHandler.decode(x[2]);
+                                String content = ProtocolHandler.decode(x[3]);
+                                String time = ProtocolHandler.decode(x[4]);
+                                boolean isMine = (sId == userId);
+                                Map<String, Object> m = new HashMap<>();
+                                m.put("id", mId);
+                                m.put("senderId", sId);
+                                m.put("senderName", sName);
+                                m.put("content", content);
+                                m.put("sentAt", time);
+                                m.put("timestamp", time);
+                                m.put("isEdited", false);
+                                m.put("isDirect", true);
+                                m.put("isMine", isMine);
+                                msgs.add(m);
+                            }
+                        }
+                        broadcastSse("DM_HISTORY", Map.of("targetUserId", targetId, "messages", msgs));
+                    }
                 }
                 case "PRIVATE_MESSAGE_SENT" -> {
                     int targetId = Integer.parseInt(p[1]);

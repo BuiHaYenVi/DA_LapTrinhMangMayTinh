@@ -1,3 +1,5 @@
+@import './rail.css';
+
 :root,
 :root[data-theme="dark"] {
   --bg-0: #0F1415;
@@ -14,6 +16,9 @@
   --on-accent: #04201C;
   --rail-item-bg: #232C2F;
   --rail-item-text: #CFE3E1;
+  --danger: #ED4245;
+  --tooltip-bg: #111214;
+  --tooltip-text: #FFFFFF;
 
   /* Aliases ngữ nghĩa tương thích các class giao diện hiện có */
   --titlebar-height: 36px;
@@ -63,6 +68,9 @@
   --on-accent: #FFFFFF;
   --rail-item-bg: #D3DDDD;
   --rail-item-text: #1F3534;
+  --danger: #DA373C;
+  --tooltip-bg: #111214;
+  --tooltip-text: #FFFFFF;
 
   /* Aliases ngữ nghĩa tương thích các class giao diện hiện có */
   --titlebar-height: 36px;
@@ -1106,7 +1114,7 @@ body {
   display: block;
 }
 
-.msg-avatar-col {
+.discord-message-row .msg-avatar-col {
   position: absolute;
   left: 16px;
   top: 4px;
@@ -1114,7 +1122,7 @@ body {
   height: 40px;
 }
 
-.msg-avatar-col .user-avatar-circle {
+.discord-message-row .msg-avatar-col .user-avatar-circle {
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -1130,7 +1138,7 @@ body {
   transition: transform 0.1s ease;
 }
 
-.msg-avatar-col .user-avatar-circle:hover {
+.discord-message-row .msg-avatar-col .user-avatar-circle:hover {
   transform: scale(1.04);
 }
 
@@ -5006,6 +5014,513 @@ body {
 .invite-room-row:hover {
   background-color: var(--bg-hover);
 }
+
+/* ==========================================================================
+   CỘT KHUNG CHÍNH (DM & CHAT) - THEO ĐÚNG KHUNG BỐ CỤC BẮT BUỘC MỤC D
+   ========================================================================== */
+.dm-main-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  background: var(--bg-1);
+  overflow: hidden;
+  position: relative;
+}
+
+/* 1. .dm-header: flex: 0 0 48px; */
+.dm-header {
+  flex: 0 0 48px;
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
+  box-sizing: border-box;
+  z-index: 10;
+}
+
+.dm-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dm-back-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+.dm-back-btn:hover {
+  color: var(--text-1);
+  background: var(--bg-3);
+}
+@media (max-width: 768px) {
+  .dm-back-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.dm-header-meta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.dm-header-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-1);
+  line-height: 1.2;
+}
+
+.dm-header-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.dm-sub-divider {
+  font-size: 8px;
+  color: var(--text-3);
+}
+
+.dm-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dm-header-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.dm-header-action-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 2. .dm-scroll: flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; */
+.dm-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-1);
+}
+
+/* 3. .dm-scroll-inner: margin-top: auto; padding-bottom: 16px; (nội dung ít thì dồn xuống sát ô nhập) */
+.dm-scroll-inner {
+  margin-top: auto;
+  padding-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 4. Khối giới thiệu đầu cuộc trò chuyện */
+.dm-intro-card {
+  padding: 24px 16px 16px;
+  margin-bottom: 16px;
+}
+
+.dm-intro-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.dm-intro-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0 0 4px;
+}
+
+.dm-intro-handle {
+  font-size: 14px;
+  color: var(--text-2);
+  margin: 0 0 8px;
+}
+
+.dm-intro-desc {
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.dm-intro-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Nút phụ trong intro: nền --bg-3, viền --border */
+.dm-subtle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.dm-subtle-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.dm-subtle-btn.danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* 5. Từng dòng tin nhắn */
+.dm-message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 4px 16px;
+  transition: background-color 0.1s ease;
+  position: relative;
+}
+.dm-message-row:hover {
+  background-color: var(--bg-2);
+}
+.dm-message-row.grouped {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.dm-message-row.pending {
+  opacity: 0.6;
+}
+
+.dm-message-row .msg-avatar-col {
+  position: static;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.dm-message-row .msg-avatar-col .user-avatar-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 16px;
+  font-weight: 600;
+  user-select: none;
+  background-color: var(--accent);
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.dm-message-row .msg-avatar-col .user-avatar-circle:hover {
+  transform: scale(1.04);
+}
+
+.dm-message-row .msg-gutter-spacer {
+  width: 40px;
+  height: 0;
+  flex-shrink: 0;
+}
+
+.dm-message-row .msg-content-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.msg-meta-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px; /* Tên đậm, giờ nhỏ cách tên 8px cùng dòng */
+  margin-bottom: 3px;
+}
+.msg-author-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.msg-time-label {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.msg-sending-indicator {
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.msg-text-content {
+  font-size: 14px;
+  color: var(--text-1);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+/* Date separator: đường kẻ ngang ở giữa, chữ ngày nằm giữa đường kẻ */
+.date-separator {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 16px 16px 8px;
+}
+.date-separator::before,
+.date-separator::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border);
+}
+.date-separator-label {
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+/* 6. .dm-composer: flex: 0 0 auto; margin: 0 16px 24px; (luôn bám đáy) */
+.dm-composer {
+  flex: 0 0 auto;
+  margin: 0 16px 24px;
+  background: transparent;
+}
+
+.dm-composer-form {
+  width: 100%;
+}
+
+.dm-composer-pill {
+  display: flex;
+  align-items: center;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 12px; /* Ô nhập bo góc 12px */
+  padding: 4px 12px;
+  transition: border-color 0.2s ease;
+}
+.dm-composer-pill:focus-within {
+  border-color: var(--accent); /* Viền --accent khi focus */
+}
+
+.dm-composer-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-1);
+  font-size: 14.5px;
+  padding: 8px 4px;
+  font-family: inherit;
+}
+.dm-composer-input::placeholder {
+  color: var(--text-3);
+}
+
+.dm-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dm-composer-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.dm-composer-btn:hover:not(:disabled) {
+  color: var(--accent);
+  background-color: var(--accent-soft);
+}
+.dm-composer-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.dm-composer-btn.send:hover:not(:disabled) {
+  color: var(--on-accent);
+  background-color: var(--accent);
+}
+
+/* ==========================================================================
+   THANH BÊN TIN NHẮN TRỰC TIẾP (YÊU CẦU E)
+   ========================================================================== */
+.dm-sidebar-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+  margin-bottom: 4px;
+}
+.dm-section-title-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  letter-spacing: 0.5px;
+}
+
+/* Nút "+" cạnh "TIN NHẮN TRỰC TIẾP": nền trong suốt, biểu tượng 16px màu --text-2, hover --text-1 */
+.dm-section-add-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.dm-section-add-btn:hover {
+  color: var(--text-1);
+  background-color: var(--bg-3);
+}
+
+.dm-sidebar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.dm-conversation-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  position: relative;
+  user-select: none;
+}
+.dm-conversation-row:hover {
+  background-color: var(--bg-2);
+}
+/* Dòng đang mở có nền --accent-soft */
+.dm-conversation-row.active {
+  background-color: var(--accent-soft);
+}
+
+.dm-conv-body {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.dm-conv-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dm-conv-name {
+  font-weight: 500;
+  font-size: 13.5px;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dm-conv-time {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.dm-conv-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 2px;
+}
+.dm-conv-preview {
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+/* Nút "×" hiện khi hover để ẩn hội thoại khỏi danh sách */
+.dm-conv-close-btn {
+  opacity: 0;
+  visibility: hidden;
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+.dm-conversation-row:hover .dm-conv-close-btn {
+  opacity: 1;
+  visibility: visible;
+}
+.dm-conv-close-btn:hover {
+  color: var(--text-1);
+  background-color: var(--bg-3);
+}
+
+.dm-empty-sidebar-notice {
+  padding: 12px 10px;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.5;
+  background-color: var(--bg-3);
+  border-radius: 6px;
+  margin: 4px 0;
+}
+
 
 
 

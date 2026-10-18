@@ -53,13 +53,24 @@ public class DatabaseMigration {
                         sender_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                         receiver_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                         content TEXT NOT NULL,
-                        sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                         is_read BOOLEAN DEFAULT FALSE
                     )
                 """);
                 st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_dm_pair ON direct_messages(sender_id, receiver_id)");
                 st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_dm_recv ON direct_messages(receiver_id, is_read)");
-                System.out.println("[MIGRATION] Đã kiểm tra/khởi tạo bảng 'direct_messages'.");
+
+                // 3c. Chuyển đổi cột sent_at cũ sang TIMESTAMPTZ (coi dữ liệu cũ theo giờ Asia/Bangkok)
+                try {
+                    st.executeUpdate("""
+                        ALTER TABLE direct_messages 
+                        ALTER COLUMN sent_at TYPE TIMESTAMPTZ 
+                        USING sent_at AT TIME ZONE 'Asia/Bangkok'
+                    """);
+                } catch (Exception ignored) {
+                    // Cột đã là TIMESTAMPTZ hoặc bảng vừa được tạo
+                }
+                System.out.println("[MIGRATION] Đã kiểm tra/khởi tạo bảng 'direct_messages' với TIMESTAMPTZ.");
 
                 // 4. Di chuyển dữ liệu: Tạo kênh 'chung' cho tất cả các phòng hiện có chưa có kênh 'chung'
                 int newChannelsCount = st.executeUpdate("""

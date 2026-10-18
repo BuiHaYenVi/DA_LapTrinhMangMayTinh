@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { Room, Channel, User, Friend, MessageItem } from '../types/chat';
 import { 
   Hash, Plus, Settings, ChevronDown, ChevronUp, LogOut, 
-  UserPlus, Users, MessageSquare
+  UserPlus, Users, MessageSquare, X 
 } from 'lucide-react';
+import { formatTime } from './chat/chatShared';
 
 interface Props {
   currentRoom: Room | null;
@@ -61,6 +62,7 @@ export const RoomSidebar: React.FC<Props> = ({
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [hiddenFriendMap, setHiddenFriendMap] = useState<Record<number, number>>({});
   const [localServerMenuOpen, setLocalServerMenuOpen] = useState(false);
   const isServerMenuOpen = propIsServerMenuOpen !== undefined ? propIsServerMenuOpen : localServerMenuOpen;
 
@@ -156,37 +158,44 @@ export const RoomSidebar: React.FC<Props> = ({
           </div>
 
           {/* Tiêu đề TIN NHẮN TRỰC TIẾP */}
-          <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span>▾ TIN NHẮN TRỰC TIẾP</span>
+          <div className="section-title dm-section-title">
+            <span className="dm-section-title-text">TIN NHẮN TRỰC TIẾP</span>
             {onOpenAddFriend && (
               <button
                 type="button"
-                className="section-add-btn"
-                title="Thêm bạn bè"
-                aria-label="Thêm bạn bè"
+                className="dm-section-add-btn"
+                title="Tạo tin nhắn riêng"
+                aria-label="Tạo tin nhắn riêng"
                 onClick={onOpenAddFriend}
               >
-                <Plus size={14} />
+                <Plus size={16} />
               </button>
             )}
           </div>
 
           {/* Danh sách bạn bè để chat 1-1 */}
-          <div className="direct-message-list" style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
-            {friends.length === 0 ? (
-              <div style={{
-                padding: '12px 10px',
-                fontSize: '12px',
-                color: 'var(--text-3)',
-                lineHeight: 1.5,
-                backgroundColor: 'var(--bg-3)',
-                borderRadius: '6px',
-                margin: '4px 0'
-              }}>
-                Chưa có tin nhắn trực tiếp nào. Hãy chọn mục <strong>Bạn bè</strong> để bắt đầu trò chuyện!
-              </div>
-            ) : (
-              friends.map(friend => {
+          <div className="direct-message-list dm-sidebar-list">
+            {(() => {
+              const visibleFriends = friends.filter(friend => {
+                const hiddenLastId = hiddenFriendMap[friend.id];
+                if (hiddenLastId === undefined) return true;
+                if (currentDirectUser?.id === friend.id) return true;
+                const friendMsgs = directMessagesMap?.[friend.id] || [];
+                const lastMsg = friendMsgs[friendMsgs.length - 1];
+                const lastId = lastMsg?.id || 0;
+                const unread = directUnreadMap[friend.id] || 0;
+                return unread > 0 || lastId > hiddenLastId;
+              });
+
+              if (visibleFriends.length === 0) {
+                return (
+                  <div className="dm-empty-sidebar-notice">
+                    Chưa có tin nhắn trực tiếp nào. Hãy chọn mục <strong>Bạn bè</strong> để bắt đầu trò chuyện!
+                  </div>
+                );
+              }
+
+              return visibleFriends.map(friend => {
                 const isActive = currentDirectUser?.id === friend.id;
                 const unread = directUnreadMap[friend.id] || 0;
                 const friendMsgs = directMessagesMap?.[friend.id] || [];
@@ -195,59 +204,66 @@ export const RoomSidebar: React.FC<Props> = ({
                 return (
                   <div
                     key={friend.id}
-                    className={`channel-item dm-sidebar-item ${isActive ? 'active' : ''}`}
+                    className={`dm-conversation-row ${isActive ? 'active' : ''}`}
                     onClick={() => onSelectDirectUser && onSelectDirectUser(friend)}
-                    style={{ cursor: 'pointer', padding: '6px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center' }}
+                    role="button"
+                    tabIndex={0}
                   >
-                    <div className="user-avatar-wrap" style={{ marginRight: '10px', position: 'relative', flexShrink: 0 }}>
+                    <div className="user-avatar-wrap">
                       <div className="user-avatar-circle" style={{ width: '32px', height: '32px', fontSize: '13px' }}>
                         {friend.displayName ? Array.from(friend.displayName.trim())[0]?.toUpperCase() : 'U'}
                       </div>
-                      <div className={`status-dot ${friend.online ? '' : 'offline'}`} style={{ width: '9px', height: '9px', bottom: '-1px', right: '-1px' }} />
+                      <div className={`status-dot ${friend.online ? '' : 'offline'}`} />
                     </div>
 
-                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                        <div className="channel-name" style={{
-                          whiteSpace: 'nowrap',
-                          textOverflow: 'ellipsis',
-                          overflow: 'hidden',
-                          fontSize: '13px',
-                          fontWeight: unread > 0 ? 700 : 500,
-                          color: isActive ? 'var(--text-1)' : (unread > 0 ? 'var(--text-1)' : 'var(--text-2)')
-                        }}>
-                          {friend.displayName}
-                        </div>
+                    <div className="dm-conv-body">
+                      <div className="dm-conv-top">
+                        <span className="dm-conv-name" title={friend.displayName || friend.username}>
+                          {friend.displayName || friend.username}
+                        </span>
                         {lastMsg?.timestamp && (
-                          <span style={{ fontSize: '11px', color: 'var(--text-3)', flexShrink: 0 }}>
-                            {lastMsg.timestamp}
+                          <span className="dm-conv-time" title={lastMsg.timestamp}>
+                            {formatTime(lastMsg.timestamp)}
                           </span>
                         )}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginTop: '2px' }}>
-                        <div style={{
-                          whiteSpace: 'nowrap',
-                          textOverflow: 'ellipsis',
-                          overflow: 'hidden',
-                          fontSize: '11.5px',
-                          color: unread > 0 ? 'var(--text-1)' : 'var(--text-3)',
-                          fontWeight: unread > 0 ? 600 : 400
-                        }}>
-                          {lastMsg ? lastMsg.content : `@${friend.username}`}
-                        </div>
+                      <div className="dm-conv-bottom">
+                        <span 
+                          className="dm-conv-preview" 
+                          title={lastMsg ? (lastMsg.isMe ? `Bạn: ${lastMsg.content}` : lastMsg.content) : `@${friend.username}`}
+                        >
+                          {lastMsg ? (lastMsg.isMe ? `Bạn: ${lastMsg.content}` : lastMsg.content) : `@${friend.username}`}
+                        </span>
 
                         {unread > 0 && (
-                          <span className="direct-unread-badge" style={{ flexShrink: 0 }}>
-                            {unread}
+                          <span className="dm-unread-badge">
+                            {unread > 99 ? '99+' : unread}
                           </span>
                         )}
                       </div>
                     </div>
+
+                    {/* Nút "×" hiện khi hover để ẩn hội thoại khỏi danh sách */}
+                    <button
+                      type="button"
+                      className="dm-conv-close-btn"
+                      title="Ẩn hội thoại"
+                      aria-label="Ẩn hội thoại"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHiddenFriendMap(prev => ({
+                          ...prev,
+                          [friend.id]: lastMsg?.id || 0
+                        }));
+                      }}
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
                 );
-              })
-            )}
+              });
+            })()}
           </div>
         </div>
 

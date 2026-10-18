@@ -17,7 +17,9 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { AppTitlebar } from './components/AppTitlebar';
 import { UserSettingsModal } from './components/UserSettingsModal';
 import { Toast } from './components/Toast';
+import { useRoomUnread } from './components/rail/useRoomUnread';
 import './styles/discord.css';
+import './styles/rail.css';
 
 type AuthStatus = 'checking' | 'login' | 'register' | 'authenticated';
 
@@ -82,7 +84,13 @@ export const App: React.FC = () => {
   const [isStreamConnected, setIsStreamConnected] = useState<boolean>(true);
   const [pingMs, setPingMs] = useState<number>(24);
   const [isServerMenuOpen, setIsServerMenuOpen] = useState<boolean>(false);
-  const [_unreadMap, setUnreadMap] = useState<Record<number, number>>({});
+  const {
+    unreadMap: roomUnreadMap,
+    mutedRooms,
+    toggleMuteRoom,
+    incrementUnread: incrementRoomUnread,
+    clearUnread: clearRoomUnread
+  } = useRoomUnread();
 
   // Đo độ trễ ping ms thực tế định kỳ tới Web Bridge
   useEffect(() => {
@@ -332,12 +340,9 @@ export const App: React.FC = () => {
           const targetChannelId = payload.channelId || payload.message?.channelId;
           const targetRoomId = payload.roomId || payload.message?.roomId;
 
-          // Nếu tin nhắn thuộc phòng khác -> tăng unread
-          if (targetRoomId && currentRoomRef.current && targetRoomId !== currentRoomRef.current.id) {
-            setUnreadMap((prev) => ({
-              ...prev,
-              [targetRoomId]: (prev[targetRoomId] || 0) + 1
-            }));
+          // Nếu tin nhắn thuộc phòng khác hoặc đang ở chế độ tin nhắn riêng -> tăng unread
+          if (targetRoomId && (isDirectMessageModeRef.current || !currentRoomRef.current || targetRoomId !== currentRoomRef.current.id)) {
+            incrementRoomUnread(targetRoomId);
             break;
           }
 
@@ -427,21 +432,29 @@ export const App: React.FC = () => {
           setSearchResults(payload.results || []);
           break;
         case 'DM_SENT': {
-          const targetUserId = payload.targetUserId;
+          const targetUserId = payload.targetUserId || payload.message?.targetId;
           const msg = payload.message;
           if (targetUserId && msg) {
+            const sentAt = String(payload.sentAt || payload.timestamp || msg.sentAt || msg.timestamp || Date.now());
+            const realMsg: MessageItem = {
+              ...msg,
+              id: Number(msg.id),
+              timestamp: sentAt,
+              isMe: true,
+              isDirect: true
+            };
             setDirectMessagesMap((prev) => {
               const currentList = prev[targetUserId] || [];
               let replaced = false;
               const nextList = currentList.map((m) => {
-                if (m.id < 0 && m.content === msg.content && !replaced) {
+                if (m.id < 0 && m.content === realMsg.content && !replaced) {
                   replaced = true;
-                  return { ...msg, isMe: true };
+                  return realMsg;
                 }
                 return m;
               });
-              if (!replaced && !nextList.some((m) => m.id === msg.id)) {
-                nextList.push({ ...msg, isMe: true });
+              if (!replaced && !nextList.some((m) => m.id === realMsg.id)) {
+                nextList.push(realMsg);
               }
               return {
                 ...prev,
@@ -454,26 +467,29 @@ export const App: React.FC = () => {
         case 'DM_RECEIVED':
         case 'NEW_PRIVATE_MESSAGE':
         case 'PRIVATE_MESSAGE': {
-          const sId = payload.senderId || payload.message?.senderId;
-          const sUsername = payload.senderUsername || payload.message?.senderUsername || '';
-          const sName = payload.senderDisplayName || payload.senderName || payload.message?.senderName || 'Bạn bè';
-          const content = payload.content || payload.message?.content || '';
-          const time = payload.timestamp || payload.time || payload.message?.timestamp || '';
-          const msgId = payload.message?.id || Date.now();
-          const pm: MessageItem = payload.message || {
+          const msg = payload.message;
+          const sId = Number(payload.senderId || msg?.senderId);
+          const sUsername = String(payload.from || payload.senderUsername || msg?.senderUsername || '').toLowerCase();
+          const sName = String(payload.senderDisplayName || payload.senderName || msg?.senderName || sUsername || 'Bạn bè');
+          const content = String(payload.content || msg?.content || '');
+          const sentAt = String(payload.sentAt || payload.timestamp || msg?.sentAt || msg?.timestamp || Date.now());
+          const msgId = Number(payload.id || msg?.id || Date.now());
+
+          const dmItem: MessageItem = {
             id: msgId,
             senderId: sId,
             senderName: sName,
             content: content,
-            timestamp: time,
+            timestamp: sentAt,
             isMe: false,
             isDirect: true
           };
 
           if (sId) {
-            // Tự động thêm vào danh sách bạn bè / danh sách tin nhắn trực tiếp nếu chưa có
+            // 1. Tự động thêm/cập nhật danh sách bạn bè / hội thoại DM nếu chưa có
             setFriends((prevFriends) => {
-              if (!prevFriends.some((f) => f.id === sId)) {
+              const idx = prevFriends.findIndex((f) => f.id === sId);
+              if (idx < 0) {
                 return [
                   ...prevFriends,
                   {
@@ -484,18 +500,29 @@ export const App: React.FC = () => {
                   }
                 ];
               }
-              return prevFriends;
+              const updated = [...prevFriends];
+              updated[idx] = {
+                ...updated[idx],
+                displayName: updated[idx].displayName || sName,
+                username: updated[idx].username || sUsername,
+                online: true
+              };
+              return updated;
             });
 
+            // 2. Thêm vào khung chat, chống trùng tin bằng id
             setDirectMessagesMap((prev) => {
               const currentList = prev[sId] || [];
-              if (currentList.some((m) => m.id === pm.id && pm.id > 0)) return prev;
+              if (currentList.some((m) => m.id === dmItem.id && dmItem.id > 0)) {
+                return prev;
+              }
               return {
                 ...prev,
-                [sId]: [...currentList, pm]
+                [sId]: [...currentList, dmItem]
               };
             });
 
+            // 3. Nếu không xem cuộc trò chuyện này thì tăng huy hiệu chưa đọc
             const isViewingThisDM = isDirectMessageModeRef.current && currentDirectUserRef.current?.id === sId;
             if (!isViewingThisDM) {
               setDirectUnreadMap((prev) => ({
@@ -508,12 +535,17 @@ export const App: React.FC = () => {
           break;
         }
         case 'DM_HISTORY': {
-          const targetUserId = payload.targetUserId;
+          const targetUserId = Number(payload.targetUserId);
           const historyMsgs: MessageItem[] = (payload.messages || []).map((m: any) => ({
-            ...m,
-            isMe: currentUser ? m.senderId === currentUser.id : Boolean(m.isMine),
+            id: Number(m.id),
+            senderId: Number(m.senderId),
+            senderName: String(m.senderName || ''),
+            content: String(m.content || ''),
+            timestamp: String(m.sentAt || m.timestamp || ''),
+            isMe: currentUser ? Number(m.senderId) === currentUser.id : Boolean(m.isMine),
             isDirect: true
           }));
+
           if (targetUserId) {
             setDirectMessagesMap((prev) => {
               const existing = prev[targetUserId] || [];
@@ -698,7 +730,7 @@ export const App: React.FC = () => {
       return;
     }
     setIsDirectMessageMode(false);
-    setUnreadMap((prev) => ({ ...prev, [room.id]: 0 }));
+    clearRoomUnread(room.id);
     setCurrentRoom(room);
     currentRoomRef.current = room;
     setChannels([]);
@@ -754,7 +786,7 @@ export const App: React.FC = () => {
         senderId: currentUser.id,
         senderName: currentUser.displayName,
         content,
-        timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: String(Date.now()),
         isMe: true,
         isDirect: true
       };
@@ -927,7 +959,7 @@ export const App: React.FC = () => {
             setIsDirectMessageMode(false);
             setCurrentRoom(nextRoom);
             currentRoomRef.current = nextRoom;
-            setUnreadMap((prev) => ({ ...prev, [created.id]: 0 }));
+            clearRoomUnread(created.id);
             chatBridge.joinRoom(created.id);
             showToast(`Đã tạo phòng '${created.name}'`);
             resolve({ success: true });
@@ -1294,9 +1326,19 @@ export const App: React.FC = () => {
           rooms={rooms}
           currentRoom={currentRoom}
           isDirectMessageMode={isDirectMessageMode}
+          unreadMap={roomUnreadMap}
+          mutedRooms={mutedRooms}
+          currentUserRole={currentUserRole}
+          isOwner={isOwner}
           onDirectMessageClick={handleDirectMessageClick}
           onSelectRoom={handleSelectRoom}
           onCreateRoom={handleOpenCreateRoom}
+          onMarkAsRead={clearRoomUnread}
+          onToggleMute={toggleMuteRoom}
+          onInvite={handleInvite}
+          onOpenSettings={() => setIsServerMenuOpen(true)}
+          onCreateChannel={handleOpenCreateChannel}
+          onLeaveRoom={handleLeave}
         />
 
         {/* CỘT 2: Tiêu đề là tên phòng đang chọn hoặc Tin nhắn trực tiếp */}
@@ -1340,6 +1382,27 @@ export const App: React.FC = () => {
               onSendMessage={handleSendPrivateMessage}
               onOpenInviteModal={handleOpenInviteModal}
               onBackToFriends={() => setCurrentDirectUser(null)}
+              onRemoveFriend={(friendId) => {
+                const friend = friends.find(f => f.id === friendId);
+                setActionModal({
+                  isOpen: true,
+                  title: 'Hủy kết bạn',
+                  message: `Bạn có chắc chắn muốn hủy kết bạn với "${friend?.displayName || 'người này'}" không?`,
+                  confirmText: 'Hủy kết bạn',
+                  cancelText: 'Giữ lại',
+                  isDanger: true,
+                  onConfirm: () => {
+                    chatBridge.removeFriend(friendId).then(() => {
+                      showToast('Đã hủy kết bạn thành công.');
+                      setCurrentDirectUser(null);
+                      chatBridge.refreshFriends().catch(() => {});
+                    }).catch((err: any) => {
+                      showToast('Không thể hủy kết bạn: ' + (err?.message || 'Lỗi'));
+                    });
+                    setActionModal(prev => ({ ...prev, isOpen: false }));
+                  }
+                });
+              }}
             />
           ) : (
             <FriendsView

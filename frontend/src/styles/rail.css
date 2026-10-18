@@ -1,0 +1,336 @@
+/* ==========================================================================
+   ROOM RAIL (THANH MÁY CHỦ BÊN TRÁI PHONG CÁCH DISCORD)
+   ========================================================================== */
+
+.room-rail-container {
+  width: 72px;
+  min-width: 72px;
+  height: 100%;
+  background: var(--bg-0);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  user-select: none;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 100;
+}
+
+/* 1. Vạch ngăn cách 32px */
+.rail-separator {
+  width: 32px;
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  margin: 8px 0;
+  flex-shrink: 0;
+}
+
+/* 2. Danh sách phòng tự cuộn dọc, ẩn thanh cuộn */
+.rail-rooms-scroll {
+  width: 100%;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.rail-rooms-scroll::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* 3. Khung bao bọc mỗi nút trên rail */
+.rail-item-wrapper {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rail-action-wrapper {
+  margin-top: 8px;
+}
+
+/* 4. Vạch chỉ báo ở mép trái cột (Pill Marker) */
+.rail-pill-marker {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 0px;
+  background-color: var(--text-1);
+  border-radius: 0 4px 4px 0;
+  opacity: 0;
+  transition: height 0.15s ease, opacity 0.15s ease;
+  pointer-events: none;
+}
+
+/* Khi có tin chưa đọc: cao 8px */
+.rail-item-wrapper.has-unread .rail-pill-marker {
+  height: 8px;
+  opacity: 1;
+}
+
+/* Khi hover: cao 20px */
+.rail-item-wrapper:hover .rail-pill-marker {
+  height: 20px;
+  opacity: 1;
+}
+
+/* Khi đang chọn (active): cao 40px */
+.rail-item-wrapper.active .rail-pill-marker {
+  height: 40px;
+  opacity: 1;
+}
+
+/* 5. Nút phòng (Rail Button) */
+.rail-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background-color: var(--rail-item-bg);
+  color: var(--rail-item-text);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: background-color 0.15s ease, color 0.15s ease, border-radius 0.15s ease;
+  outline: none;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 0;
+}
+
+.rail-btn:hover,
+.rail-btn:focus-visible {
+  border-radius: 14px;
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.rail-btn.active {
+  border-radius: 14px;
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Nút Trang chủ / Logo */
+.home-rail-btn {
+  background-color: var(--rail-item-bg);
+  color: var(--accent);
+}
+.home-rail-btn:hover,
+.home-rail-btn.active {
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Nút "+" Tạo/tham gia phòng */
+.add-room-rail-btn {
+  background-color: var(--rail-item-bg);
+  color: var(--accent);
+}
+.add-room-rail-btn:hover,
+.add-room-rail-btn:focus-visible {
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Chữ viết tắt phòng (Acronym) */
+.room-acronym {
+  line-height: 1;
+  letter-spacing: 0.5px;
+}
+
+/* 6. Huy hiệu tin chưa đọc (Unread Badge) */
+.rail-unread-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 4px;
+  background-color: var(--danger);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-0);
+  line-height: 1;
+  pointer-events: none;
+  box-sizing: content-box;
+}
+
+/* ==========================================================================
+   TOOLTIP BÊN PHẢI NÚT PHÒNG
+   ========================================================================== */
+
+.rail-tooltip-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rail-tooltip {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) scale(0.96);
+  background: var(--tooltip-bg);
+  color: var(--tooltip-text);
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+  transition-delay: 0s;
+  z-index: 9999;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.rail-item-wrapper:hover .rail-tooltip,
+.rail-item-wrapper:focus-within .rail-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) scale(1);
+  transition-delay: 150ms; /* Hiện sau 150ms */
+}
+
+/* Mũi tên nhỏ trỏ về nút */
+.rail-tooltip::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: var(--tooltip-bg);
+  border-radius: 1px;
+}
+
+/* ==========================================================================
+   MENU CHUỘT PHẢI TRÊN BIỂU TƯỢNG PHÒNG (ROOM CONTEXT MENU)
+   ========================================================================== */
+
+.rail-context-menu {
+  position: fixed;
+  width: 220px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  outline: none;
+  animation: contextMenuFadeIn 0.1s ease-out;
+}
+
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu-header {
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-menu-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.context-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.12s ease, color 0.12s ease;
+  font-family: inherit;
+  outline: none;
+}
+
+.context-menu-item:hover,
+.context-menu-item.active {
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.context-menu-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.context-menu-item.danger {
+  color: var(--danger);
+}
+
+.context-menu-item.danger:hover,
+.context-menu-item.danger.active {
+  background-color: var(--danger);
+  color: #ffffff;
+}
+
+.context-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}

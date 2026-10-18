@@ -508,34 +508,34 @@ public class ClientHandler implements Runnable {
             }
 
             long messageId = saved.id();
-            String timeStr = saved.sentAt() != null ? saved.sentAt().toString() : java.time.LocalTime.now().toString().substring(0, 8);
+            long epochMs = saved.sentAtEpochMs();
+            String senderUsername = user.getUsername() != null ? user.getUsername().trim().toLowerCase() : "";
+            String targetUsername = targetUser.getUsername() != null ? targetUser.getUsername().trim().toLowerCase() : "";
 
-            // 2. Gửi phản hồi xác nhận cho người gửi (ACK kèm messageId và thời gian lưu DB)
-            connection.send("DM_SENT|" + messageId + "|" + targetUser.getId() + "|" + ProtocolHandler.encode(content) + "|" + ProtocolHandler.encode(timeStr));
+            // 2. Gửi phản hồi xác nhận cho người gửi (ACK kèm messageId và epochMs)
+            connection.send("DM_SENT|"
+                    + messageId + "|"
+                    + targetUser.getId() + "|"
+                    + ProtocolHandler.encode(targetUsername) + "|"
+                    + ProtocolHandler.encode(content) + "|"
+                    + epochMs);
             connection.send("PRIVATE_MESSAGE_SENT|" + targetUser.getId());
 
-            // 3. Tìm ClientHandler của đối phương theo username chuẩn hóa (chữ thường, thống nhất)
-            ClientHandler recipientHandler = server.getClientManager().getByUsername(targetUser.getUsername());
-            if (recipientHandler == null) {
-                recipientHandler = server.getClientManager().get(targetUser.getId());
-            }
+            // 3. Tìm ClientHandler của đối phương theo username chuẩn hóa (chữ thường) hoặc userId
+            ClientHandler recipientHandler = server.getClientManager().findClient(targetUser.getId(), targetUsername);
 
-            // 4. Nếu đối phương online -> gửi sự kiện thời gian thực
+            // 4. Nếu đối phương online -> gửi sự kiện thời gian thực DM_RECEIVED
             if (recipientHandler != null) {
                 String dmPacket = "DM_RECEIVED|"
                         + messageId + "|"
                         + user.getId() + "|"
-                        + ProtocolHandler.encode(user.getUsername()) + "|"
+                        + ProtocolHandler.encode(senderUsername) + "|"
                         + ProtocolHandler.encode(user.getDisplayName()) + "|"
                         + ProtocolHandler.encode(content) + "|"
-                        + ProtocolHandler.encode(timeStr);
+                        + epochMs + "|"
+                        + targetUser.getId() + "|"
+                        + ProtocolHandler.encode(targetUsername);
                 recipientHandler.connection.send(dmPacket);
-                // Gửi kèm NEW_PRIVATE_MESSAGE cho tương thích ngược
-                recipientHandler.connection.send("NEW_PRIVATE_MESSAGE|"
-                        + user.getId() + "|"
-                        + ProtocolHandler.encode(user.getDisplayName()) + "|"
-                        + ProtocolHandler.encode(content) + "|"
-                        + ProtocolHandler.encode(timeStr));
             }
         } catch (Exception e) {
             sendError(ProtocolErrorCode.BAD_REQUEST, "Lỗi xử lý gửi tin nhắn riêng: " + e.getMessage());
@@ -1208,23 +1208,24 @@ public class ClientHandler implements Runnable {
         int limit = parts.length >= 3 ? parseId(parts[2], "Giới hạn tin nhắn") : 50;
 
         var history = server.getDirectMessageDAO().getHistory(user.getId(), targetUserId, limit);
-        StringBuilder sb = new StringBuilder("DM_HISTORY|").append(targetUserId);
 
+        connection.send("DM_HISTORY_BEGIN|" + targetUserId);
         for (var m : history) {
-            sb.append('|')
-                    .append(m.id())
-                    .append(',')
-                    .append(m.senderId())
-                    .append(',')
-                    .append(ProtocolHandler.encode(m.senderDisplayName()))
-                    .append(',')
-                    .append(ProtocolHandler.encode(m.content()))
-                    .append(',')
-                    .append(ProtocolHandler.encode(m.sentAt() != null ? m.sentAt().toString() : ""))
-                    .append(',')
-                    .append(m.isRead() ? "READ" : "UNREAD");
+            long epochMs = m.sentAtEpochMs();
+            boolean isMine = (m.senderId() == user.getId());
+            String sUser = m.senderUsername() != null ? m.senderUsername().trim().toLowerCase() : "";
+            String sName = m.senderDisplayName() != null ? m.senderDisplayName() : "";
+
+            connection.send("DM_HISTORY_ITEM|"
+                    + m.id() + "|"
+                    + m.senderId() + "|"
+                    + ProtocolHandler.encode(sUser) + "|"
+                    + ProtocolHandler.encode(sName) + "|"
+                    + ProtocolHandler.encode(m.content()) + "|"
+                    + epochMs + "|"
+                    + (isMine ? "true" : "false"));
         }
-        connection.send(sb.toString());
+        connection.send("DM_HISTORY_END|" + targetUserId);
         server.getDirectMessageDAO().markAsRead(user.getId(), targetUserId);
     }
 

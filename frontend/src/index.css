@@ -3,6 +3,15 @@
 :root {
   --font-family: 'Inter', 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
   color-scheme: dark light;
+  --danger: #ED4245;
+  --tooltip-bg: #111214;
+  --tooltip-text: #FFFFFF;
+}
+
+:root[data-theme="light"] {
+  --danger: #DA373C;
+  --tooltip-bg: #111214;
+  --tooltip-text: #FFFFFF;
 }
 
 * {
@@ -11,9 +20,12 @@
   padding: 0;
 }
 
+html, body, #root {
+  height: 100%;
+}
+
 html, body {
   width: 100vw;
-  height: 100vh;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -29,7 +41,6 @@ html, body {
 
 #root {
   width: 100vw;
-  height: 100vh;
   display: flex;
   overflow: hidden;
   background-color: var(--bg-2);

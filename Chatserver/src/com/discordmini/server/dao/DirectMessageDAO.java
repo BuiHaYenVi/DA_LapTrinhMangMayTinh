@@ -22,7 +22,11 @@ public class DirectMessageDAO {
             String content,
             Timestamp sentAt,
             boolean isRead
-    ) {}
+    ) {
+        public long sentAtEpochMs() {
+            return sentAt != null ? sentAt.getTime() : System.currentTimeMillis();
+        }
+    }
 
     /**
      * Lưu một tin nhắn riêng vào cơ sở dữ liệu và trả về thông tin đầy đủ kèm messageId và thời gian.
