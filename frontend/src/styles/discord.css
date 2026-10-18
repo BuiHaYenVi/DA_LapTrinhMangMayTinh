@@ -1411,27 +1411,50 @@ body {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 12.5px;
   cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+  min-width: auto;
+  height: auto;
+  transition: all 0.15s ease;
 }
 
 .msg-edit-actions .btn-cancel:hover {
   text-decoration: underline;
+  background-color: var(--bg-hover);
+  color: var(--text-header);
+}
+
+.msg-edit-actions .btn-cancel:active {
+  transform: scale(0.95);
 }
 
 .msg-edit-actions .btn-primary {
   background-color: var(--accent);
   border: none;
-  border-radius: 4px;
-  color: var(--on-accent);
-  font-size: 12px;
+  border-radius: 6px;
+  color: #ffffff !important;
+  font-size: 12.5px;
   font-weight: 600;
-  padding: 4px 12px;
+  padding: 6px 14px;
+  min-width: auto;
+  height: auto;
   cursor: pointer;
+  box-shadow: 0 2px 6px rgba(88, 101, 242, 0.35);
+  transition: all 0.15s ease;
 }
 
 .msg-edit-actions .btn-primary:hover {
-  background-color: var(--accent-strong);
+  background-color: #4752c4;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(88, 101, 242, 0.45);
+}
+
+.msg-edit-actions .btn-primary:active {
+  background-color: #3c45a5;
+  transform: scale(0.95);
+  box-shadow: none;
 }
 
 /* Ô NHẬP TIN NHẮN Ở ĐÁY (CHUẨN DISCORD RỘNG RÃI) */
@@ -2841,50 +2864,85 @@ body {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: text-decoration 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-theme="light"] .discord-modal-btn-cancel {
+  color: #2e3035 !important;
 }
 
 .discord-modal-btn-cancel:hover:not(:disabled) {
   text-decoration: underline;
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}
+
+:root[data-theme="light"] .discord-modal-btn-cancel:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.discord-modal-btn-cancel:active:not(:disabled) {
+  transform: scale(0.95) translateY(1px);
 }
 
 .discord-modal-btn-cancel:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .discord-modal-btn-confirm {
   padding: 10px 24px;
   border: none;
   border-radius: 8px;
-  color: var(--on-accent);
+  color: #ffffff;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 .discord-modal-btn-confirm.danger {
   background-color: var(--accent-red);
   color: #ffffff;
+  box-shadow: 0 4px 14px rgba(218, 55, 60, 0.35);
 }
 
 .discord-modal-btn-confirm.danger:hover:not(:disabled) {
   background-color: #be2d32;
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 18px rgba(218, 55, 60, 0.45);
+}
+
+.discord-modal-btn-confirm.danger:active:not(:disabled) {
+  background-color: #a12428;
+  transform: scale(0.95) translateY(1px);
+  box-shadow: 0 2px 6px rgba(218, 55, 60, 0.25);
 }
 
 .discord-modal-btn-confirm.primary {
   background-color: var(--accent);
-  color: var(--on-accent);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(88, 101, 242, 0.35);
 }
 
 .discord-modal-btn-confirm.primary:hover:not(:disabled) {
-  background-color: var(--accent-strong);
+  background-color: #4752c4;
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 18px rgba(88, 101, 242, 0.45);
+}
+
+.discord-modal-btn-confirm.primary:active:not(:disabled) {
+  background-color: #3c45a5;
+  transform: scale(0.95) translateY(1px);
+  box-shadow: 0 2px 6px rgba(88, 101, 242, 0.25);
 }
 
 .discord-modal-btn-confirm:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* ========================================================
@@ -3332,34 +3390,58 @@ body {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  padding: 8px 16px;
-  border-radius: 4px;
-  transition: text-decoration 0.15s ease;
+  padding: 10px 20px;
+  border-radius: 8px;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.channel-btn-cancel:hover {
+:root[data-theme="light"] .channel-btn-cancel {
+  color: #2e3035 !important;
+}
+
+.channel-btn-cancel:hover:not(:disabled) {
   text-decoration: underline;
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}
+
+:root[data-theme="light"] .channel-btn-cancel:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.channel-btn-cancel:active:not(:disabled) {
+  transform: scale(0.95) translateY(1px);
 }
 
 .channel-btn-submit {
   background-color: var(--accent);
   border: none;
-  color: var(--on-accent);
+  color: #ffffff !important;
   font-size: 14px;
   font-weight: 600;
   padding: 10px 24px;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(88, 101, 242, 0.35);
 }
 
 .channel-btn-submit:hover:not(:disabled) {
-  background-color: var(--accent-strong);
+  background-color: #4752c4;
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 20px rgba(88, 101, 242, 0.45);
+}
+
+.channel-btn-submit:active:not(:disabled) {
+  background-color: #3c45a5;
+  transform: scale(0.95) translateY(1px);
+  box-shadow: 0 2px 6px rgba(88, 101, 242, 0.25);
 }
 
 .channel-btn-submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* ============================================================== */
