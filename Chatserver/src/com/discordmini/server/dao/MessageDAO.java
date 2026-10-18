@@ -4,7 +4,6 @@ import com.discordmini.server.model.Message;
 
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -57,14 +56,46 @@ public class MessageDAO {
     }
 
     /**
-     * Overload method lưu tin nhắn với tên hiển thị trực tiếp.
+     * Overload method lưu tin nhắn với tên hiển thị trực tiếp để giảm thiểu roundtrip query DB.
      */
     public Message save(int roomId, int senderId, String senderDisplayName, String content) {
-        Message msg = saveMessage(roomId, senderId, content);
-        if (msg != null && senderDisplayName != null && !senderDisplayName.isBlank()) {
-            msg.setSender(senderDisplayName);
+        if (content == null || content.isBlank()) return null;
+
+        String name = (senderDisplayName != null && !senderDisplayName.isBlank()) ? senderDisplayName : null;
+        String insertSql = "INSERT INTO messages (room_id, sender_id, content) VALUES (?, ?, ?) RETURNING id, sent_at";
+
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            if (name == null) {
+                String fetchSenderSql = "SELECT display_name FROM users WHERE id = ?";
+                try (PreparedStatement senderPs = conn.prepareStatement(fetchSenderSql)) {
+                    senderPs.setInt(1, senderId);
+                    try (ResultSet sRs = senderPs.executeQuery()) {
+                        if (sRs.next()) {
+                            name = sRs.getString("display_name");
+                        }
+                    }
+                }
+            }
+            if (name == null) name = "User#" + senderId;
+
+            try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+                ps.setInt(1, roomId);
+                ps.setInt(2, senderId);
+                ps.setString(3, content.trim());
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        int id = rs.getInt("id");
+                        Timestamp ts = rs.getTimestamp("sent_at");
+                        String timeStr = ts != null ? ts.toString() : "";
+                        return new Message(id, roomId, senderId, name, content.trim(), timeStr);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[MessageDAO ERROR] Lỗi save (roomID=" + roomId + ", senderID=" + senderId + "): " + e.getMessage());
         }
-        return msg;
+        return null;
     }
 
     /**

@@ -1,5 +1,53 @@
+# ==========================================
+# GITIGNORE CHUẨN ĐỒ ÁN LẬP TRÌNH MẠNG
+# Dự án: Discord Mini (Java TCP Socket & Swing)
+# ==========================================
+
+# 1. NetBeans Build & Private Config
 build/
+**/build/
 dist/
+**/dist/
 nbproject/private/
+**/nbproject/private/
+nbbuild/
+nbdist/
+
+# 2. Java Compiled & Binary Artifacts (Quy chế: cấm commit file nhị phân lớn)
 *.class
 *.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.7z
+
+# 3. IDE & Editor Configs (Quy chế: cấm commit .idea, .vscode)
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.code-workspace
+.settings/
+.project
+.classpath
+
+# 4. Node / Frontend dependencies & caches
+node_modules/
+**/node_modules/
+frontend/dist/
+frontend/.oxlint_cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 5. OS & Temporary Files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.tmp
+*.bak
+*.swp
+*~

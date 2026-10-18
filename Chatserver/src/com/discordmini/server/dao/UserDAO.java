@@ -46,17 +46,18 @@ public class UserDAO {
                 }
             }
 
-            // Chèn tài khoản mới
+            // Chèn tài khoản mới với mật khẩu đã băm PBKDF2
+            String hashedPassword = com.discordmini.server.security.PasswordUtil.hashPassword(password);
             try (PreparedStatement insertPs = conn.prepareStatement(insertSql)) {
                 insertPs.setString(1, username.trim());
-                insertPs.setString(2, password);
+                insertPs.setString(2, hashedPassword);
                 insertPs.setString(3, (displayName == null || displayName.isBlank()) ? username.trim() : displayName.trim());
 
                 try (ResultSet rs = insertPs.executeQuery()) {
                     if (rs.next()) {
                         int id = rs.getInt("id");
                         Timestamp createdAt = rs.getTimestamp("created_at");
-                        return new User(id, username.trim(), password, displayName, "OFFLINE", createdAt);
+                        return new User(id, username.trim(), hashedPassword, displayName, "OFFLINE", createdAt);
                     }
                 }
             }
@@ -68,37 +69,61 @@ public class UserDAO {
 
     /**
      * Xác thực đăng nhập với username và password.
+     * Sử dụng PasswordUtil hỗ trợ cả PBKDF2 và tự động nâng cấp plaintext cũ.
      */
     public User login(String username, String password) {
         if (username == null || password == null) return null;
 
-        String sql = "SELECT id, username, password, display_name, status, created_at FROM users WHERE LOWER(username) = LOWER(?) AND password = ?";
+        String sql = "SELECT id, username, password, display_name, status, created_at FROM users WHERE LOWER(username) = LOWER(?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             
             ps.setString(1, username.trim());
-            ps.setString(2, password);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    User user = new User(
-                        rs.getInt("id"),
-                        rs.getString("username"),
-                        rs.getString("password"),
-                        rs.getString("display_name"),
-                        rs.getString("status"),
-                        rs.getTimestamp("created_at")
-                    );
-                    // Cập nhật trạng thái thành ONLINE sau khi đăng nhập thành công
-                    updateUserStatus(user.getId(), "ONLINE");
-                    user.setStatus("ONLINE");
-                    return user;
+                    String storedPassword = rs.getString("password");
+                    if (com.discordmini.server.security.PasswordUtil.verifyPassword(password, storedPassword)) {
+                        int userId = rs.getInt("id");
+                        User user = new User(
+                            userId,
+                            rs.getString("username"),
+                            storedPassword,
+                            rs.getString("display_name"),
+                            rs.getString("status"),
+                            rs.getTimestamp("created_at")
+                        );
+                        // Tự động nâng cấp băm mật khẩu nếu tài khoản đang dùng plaintext cũ
+                        if (com.discordmini.server.security.PasswordUtil.needsRehash(storedPassword)) {
+                            updateUserPassword(userId, com.discordmini.server.security.PasswordUtil.hashPassword(password));
+                        }
+                        // Cập nhật trạng thái thành ONLINE sau khi đăng nhập thành công
+                        updateUserStatus(user.getId(), "ONLINE");
+                        user.setStatus("ONLINE");
+                        return user;
+                    }
                 }
             }
         } catch (SQLException e) {
             System.err.println("[UserDAO ERROR] Lỗi đăng nhập user '" + username + "': " + e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * Cập nhật mật khẩu mới (đã băm) cho tài khoản.
+     */
+    public boolean updateUserPassword(int userId, String newHashedPassword) {
+        String sql = "UPDATE users SET password = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newHashedPassword);
+            ps.setInt(2, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("[UserDAO ERROR] Lỗi cập nhật mật khẩu user (ID=" + userId + "): " + e.getMessage());
+            return false;
+        }
     }
 
     /**

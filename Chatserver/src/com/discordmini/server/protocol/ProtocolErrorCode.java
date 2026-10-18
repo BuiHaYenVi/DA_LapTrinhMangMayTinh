@@ -16,5 +16,7 @@ public enum ProtocolErrorCode {
     BAD_REQUEST,
     DATABASE_ERROR,
     INVALID_STATE,
-    INTERNAL_ERROR
+    INTERNAL_ERROR,
+    PERMISSION_DENIED,
+    USER_NOT_FOUND
 }
