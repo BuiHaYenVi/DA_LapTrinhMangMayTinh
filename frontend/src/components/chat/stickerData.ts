@@ -591,3 +591,28 @@ export function parseStickerToken(content: string): StickerItem | null {
     emoji: '✨'
   };
 }
+
+const STICKER_TOKEN_REGEX = /\[STICKER:([a-z0-9_-]+)(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/i;
+
+/**
+ * Tách nội dung tin nhắn thành text và sticker (nếu có)
+ * Giúp hiển thị text và sticker thành các khối độc lập riêng biệt, không bị dính chữ hay đè layout
+ */
+export function extractStickerFromContent(content: string): { text: string; sticker: StickerItem | null } {
+  if (!content) return { text: '', sticker: null };
+  const trimmed = content.trim();
+  const directSticker = parseStickerToken(trimmed);
+  if (directSticker) {
+    return { text: '', sticker: directSticker };
+  }
+
+  const match = STICKER_TOKEN_REGEX.exec(content);
+  if (!match) {
+    return { text: content, sticker: null };
+  }
+
+  const sticker = parseStickerToken(match[0]);
+  const text = content.replace(match[0], '').trim();
+  return { text, sticker };
+}
+

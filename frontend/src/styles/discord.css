@@ -1180,6 +1180,16 @@ body {
   transition: background-color 0.1s ease;
   margin-top: 14px;
   text-align: left;
+  flex-shrink: 0 !important;
+  box-sizing: border-box;
+}
+
+.discord-message-row.sticker-row,
+.dm-message-row.sticker-row {
+  min-height: 155px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  flex-shrink: 0 !important;
 }
 
 .discord-message-row:hover {
@@ -5660,6 +5670,8 @@ body {
   padding: 4px 16px;
   transition: background-color 0.1s ease;
   position: relative;
+  flex-shrink: 0 !important;
+  box-sizing: border-box;
 }
 .dm-message-row:hover {
   background-color: var(--bg-2);
@@ -6389,23 +6401,40 @@ body {
   line-height: 1.25;
 }
 
-/* Hiển thị nhãn dán Discord trong luồng tin nhắn (ảnh trong suốt, hiệu ứng hover, không bị đóng khung thô) */
-.discord-sticker-wrapper {
-  display: inline-flex;
+/* Khối bọc nội dung tin nhắn kết hợp text + sticker */
+.msg-payload-wrap {
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
-  margin: 6px 0;
+  gap: 8px;
+  width: 100%;
+}
+
+/* Hiển thị nhãn dán Discord trong luồng tin nhắn (ảnh trong suốt, hiệu ứng hover, khối độc lập không bị chèn ép) */
+.discord-sticker-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 6px 0 8px 0;
   position: relative;
   cursor: pointer;
   user-select: none;
+  width: fit-content;
+  max-width: 100%;
+  clear: both;
+  flex-shrink: 0 !important;
 }
 
 .discord-sticker-img {
   width: 135px;
   height: 135px;
+  min-width: 135px;
+  min-height: 135px;
   object-fit: contain;
+  display: block;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.32));
   transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  flex-shrink: 0;
 }
 
 .discord-sticker-wrapper:hover .discord-sticker-img {

@@ -5,7 +5,7 @@ import {
   Users, ArrowRight, Loader2, MessageSquare, PlusCircle, Smile, Bell, BellOff, Pin, X
 } from 'lucide-react';
 import { Logo } from './Logo';
-import { EmojiStickerPicker, QuickAttachMenu, parseStickerToken } from './chat/EmojiStickerPicker';
+import { EmojiStickerPicker, QuickAttachMenu, parseStickerToken, extractStickerFromContent } from './chat/EmojiStickerPicker';
 
 interface Props {
   currentRoom: Room | null;
@@ -125,7 +125,7 @@ function extractJoinedUser(content: string): string {
   return '';
 }
 
-// 5. Gom tin nhắn liên tiếp của cùng người trong vòng 5 phút
+// 5. Gom tin nhắn liên tiếp của cùng người trong vòng 5 phút (trừ khi có nhãn dán Sticker)
 function shouldGroupWithPrevious(
   current: MessageItem,
   previous: MessageItem | undefined,
@@ -136,6 +136,11 @@ function shouldGroupWithPrevious(
   if (current.senderId !== previous.senderId) return false;
   if (current.senderId === -1 || previous.senderId === -1) return false;
   if (curDateKey !== prevDateKey) return false;
+
+  // Nhãn dán (Sticker) luôn là khối media độc lập, không gộp thu gọn 24px để tránh đè chữ lên nhau
+  if (extractStickerFromContent(current.content).sticker || extractStickerFromContent(previous.content).sticker) {
+    return false;
+  }
 
   const tCur = new Date(current.timestamp?.replace(' ', 'T') || '').getTime();
   const tPrev = new Date(previous.timestamp?.replace(' ', 'T') || '').getTime();
@@ -551,8 +556,8 @@ export const ChatCenter: React.FC<Props> = ({
               }
 
               const isMyMsg = Boolean(msg.isMe || (currentUserId && Number(msg.senderId) === Number(currentUserId)));
-              const sticker = parseStickerToken(msg.content);
-              const canEdit = isMyMsg && msg.id > 0 && !sticker;
+              const { text: cleanText, sticker } = extractStickerFromContent(msg.content);
+              const canEdit = isMyMsg && msg.id > 0 && !sticker && Boolean(cleanText);
               const canDelete = (isMyMsg || isOwner || currentUserRole === 'OWNER' || currentUserRole === 'ADMIN') && msg.id > 0;
               const isPinned = currentPinnedIds.includes(msg.id);
 
@@ -566,7 +571,7 @@ export const ChatCenter: React.FC<Props> = ({
                   )}
 
                   <div 
-                    className={`discord-message-row ${isGrouped ? 'grouped' : ''} ${isPinned ? 'pinned-row' : ''}`}
+                    className={`discord-message-row ${isGrouped ? 'grouped' : ''} ${sticker ? 'sticker-row' : ''} ${isPinned ? 'pinned-row' : ''}`}
                     id={`msg-${msg.id}`}
                   >
                     {isGrouped ? (
@@ -616,30 +621,38 @@ export const ChatCenter: React.FC<Props> = ({
                             <button type="button" className="btn-primary" onClick={() => handleSaveEdit(msg.id)}>Lưu (Enter)</button>
                           </div>
                         </div>
-                      ) : sticker ? (
-                        <div
-                          className="discord-sticker-wrapper"
-                          title={`${sticker.name} • ${sticker.type === 'animated' ? 'Nhãn dán Động' : 'Nhãn dán Tĩnh'}`}
-                        >
-                          <img
-                            src={sticker.url}
-                            alt={sticker.name}
-                            className={`discord-sticker-img ${sticker.type === 'animated' ? 'animated' : 'static'}`}
-                            loading="lazy"
-                          />
-                          <div className="discord-sticker-caption">
-                            <span>{sticker.name}</span>
-                            {sticker.type === 'animated' ? (
-                              <span className="sticker-badge-gif">GIF</span>
-                            ) : (
-                              <span className="sticker-badge-static">TĨNH</span>
-                            )}
-                          </div>
-                        </div>
                       ) : (
-                        <div className="msg-body">
-                          {msg.content}
-                          {msg.isEdited && <span className="edited-badge" title="Tin nhắn đã chỉnh sửa">(đã chỉnh sửa)</span>}
+                        <div className="msg-payload-wrap">
+                          {/* Nội dung text nếu có */}
+                          {cleanText ? (
+                            <div className="msg-body">
+                              {cleanText}
+                              {msg.isEdited && <span className="edited-badge" title="Tin nhắn đã chỉnh sửa">(đã chỉnh sửa)</span>}
+                            </div>
+                          ) : null}
+
+                          {/* Nhãn dán Sticker luôn render thành một khối block độc lập */}
+                          {sticker ? (
+                            <div
+                              className="discord-sticker-wrapper"
+                              title={`${sticker.name} • ${sticker.type === 'animated' ? 'Nhãn dán Động' : 'Nhãn dán Tĩnh'}`}
+                            >
+                              <img
+                                src={sticker.url}
+                                alt={sticker.name}
+                                className={`discord-sticker-img ${sticker.type === 'animated' ? 'animated' : 'static'}`}
+                                loading="lazy"
+                              />
+                              <div className="discord-sticker-caption">
+                                <span>{sticker.name}</span>
+                                {sticker.type === 'animated' ? (
+                                  <span className="sticker-badge-gif">GIF</span>
+                                ) : (
+                                  <span className="sticker-badge-static">TĨNH</span>
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                       )}
                     </div>

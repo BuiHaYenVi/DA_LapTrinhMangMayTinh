@@ -5,11 +5,12 @@ import {
   STICKER_LIST, 
   type StickerItem, 
   formatStickerToken, 
-  parseStickerToken 
+  parseStickerToken,
+  extractStickerFromContent
 } from './stickerData';
 
 export type { StickerItem };
-export { formatStickerToken, parseStickerToken, STICKER_LIST };
+export { formatStickerToken, parseStickerToken, extractStickerFromContent, STICKER_LIST };
 export const STICKER_PACK = STICKER_LIST;
 
 export const EMOJI_CATEGORIES: { id: string; name: string; icon: string; emojis: string[] }[] = [

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import type { MessageItem } from '../../types/chat';
 import { RotateCw, Edit3, Trash2 } from 'lucide-react';
 import { formatDateLabel, getDateKey, shouldGroupWithPrevious, formatTime } from './chatShared';
-import { parseStickerToken } from './EmojiStickerPicker';
+import { extractStickerFromContent } from './EmojiStickerPicker';
 
 interface Props {
   messages: MessageItem[];
@@ -94,8 +94,8 @@ export const ChatMessageList: React.FC<Props> = ({
 
           const isPending = msg.id < 0 || msg.status === 'sending';
           const isFailed = msg.status === 'failed';
-          const canModify = isMe && msg.id > 0 && !isPending;
-          const sticker = parseStickerToken(msg.content);
+          const { text: cleanText, sticker } = extractStickerFromContent(msg.content);
+          const canModify = isMe && msg.id > 0 && !isPending && !sticker && Boolean(cleanText);
 
           return (
             <React.Fragment key={msg.id || `${curDateKey}-${index}`}>
@@ -110,7 +110,7 @@ export const ChatMessageList: React.FC<Props> = ({
 
               {/* Từng mục tin nhắn */}
               <div 
-                className={`dm-message-row ${isGrouped ? 'grouped' : ''} ${isMe ? 'mine' : ''} ${isPending ? 'pending' : ''} ${isFailed ? 'failed' : ''}`}
+                className={`dm-message-row ${isGrouped ? 'grouped' : ''} ${sticker ? 'sticker-row' : ''} ${isMe ? 'mine' : ''} ${isPending ? 'pending' : ''} ${isFailed ? 'failed' : ''}`}
               >
                 {!isGrouped ? (
                   <div className="msg-avatar-col">
@@ -153,30 +153,36 @@ export const ChatMessageList: React.FC<Props> = ({
                         <button type="button" className="btn-primary" onClick={() => handleSaveEdit(msg.id)}>Lưu (Enter)</button>
                       </div>
                     </div>
-                  ) : sticker ? (
-                    <div
-                      className="discord-sticker-wrapper"
-                      title={`${sticker.name} • ${sticker.type === 'animated' ? 'Nhãn dán Động' : 'Nhãn dán Tĩnh'}`}
-                    >
-                      <img
-                        src={sticker.url}
-                        alt={sticker.name}
-                        className={`discord-sticker-img ${sticker.type === 'animated' ? 'animated' : 'static'}`}
-                        loading="lazy"
-                      />
-                      <div className="discord-sticker-caption">
-                        <span>{sticker.name}</span>
-                        {sticker.type === 'animated' ? (
-                          <span className="sticker-badge-gif">GIF</span>
-                        ) : (
-                          <span className="sticker-badge-static">TĨNH</span>
-                        )}
-                      </div>
-                    </div>
                   ) : (
-                    <div className="msg-text-content">
-                      {msg.content}
-                      {msg.isEdited && <span className="edited-badge">(đã chỉnh sửa)</span>}
+                    <div className="msg-payload-wrap">
+                      {cleanText ? (
+                        <div className="msg-text-content">
+                          {cleanText}
+                          {msg.isEdited && <span className="edited-badge">(đã chỉnh sửa)</span>}
+                        </div>
+                      ) : null}
+
+                      {sticker ? (
+                        <div
+                          className="discord-sticker-wrapper"
+                          title={`${sticker.name} • ${sticker.type === 'animated' ? 'Nhãn dán Động' : 'Nhãn dán Tĩnh'}`}
+                        >
+                          <img
+                            src={sticker.url}
+                            alt={sticker.name}
+                            className={`discord-sticker-img ${sticker.type === 'animated' ? 'animated' : 'static'}`}
+                            loading="lazy"
+                          />
+                          <div className="discord-sticker-caption">
+                            <span>{sticker.name}</span>
+                            {sticker.type === 'animated' ? (
+                              <span className="sticker-badge-gif">GIF</span>
+                            ) : (
+                              <span className="sticker-badge-static">TĨNH</span>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   )}
 

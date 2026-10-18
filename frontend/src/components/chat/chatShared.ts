@@ -1,4 +1,5 @@
 import type { MessageItem } from '../../types/chat';
+import { extractStickerFromContent } from './stickerData';
 
 /**
  * Phân tích an toàn mốc thời gian từ epoch ms (số hoặc chuỗi) hoặc chuỗi legacy.
@@ -115,6 +116,7 @@ export function formatDateLabel(rawTime?: string | number | null): string {
  * - Cùng người gửi
  * - Cùng ngày
  * - Khoảng cách thời gian không quá 5 phút (300.000 ms)
+ * - Không phải tin nhắn nhãn dán Sticker
  */
 export function shouldGroupWithPrevious(
   current: MessageItem,
@@ -126,6 +128,11 @@ export function shouldGroupWithPrevious(
   if (current.senderId !== previous.senderId) return false;
   if (current.senderId === -1 || previous.senderId === -1) return false;
   if (curDateKey !== prevDateKey) return false;
+
+  // Nhãn dán (Sticker) luôn là khối media độc lập, không gộp thu gọn để tránh đè chữ
+  if (extractStickerFromContent(current.content).sticker || extractStickerFromContent(previous.content).sticker) {
+    return false;
+  }
 
   const tCur = parseDate(current.timestamp).getTime();
   const tPrev = parseDate(previous.timestamp).getTime();
