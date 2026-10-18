@@ -3,6 +3,57 @@ import type { Room } from '../../types/chat';
 import { RailTooltip } from './RailTooltip';
 import type { ContextMenuPosition } from './RoomContextMenu';
 
+export const ROOM_CUSTOM_STORAGE_KEY = 'discord_mini_room_custom_v1';
+
+export interface RoomCustomStyle {
+  icon?: string;
+  color?: string;
+}
+
+export const ROOM_ICON_PRESETS = ['', '🚀', '🎮', '💻', '📚', '🎵', '🔥', '💎', '🌟', '☕', '🏆', '🎨'];
+export const ROOM_COLOR_PRESETS = [
+  '',
+  '#5865F2',
+  '#23A55A',
+  '#EB459E',
+  '#F59E0B',
+  '#ED4245',
+  '#8B5CF6',
+  '#0EA5E9'
+];
+
+export function getRoomCustomStyle(roomId?: number, roomName?: string): RoomCustomStyle {
+  try {
+    const raw = localStorage.getItem(ROOM_CUSTOM_STORAGE_KEY);
+    if (!raw) return {};
+    const map = JSON.parse(raw) as Record<string, RoomCustomStyle>;
+    if (roomId && map[`id_${roomId}`]) return map[`id_${roomId}`];
+    if (roomName && map[`name_${roomName.trim().toLowerCase()}`]) {
+      return map[`name_${roomName.trim().toLowerCase()}`];
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+export function saveRoomCustomStyle(roomId: number | undefined, roomName: string, style: RoomCustomStyle): void {
+  try {
+    const raw = localStorage.getItem(ROOM_CUSTOM_STORAGE_KEY);
+    const map: Record<string, RoomCustomStyle> = raw ? JSON.parse(raw) : {};
+    if (roomId && roomId > 0) {
+      map[`id_${roomId}`] = style;
+    }
+    if (roomName && roomName.trim()) {
+      map[`name_${roomName.trim().toLowerCase()}`] = style;
+    }
+    localStorage.setItem(ROOM_CUSTOM_STORAGE_KEY, JSON.stringify(map));
+    window.dispatchEvent(new CustomEvent('room_custom_updated'));
+  } catch {
+    // ignore
+  }
+}
+
 interface Props {
   room: Room;
   isSelected: boolean;
@@ -16,7 +67,6 @@ interface Props {
  * Trích xuất ký tự hiển thị trong nút phòng:
  * - Tối đa 2 ký tự đầu của 2 từ đầu tiên (viết hoa). Ví dụ: "Học tập" -> "HT", "Phòng chat" -> "PC"
  * - Nếu tên bắt đầu bằng emoji thì CHỈ hiện emoji đó.
- * - An toàn với emoji và ký tự Unicode đa byte qua Array.from.
  */
 export function getRoomAcronym(name?: string): string {
   if (!name || !name.trim()) return '?';
@@ -24,12 +74,10 @@ export function getRoomAcronym(name?: string): string {
   const chars = Array.from(trimmed);
   const firstChar = chars[0];
 
-  // Kiểm tra nếu ký tự đầu là emoji / Extended_Pictographic
   if (/\p{Extended_Pictographic}/u.test(firstChar)) {
     return firstChar;
   }
 
-  // Tách từ theo khoảng trắng
   const words = trimmed.split(/\s+/).filter(Boolean);
   if (words.length >= 2) {
     const c1 = Array.from(words[0])[0]?.toUpperCase() || '';
@@ -55,16 +103,15 @@ export const RoomRailItem: React.FC<Props> = ({
 }) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const hasUnread = unreadCount > 0 && !isMuted;
-  const acronym = getRoomAcronym(room.name);
+  const customStyle = getRoomCustomStyle(room.id, room.name);
+  const acronym = customStyle.icon || getRoomAcronym(room.name);
 
-  // Xử lý mở context menu bằng chuột phải
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     onContextMenu(room, { x: e.clientX, y: e.clientY });
   };
 
-  // Hỗ trợ mở menu bằng bàn phím: phím Menu (ContextMenu) hoặc Shift+F10
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
       e.preventDefault();
@@ -78,7 +125,6 @@ export const RoomRailItem: React.FC<Props> = ({
 
   return (
     <div className={`rail-item-wrapper ${isSelected ? 'active' : ''} ${hasUnread ? 'has-unread' : ''}`}>
-      {/* Vạch chỉ báo mép trái (Pill Marker): 0px / 8px unread / 20px hover / 40px active */}
       <span className="rail-pill-marker" aria-hidden="true" />
 
       <RailTooltip text={room.name}>
@@ -86,6 +132,7 @@ export const RoomRailItem: React.FC<Props> = ({
           ref={buttonRef}
           type="button"
           className={`rail-btn room-rail-btn ${isSelected ? 'active' : ''}`}
+          style={customStyle.color ? { backgroundColor: customStyle.color, color: '#ffffff' } : undefined}
           onClick={(e) => {
             (e.currentTarget as HTMLElement).blur();
             onSelect(room);
@@ -95,9 +142,10 @@ export const RoomRailItem: React.FC<Props> = ({
           aria-label={`Phòng ${room.name}`}
           aria-current={isSelected ? 'true' : undefined}
         >
-          <span className="room-acronym">{acronym}</span>
+          <span className="room-acronym" style={customStyle.icon ? { fontSize: '20px' } : undefined}>
+            {acronym}
+          </span>
 
-          {/* Huy hiệu tin chưa đọc (chỉ hiện khi có tin và phòng không bị tắt âm) */}
           {hasUnread && (
             <span className="rail-unread-badge" aria-label={`${unreadCount} tin chưa đọc`}>
               {unreadCount > 99 ? '99+' : unreadCount}

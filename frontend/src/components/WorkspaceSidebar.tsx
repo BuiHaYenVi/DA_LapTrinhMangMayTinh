@@ -21,6 +21,7 @@ interface Props {
   onOpenSettings?: (room: Room) => void;
   onCreateChannel?: (room: Room) => void;
   onLeaveRoom?: (room: Room) => void;
+  onDeleteRoom?: (room: Room) => void;
 }
 
 /**
@@ -43,7 +44,8 @@ export const WorkspaceSidebar: React.FC<Props> = ({
   onInvite = () => {},
   onOpenSettings,
   onCreateChannel,
-  onLeaveRoom = () => {}
+  onLeaveRoom = () => {},
+  onDeleteRoom
 }) => {
   return (
     <RoomRail
@@ -63,6 +65,7 @@ export const WorkspaceSidebar: React.FC<Props> = ({
       onOpenSettings={onOpenSettings}
       onCreateChannel={onCreateChannel}
       onLeaveRoom={onLeaveRoom}
+      onDeleteRoom={onDeleteRoom}
     />
   );
 };

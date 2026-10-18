@@ -43,5 +43,7 @@ public enum MessageType {
     CHANGE_PASSWORD,
     // Quản lý bạn bè & Tin nhắn riêng bổ sung
     FRIEND_REMOVE,
-    GET_DM_HISTORY
+    GET_DM_HISTORY,
+    EDIT_DM,
+    DELETE_DM
 }

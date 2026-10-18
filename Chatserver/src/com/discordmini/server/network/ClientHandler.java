@@ -116,6 +116,8 @@ public class ClientHandler implements Runnable {
                 case CHANGE_PASSWORD -> handleChangePassword(parts);
                 case FRIEND_REMOVE -> handleFriendRemove(parts);
                 case GET_DM_HISTORY -> handleGetDmHistory(parts);
+                case EDIT_DM -> handleEditDm(parts);
+                case DELETE_DM -> handleDeleteDm(parts);
             }
         } catch (Exception e) {
             sendError(
@@ -354,12 +356,26 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        // Không thực hiện join lại nếu client đang ở chính phòng đó.
+        // Nếu client đã ở trong chính phòng đó, đồng bộ lại dữ liệu kênh/lịch sử/thành viên thay vì báo lỗi
         if (currentRoomId != null && currentRoomId == roomId) {
-            sendError(
-                    ProtocolErrorCode.INVALID_STATE,
-                    "Bạn đang ở trong phòng này."
+            com.discordmini.server.model.Channel defCh = server.getRoomService().getDefaultChannel(roomId);
+            if (currentChannelId == null || currentChannelId <= 0) {
+                currentChannelId = (defCh != null) ? defCh.getId() : 0;
+            }
+            String defChName = (defCh != null) ? defCh.getName() : "chung";
+            connection.send(
+                    "OK|JOIN_ROOM|"
+                            + roomId
+                            + "|"
+                            + ProtocolHandler.encode(room.getName())
+                            + "|"
+                            + currentChannelId
+                            + "|"
+                            + ProtocolHandler.encode(defChName)
             );
+            sendChannels(roomId);
+            handleHistory(currentChannelId);
+            sendRoomMembers();
             return;
         }
 
@@ -479,20 +495,17 @@ public class ClientHandler implements Runnable {
         String content;
 
         // Cho phép định dạng SEND_MESSAGE|<channelId>|<content> hoặc SEND_MESSAGE|<content>
-        if (parts.length >= 2) {
+        if (parts.length >= 2 && !ProtocolHandler.REQUEST_ID_MARKER.equals(parts[1])) {
             String decodedPart1 = ProtocolHandler.decode(parts[1]).trim();
-            boolean isChannelId = false;
-            try {
-                int parsed = Integer.parseInt(decodedPart1);
-                targetChannelId = parsed;
-                isChannelId = true;
-            } catch (NumberFormatException ignored) {}
+            boolean hasSecondArg = parts.length >= 3 && !ProtocolHandler.REQUEST_ID_MARKER.equals(parts[2]);
 
-            if (isChannelId) {
-                if (parts.length >= 3 && !ProtocolHandler.REQUEST_ID_MARKER.equals(parts[2])) {
+            if (hasSecondArg) {
+                try {
+                    int parsed = Integer.parseInt(decodedPart1);
+                    targetChannelId = parsed;
                     content = ProtocolHandler.decode(parts[2]).trim();
-                } else {
-                    content = "";
+                } catch (NumberFormatException ignored) {
+                    content = decodedPart1;
                 }
             } else {
                 content = decodedPart1;
@@ -1184,11 +1197,44 @@ public class ClientHandler implements Runnable {
 
         connection.send("OK|INVITE_ROOM|" + roomId + "|" + targetUserId + "|" + ProtocolHandler.encode(targetUser.getDisplayName()));
 
-        // Thông báo cho phòng
-        broadcastRoom("SYSTEM|" + ProtocolHandler.encode(targetUser.getDisplayName() + " đã được " + user.getDisplayName() + " mời vào phòng."), true);
+        // Lưu thông báo hệ thống vào CSDL để không bị mất khi chuyển phòng rồi quay lại
+        int inviteChannelId = (currentRoomId != null && currentRoomId == roomId && currentChannelId != null && currentChannelId > 0)
+                ? currentChannelId : 0;
+        if (inviteChannelId <= 0) {
+            com.discordmini.server.model.Channel def = server.getRoomService().getDefaultChannel(roomId);
+            if (def != null) {
+                inviteChannelId = def.getId();
+            }
+        }
+        String sysText = "🔔 " + targetUser.getDisplayName() + " đã được " + user.getDisplayName() + " mời vào phòng.";
+        Message sysMsg = server.getMessageDAO().saveSystemMessage(roomId, inviteChannelId, sysText);
+
+        // Phát tin nhắn thông báo cho đúng phòng được mời
+        java.util.Set<ClientHandler> roomClients = new java.util.HashSet<>(server.getRoomManager().clientsIn(roomId));
+        if (currentRoomId != null && currentRoomId == roomId) {
+            roomClients.add(this);
+        }
+        if (sysMsg != null) {
+            String packet = "NEW_MESSAGE|"
+                    + sysMsg.getId() + "|"
+                    + sysMsg.getRoomId() + "|"
+                    + sysMsg.getChannelId() + "|"
+                    + ProtocolHandler.encode(sysMsg.getSender()) + "|"
+                    + ProtocolHandler.encode(sysMsg.getContent()) + "|"
+                    + ProtocolHandler.encode(sysMsg.getTimestamp()) + "|"
+                    + "NORMAL|"
+                    + sysMsg.getSenderId();
+            for (ClientHandler c : roomClients) {
+                c.connection.send(packet);
+            }
+        } else {
+            for (ClientHandler c : roomClients) {
+                c.connection.send("SYSTEM|" + ProtocolHandler.encode(targetUser.getDisplayName() + " đã được " + user.getDisplayName() + " mời vào phòng."));
+            }
+        }
 
         // Cập nhật lại danh sách thành viên cho tất cả các client đang xem phòng
-        for (ClientHandler c : server.getRoomManager().clientsIn(roomId)) {
+        for (ClientHandler c : roomClients) {
             c.sendRoomMembers();
         }
 
@@ -1478,10 +1524,80 @@ public class ClientHandler implements Runnable {
                     + ProtocolHandler.encode(sName) + "|"
                     + ProtocolHandler.encode(m.content()) + "|"
                     + epochMs + "|"
-                    + (isMine ? "true" : "false"));
+                    + (isMine ? "true" : "false") + "|"
+                    + (m.isEdited() ? "EDITED" : "NORMAL"));
         }
         connection.send("DM_HISTORY_END|" + targetUserId);
         server.getDirectMessageDAO().markAsRead(user.getId(), targetUserId);
+    }
+
+    private void handleEditDm(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 3);
+
+        long messageId;
+        try {
+            messageId = Long.parseLong(parts[1].trim());
+        } catch (NumberFormatException e) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "ID tin nhắn không hợp lệ.");
+            return;
+        }
+        String newContent = ProtocolHandler.decode(parts[2]).trim();
+        if (newContent.isBlank()) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Nội dung tin nhắn không được để trống.");
+            return;
+        }
+        if (newContent.length() > MAX_MESSAGE_LENGTH) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "Tin nhắn không được vượt quá 5000 ký tự.");
+            return;
+        }
+
+        int receiverId = server.getDirectMessageDAO().editMessage(messageId, user.getId(), newContent);
+        if (receiverId <= 0) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Không tìm thấy tin nhắn hoặc bạn không có quyền chỉnh sửa.");
+            return;
+        }
+
+        connection.send("OK|EDIT_DM|" + messageId);
+        String packet = "DM_EDITED|" + messageId + "|" + user.getId() + "|" + receiverId + "|" + ProtocolHandler.encode(newContent);
+        connection.send(packet);
+
+        User targetUser = server.getUserDAO().findById(receiverId);
+        String targetUsername = targetUser != null && targetUser.getUsername() != null ? targetUser.getUsername().trim().toLowerCase() : "";
+        ClientHandler recipientHandler = server.getClientManager().findClient(receiverId, targetUsername);
+        if (recipientHandler != null && recipientHandler != this) {
+            recipientHandler.connection.send(packet);
+        }
+    }
+
+    private void handleDeleteDm(String[] parts) {
+        requireLogin();
+        requireArgs(parts, 2);
+
+        long messageId;
+        try {
+            messageId = Long.parseLong(parts[1].trim());
+        } catch (NumberFormatException e) {
+            sendError(ProtocolErrorCode.BAD_REQUEST, "ID tin nhắn không hợp lệ.");
+            return;
+        }
+
+        int receiverId = server.getDirectMessageDAO().deleteMessage(messageId, user.getId());
+        if (receiverId <= 0) {
+            sendError(ProtocolErrorCode.PERMISSION_DENIED, "Không tìm thấy tin nhắn hoặc bạn không có quyền xóa.");
+            return;
+        }
+
+        connection.send("OK|DELETE_DM|" + messageId);
+        String packet = "DM_DELETED|" + messageId + "|" + user.getId() + "|" + receiverId;
+        connection.send(packet);
+
+        User targetUser = server.getUserDAO().findById(receiverId);
+        String targetUsername = targetUser != null && targetUser.getUsername() != null ? targetUser.getUsername().trim().toLowerCase() : "";
+        ClientHandler recipientHandler = server.getClientManager().findClient(receiverId, targetUsername);
+        if (recipientHandler != null && recipientHandler != this) {
+            recipientHandler.connection.send(packet);
+        }
     }
 
     private void handleFriendList() {

@@ -157,6 +157,8 @@ public class UiBridgeServer {
         server.createContext("/api/messages/delete", new DeleteMessageHandler());
         server.createContext("/api/messages/history", new HistoryPageHandler());
         server.createContext("/api/messages/private", new SendPrivateMessageHandler());
+        server.createContext("/api/messages/private/edit", new EditPrivateMessageHandler());
+        server.createContext("/api/messages/private/delete", new DeletePrivateMessageHandler());
         server.createContext("/api/messages/direct-history", new DirectHistoryHandler());
         server.createContext("/api/friends/request", new FriendRequestHandler());
         server.createContext("/api/friends/accept", new FriendAcceptHandler());
@@ -361,8 +363,18 @@ public class UiBridgeServer {
                         }
                         messageCache.clear();
                         channelCache.clear();
+                        Map<String, Object> roomObj = new HashMap<>();
+                        roomObj.put("id", currentRoomId);
+                        roomObj.put("name", currentRoomName);
+                        for (Map<String, Object> r : roomCache) {
+                            if (Objects.equals(r.get("id"), currentRoomId)) {
+                                if (r.get("description") != null) roomObj.put("description", r.get("description"));
+                                if (r.get("role") != null) roomObj.put("role", r.get("role"));
+                                break;
+                            }
+                        }
                         Map<String, Object> data = new HashMap<>();
-                        data.put("room", Map.of("id", currentRoomId, "name", currentRoomName));
+                        data.put("room", roomObj);
                         if (currentChannelId != null && currentChannelId > 0) {
                             Map<String, Object> defCh = new HashMap<>();
                             defCh.put("id", currentChannelId);
@@ -484,7 +496,7 @@ public class UiBridgeServer {
                         content = ProtocolHandler.decode(p[3]);
                         time = ProtocolHandler.decode(p[4]);
                     }
-                    if (sId <= 0 && sender.equalsIgnoreCase(displayName)) {
+                    if (sId == 0 && sender.equalsIgnoreCase(displayName)) {
                         sId = userId;
                     }
                     Map<String, Object> m = new HashMap<>();
@@ -497,7 +509,14 @@ public class UiBridgeServer {
                     m.put("isEdited", isEdited);
                     messageCache.add(m);
                 }
-                case "HISTORY_END" -> broadcastSse("HISTORY", Map.of("messages", messageCache));
+                case "HISTORY_END" -> {
+                    List<Map<String, Object>> historySnapshot = new ArrayList<>(messageCache);
+                    Map<String, Object> histPayload = new HashMap<>();
+                    histPayload.put("messages", historySnapshot);
+                    if (currentRoomId != null) histPayload.put("roomId", currentRoomId);
+                    if (currentChannelId != null) histPayload.put("channelId", currentChannelId);
+                    broadcastSse("HISTORY", histPayload);
+                }
                 case "HISTORY_PAGE_BEGIN" -> historyPageBuffer.clear();
                 case "HISTORY_PAGE_ITEM" -> {
                     int msgId = Integer.parseInt(p[1]);
@@ -506,7 +525,7 @@ public class UiBridgeServer {
                     String time = ProtocolHandler.decode(p[4]);
                     boolean isEdited = p.length >= 6 && "EDITED".equalsIgnoreCase(p[5]);
                     int sId = (p.length >= 7) ? parseSafeInt(p[6], 0) : 0;
-                    if (sId <= 0 && sender.equalsIgnoreCase(displayName)) {
+                    if (sId == 0 && sender.equalsIgnoreCase(displayName)) {
                         sId = userId;
                     }
                     Map<String, Object> m = new HashMap<>();
@@ -553,7 +572,7 @@ public class UiBridgeServer {
                         content = ProtocolHandler.decode(p[4]);
                         time = ProtocolHandler.decode(p[5]);
                     }
-                    if (sId <= 0 && sender.equalsIgnoreCase(displayName)) {
+                    if (sId == 0 && sender.equalsIgnoreCase(displayName)) {
                         sId = userId;
                     }
                     Map<String, Object> m = new HashMap<>();
@@ -654,6 +673,7 @@ public class UiBridgeServer {
                     String content = ProtocolHandler.decode(p[5]);
                     String sentAt = p.length > 6 ? p[6] : "";
                     boolean isMine = p.length >= 8 ? "true".equalsIgnoreCase(p[7]) : (sId == userId);
+                    boolean isEdited = p.length >= 9 && "EDITED".equalsIgnoreCase(p[8]);
 
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", msgId);
@@ -663,7 +683,7 @@ public class UiBridgeServer {
                     m.put("content", content);
                     m.put("sentAt", sentAt);
                     m.put("timestamp", sentAt);
-                    m.put("isEdited", false);
+                    m.put("isEdited", isEdited);
                     m.put("isDirect", true);
                     m.put("isMine", isMine);
                     dmHistoryBuffer.add(m);
@@ -673,6 +693,28 @@ public class UiBridgeServer {
                     List<Map<String, Object>> msgs = new ArrayList<>(dmHistoryBuffer);
                     dmHistoryBuffer.clear();
                     broadcastSse("DM_HISTORY", Map.of("targetUserId", targetId, "messages", msgs));
+                }
+                case "DM_EDITED" -> {
+                    long msgId = Long.parseLong(p[1]);
+                    int sId = Integer.parseInt(p[2]);
+                    int targetId = Integer.parseInt(p[3]);
+                    String newContent = ProtocolHandler.decode(p[4]);
+                    broadcastSse("DM_EDITED", Map.of(
+                            "messageId", msgId,
+                            "senderId", sId,
+                            "targetId", targetId,
+                            "content", newContent
+                    ));
+                }
+                case "DM_DELETED" -> {
+                    long msgId = Long.parseLong(p[1]);
+                    int sId = Integer.parseInt(p[2]);
+                    int targetId = Integer.parseInt(p[3]);
+                    broadcastSse("DM_DELETED", Map.of(
+                            "messageId", msgId,
+                            "senderId", sId,
+                            "targetId", targetId
+                    ));
                 }
                 case "DM_HISTORY" -> {
                     if (p.length > 1) {
@@ -937,7 +979,18 @@ public class UiBridgeServer {
                 }
                 case "ROOM_INVITATION" -> {
                     roomService.listRooms();
-                    broadcastSse("ROOM_INVITATION", Map.of("message", "Bạn vừa được mời vào một phòng mới."));
+                    int rId = p.length >= 2 ? parseSafeInt(p[1], 0) : 0;
+                    String rName = p.length >= 3 ? ProtocolHandler.decode(p[2]) : "";
+                    String inviter = p.length >= 4 ? ProtocolHandler.decode(p[3]) : "";
+                    String msg = !rName.isBlank()
+                            ? ("Bạn vừa được " + (inviter.isBlank() ? "mời" : inviter + " mời") + " vào phòng \"" + rName + "\".")
+                            : "Bạn vừa được mời vào một phòng mới.";
+                    broadcastSse("ROOM_INVITATION", Map.of(
+                            "roomId", rId,
+                            "roomName", rName,
+                            "inviterName", inviter,
+                            "message", msg
+                    ));
                 }
                 case "SYSTEM" -> {
                     String text = ProtocolHandler.decode(p[1]);
@@ -989,10 +1042,20 @@ public class UiBridgeServer {
                                     mem.put("displayName", newDName);
                                 }
                             }
+                            boolean friendUpdated = false;
+                            for (Map<String, Object> f : friendCache) {
+                                if (f.get("id") instanceof Number n && n.intValue() == uId) {
+                                    f.put("displayName", newDName);
+                                    friendUpdated = true;
+                                }
+                            }
                             if (this.userId == uId) {
                                 this.displayName = newDName;
                             }
                             broadcastSse("MEMBERS", Map.of("roomId", currentRoomId != null ? currentRoomId : 0, "members", memberCache));
+                            if (friendUpdated) {
+                                broadcastSse("FRIENDS", Map.of("friends", friendCache));
+                            }
                             broadcastSse("USER_PROFILE_UPDATED", Map.of("userId", uId, "displayName", newDName));
                         } catch (Exception ignored) {}
                     }
@@ -1578,7 +1641,21 @@ public class UiBridgeServer {
                     "displayName", session.displayName
             ));
             state.put("rooms", session.roomCache);
-            state.put("currentRoom", session.currentRoomId != null ? Map.of("id", session.currentRoomId, "name", session.currentRoomName) : null);
+            if (session.currentRoomId != null) {
+                Map<String, Object> curRoom = new HashMap<>();
+                curRoom.put("id", session.currentRoomId);
+                curRoom.put("name", session.currentRoomName);
+                for (Map<String, Object> r : session.roomCache) {
+                    if (Objects.equals(r.get("id"), session.currentRoomId)) {
+                        if (r.get("description") != null) curRoom.put("description", r.get("description"));
+                        if (r.get("role") != null) curRoom.put("role", r.get("role"));
+                        break;
+                    }
+                }
+                state.put("currentRoom", curRoom);
+            } else {
+                state.put("currentRoom", null);
+            }
             state.put("channels", session.channelCache);
             state.put("currentChannel", session.currentChannelId != null ? Map.of("id", session.currentChannelId, "name", session.currentChannelName, "roomId", session.currentRoomId != null ? session.currentRoomId : 0) : null);
             state.put("messages", session.messageCache);
@@ -2232,6 +2309,53 @@ public class UiBridgeServer {
                 Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
                 int messageId = ((Number) body.get("messageId")).intValue();
                 session.socketClient.sendCommand("DELETE_MESSAGE", String.valueOf(messageId));
+                sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class EditPrivateMessageHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                long messageId = body.get("messageId") instanceof Number n
+                        ? n.longValue()
+                        : Long.parseLong(String.valueOf(body.get("messageId")).trim());
+                String content = (String) body.get("content");
+                if (content != null && !content.isBlank()) {
+                    session.socketClient.sendCommand("EDIT_DM", String.valueOf(messageId), content.trim());
+                }
+                sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class DeletePrivateMessageHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                long messageId = body.get("messageId") instanceof Number n
+                        ? n.longValue()
+                        : Long.parseLong(String.valueOf(body.get("messageId")).trim());
+                session.socketClient.sendCommand("DELETE_DM", String.valueOf(messageId));
                 sendJson(exchange, 200, Map.of("success", true));
             }
         }

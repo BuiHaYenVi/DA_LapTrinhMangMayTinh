@@ -122,7 +122,10 @@ public class ChannelDAO {
 
         // Nếu không có 'chung', lấy kênh đầu tiên theo id tăng dần
         List<Channel> all = getChannelsByRoomId(roomId);
-        return all.isEmpty() ? null : all.get(0);
+        if (!all.isEmpty()) return all.get(0);
+
+        // Nếu phòng chưa có bất kỳ kênh nào (phòng cũ), tự động khởi tạo kênh mặc định 'chung'
+        return createChannel(roomId, "chung");
     }
 
     public boolean renameChannel(int channelId, String newName) {

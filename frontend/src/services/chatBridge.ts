@@ -412,6 +412,20 @@ class ChatBridgeService {
     });
   }
 
+  public async editDirectMessage(messageId: number, content: string): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/private/edit`, {
+      method: 'POST',
+      body: JSON.stringify({ messageId, content })
+    });
+  }
+
+  public async deleteDirectMessage(messageId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/private/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ messageId })
+    });
+  }
+
   public async loadMoreHistory(roomId: number, beforeId: number, limit = 25): Promise<void> {
     await this.fetchWithAuth(`${this.baseUrl}/messages/history`, {
       method: 'POST',

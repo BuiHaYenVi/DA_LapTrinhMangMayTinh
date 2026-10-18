@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import type { Room } from '../../types/chat';
 import { 
   CheckCheck, UserPlus, BellOff, Bell, 
-  Settings, Hash, LogOut 
+  Settings, Hash, LogOut, Trash2
 } from 'lucide-react';
 
 export interface ContextMenuPosition {
@@ -33,6 +33,7 @@ interface Props {
   onOpenSettings?: (room: Room) => void;
   onCreateChannel?: (room: Room) => void;
   onLeaveRoom: (room: Room) => void;
+  onDeleteRoom?: (room: Room) => void;
 }
 
 export const RoomContextMenu: React.FC<Props> = ({
@@ -48,18 +49,18 @@ export const RoomContextMenu: React.FC<Props> = ({
   onToggleMute,
   onOpenSettings,
   onCreateChannel,
-  onLeaveRoom
+  onLeaveRoom,
+  onDeleteRoom
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
 
-  // Chỉ hiện Cài đặt phòng và Tạo kênh cho chủ phòng hoặc vai trò ADMIN
-  const isManager = isOwner || currentUserRole === 'OWNER' || currentUserRole === 'ADMIN' || room.role === 'OWNER' || room.role === 'ADMIN';
+  const isRoomOwner = Boolean(isOwner || room.role === 'OWNER');
+  const isManager = Boolean(isRoomOwner || room.role === 'ADMIN' || currentUserRole === 'ADMIN');
 
-  // Định vị trí tránh tràn màn hình (Width 220px)
   const adjustedStyle = useMemo(() => {
     const menuWidth = 220;
-    const menuHeight = isManager ? 270 : 180;
+    const menuHeight = isManager ? 290 : 190;
     const margin = 12;
 
     let x = position.x;
@@ -81,7 +82,6 @@ export const RoomContextMenu: React.FC<Props> = ({
     };
   }, [position, isManager]);
 
-  // Danh sách các mục menu theo đúng yêu cầu
   const menuItems = useMemo<MenuItem[]>(() => {
     const items: MenuItem[] = [
       {
@@ -139,24 +139,36 @@ export const RoomContextMenu: React.FC<Props> = ({
       }
     }
 
-    items.push({
-      id: 'leave',
-      label: 'Rời phòng',
-      icon: <LogOut size={16} />,
-      danger: true,
-      onClick: () => {
-        onLeaveRoom(room);
-        onClose();
-      }
-    });
+    if (isRoomOwner && onDeleteRoom) {
+      items.push({
+        id: 'delete_room',
+        label: 'Xóa phòng',
+        icon: <Trash2 size={16} />,
+        danger: true,
+        onClick: () => {
+          onDeleteRoom(room);
+          onClose();
+        }
+      });
+    } else {
+      items.push({
+        id: 'leave',
+        label: 'Rời phòng',
+        icon: <LogOut size={16} />,
+        danger: true,
+        onClick: () => {
+          onLeaveRoom(room);
+          onClose();
+        }
+      });
+    }
 
     return items;
   }, [
-    room, unreadCount, isMuted, isManager,
-    onMarkAsRead, onInvite, onToggleMute, onOpenSettings, onCreateChannel, onLeaveRoom, onClose
+    room, unreadCount, isMuted, isManager, isRoomOwner,
+    onMarkAsRead, onInvite, onToggleMute, onOpenSettings, onCreateChannel, onLeaveRoom, onDeleteRoom, onClose
   ]);
 
-  // Xử lý phím: Esc đóng, ArrowUp / ArrowDown chuyển item, Enter chọn
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -167,19 +179,13 @@ export const RoomContextMenu: React.FC<Props> = ({
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setActiveIndex(prev => {
-          const next = prev + 1 >= menuItems.length ? 0 : prev + 1;
-          return next;
-        });
+        setActiveIndex(prev => (prev + 1 >= menuItems.length ? 0 : prev + 1));
         return;
       }
 
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setActiveIndex(prev => {
-          const next = prev - 1 < 0 ? menuItems.length - 1 : prev - 1;
-          return next;
-        });
+        setActiveIndex(prev => (prev - 1 < 0 ? menuItems.length - 1 : prev - 1));
         return;
       }
 
@@ -198,7 +204,6 @@ export const RoomContextMenu: React.FC<Props> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeIndex, menuItems, onClose]);
 
-  // Đóng khi nhấp ra ngoài
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -206,17 +211,30 @@ export const RoomContextMenu: React.FC<Props> = ({
       }
     };
 
+    const handleScrollOrResize = () => {
+      onClose();
+    };
+
     document.addEventListener('mousedown', handleMouseDown);
-    return () => document.removeEventListener('mousedown', handleMouseDown);
+    window.addEventListener('resize', handleScrollOrResize);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('resize', handleScrollOrResize);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+    };
   }, [onClose]);
 
   return (
-    <div 
-      className="rail-context-menu" 
-      ref={menuRef} 
+    <div
+      ref={menuRef}
+      className="rail-context-menu"
       style={adjustedStyle}
       role="menu"
       tabIndex={-1}
+      aria-label={`Tùy chọn phòng ${room.name}`}
+      onClick={(e) => e.stopPropagation()}
     >
       <div className="context-menu-header">
         <span className="context-menu-title">{room.name}</span>
@@ -224,72 +242,25 @@ export const RoomContextMenu: React.FC<Props> = ({
 
       <div className="context-menu-divider" />
 
-      {/* Nhóm 1: Thao tác thông thường */}
-      <button
-        type="button"
-        className={`context-menu-item ${menuItems[0]?.disabled ? 'disabled' : ''} ${activeIndex === 0 ? 'active' : ''}`}
-        disabled={menuItems[0]?.disabled}
-        onClick={menuItems[0]?.onClick}
-      >
-        <span className="context-item-icon">{menuItems[0]?.icon}</span>
-        <span>{menuItems[0]?.label}</span>
-      </button>
-
-      <button
-        type="button"
-        className={`context-menu-item ${activeIndex === 1 ? 'active' : ''}`}
-        onClick={menuItems[1]?.onClick}
-      >
-        <span className="context-item-icon">{menuItems[1]?.icon}</span>
-        <span>{menuItems[1]?.label}</span>
-      </button>
-
-      <button
-        type="button"
-        className={`context-menu-item ${activeIndex === 2 ? 'active' : ''}`}
-        onClick={menuItems[2]?.onClick}
-      >
-        <span className="context-item-icon">{menuItems[2]?.icon}</span>
-        <span>{menuItems[2]?.label}</span>
-      </button>
-
-      {/* Nhóm 2: Quyền quản trị (nếu có) */}
-      {isManager && (
-        <>
-          <div className="context-menu-divider" />
-          {menuItems.find(i => i.id === 'settings') && (
+      {menuItems.map((item, idx) => {
+        const showDividerBefore = item.id === 'settings' || item.id === 'leave' || item.id === 'delete_room';
+        return (
+          <React.Fragment key={item.id}>
+            {showDividerBefore && <div className="context-menu-divider" />}
             <button
               type="button"
-              className={`context-menu-item ${activeIndex === menuItems.findIndex(i => i.id === 'settings') ? 'active' : ''}`}
-              onClick={menuItems.find(i => i.id === 'settings')?.onClick}
+              role="menuitem"
+              disabled={item.disabled}
+              className={`context-menu-item ${item.disabled ? 'disabled' : ''} ${item.danger ? 'danger' : ''} ${activeIndex === idx ? 'active' : ''}`}
+              onMouseEnter={() => setActiveIndex(idx)}
+              onClick={item.onClick}
             >
-              <span className="context-item-icon"><Settings size={16} /></span>
-              <span>Cài đặt phòng</span>
+              <span className="context-item-icon">{item.icon}</span>
+              <span>{item.label}</span>
             </button>
-          )}
-          {menuItems.find(i => i.id === 'create_channel') && (
-            <button
-              type="button"
-              className={`context-menu-item ${activeIndex === menuItems.findIndex(i => i.id === 'create_channel') ? 'active' : ''}`}
-              onClick={menuItems.find(i => i.id === 'create_channel')?.onClick}
-            >
-              <span className="context-item-icon"><Hash size={16} /></span>
-              <span>Tạo kênh</span>
-            </button>
-          )}
-        </>
-      )}
-
-      {/* Nhóm 3: Rời phòng */}
-      <div className="context-menu-divider" />
-      <button
-        type="button"
-        className={`context-menu-item danger ${activeIndex === menuItems.length - 1 ? 'active' : ''}`}
-        onClick={menuItems[menuItems.length - 1]?.onClick}
-      >
-        <span className="context-item-icon"><LogOut size={16} /></span>
-        <span>Rời phòng</span>
-      </button>
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 };

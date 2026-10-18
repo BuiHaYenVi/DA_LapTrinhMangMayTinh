@@ -2,15 +2,23 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { Room, Channel, User, Friend, MessageItem } from '../types/chat';
 import { 
   Hash, Plus, Settings, ChevronDown, ChevronUp, LogOut, 
-  UserPlus, Users, MessageSquare, X 
+  UserPlus, Users, MessageSquare, X, Trash2
 } from 'lucide-react';
 import { formatTime } from './chat/chatShared';
+import {
+  ROOM_ICON_PRESETS,
+  ROOM_COLOR_PRESETS,
+  getRoomCustomStyle,
+  saveRoomCustomStyle
+} from './rail/RoomRailItem';
 
 interface Props {
   currentRoom: Room | null;
   channels: Channel[];
   currentChannel: Channel | null;
   currentUser: User | null;
+  currentUserRole?: string;
+  isOwner?: boolean;
   isDirectMessageMode: boolean;
   friends?: Friend[];
   pendingCount?: number;
@@ -33,6 +41,27 @@ interface Props {
   isServerMenuOpen?: boolean;
   onToggleServerMenu?: () => void;
   onCloseServerMenu?: () => void;
+  externalSettingsRoom?: Room | null;
+  onClearExternalSettingsRoom?: () => void;
+  externalDeleteRoom?: Room | null;
+  onClearExternalDeleteRoom?: () => void;
+}
+
+function getLocalUserStyle(): { avatarColor: string; avatarIcon: string; bio: string } {
+  try {
+    const raw = localStorage.getItem('discord_mini_user_settings_v2');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        avatarColor: parsed.avatarColor || '#5865F2',
+        avatarIcon: parsed.avatarIcon || '',
+        bio: parsed.bio || ''
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return { avatarColor: '#5865F2', avatarIcon: '', bio: '' };
 }
 
 export const RoomSidebar: React.FC<Props> = ({
@@ -40,6 +69,8 @@ export const RoomSidebar: React.FC<Props> = ({
   channels,
   currentChannel,
   currentUser,
+  currentUserRole,
+  isOwner = false,
   isDirectMessageMode,
   friends = [],
   pendingCount = 0,
@@ -61,16 +92,55 @@ export const RoomSidebar: React.FC<Props> = ({
   onLeaveRoom,
   isServerMenuOpen: propIsServerMenuOpen,
   onToggleServerMenu,
-  onCloseServerMenu
+  onCloseServerMenu,
+  externalSettingsRoom,
+  onClearExternalSettingsRoom,
+  externalDeleteRoom,
+  onClearExternalDeleteRoom
 }) => {
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [roomIcon, setRoomIcon] = useState('');
+  const [roomColor, setRoomColor] = useState('');
+  const [confirmDeleteRoom, setConfirmDeleteRoom] = useState<Room | null>(null);
+
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [channelNewName, setChannelNewName] = useState('');
   const [hiddenFriendMap, setHiddenFriendMap] = useState<Record<number, number>>({});
   const [localServerMenuOpen, setLocalServerMenuOpen] = useState(false);
+  const [userStyle, setUserStyle] = useState(getLocalUserStyle);
+
   const isServerMenuOpen = propIsServerMenuOpen !== undefined ? propIsServerMenuOpen : localServerMenuOpen;
+
+  useEffect(() => {
+    const syncStyle = () => setUserStyle(getLocalUserStyle());
+    window.addEventListener('user_settings_updated', syncStyle);
+    window.addEventListener('storage', syncStyle);
+    return () => {
+      window.removeEventListener('user_settings_updated', syncStyle);
+      window.removeEventListener('storage', syncStyle);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (externalSettingsRoom) {
+      const style = getRoomCustomStyle(externalSettingsRoom.id, externalSettingsRoom.name);
+      setEditingRoom(externalSettingsRoom);
+      setNewName(externalSettingsRoom.name);
+      setNewDesc(externalSettingsRoom.description || '');
+      setRoomIcon(style.icon || '');
+      setRoomColor(style.color || '');
+      onClearExternalSettingsRoom?.();
+    }
+  }, [externalSettingsRoom, onClearExternalSettingsRoom]);
+
+  useEffect(() => {
+    if (externalDeleteRoom) {
+      setConfirmDeleteRoom(externalDeleteRoom);
+      onClearExternalDeleteRoom?.();
+    }
+  }, [externalDeleteRoom, onClearExternalDeleteRoom]);
 
   const toggleServerMenu = () => {
     if (onToggleServerMenu) {
@@ -90,7 +160,6 @@ export const RoomSidebar: React.FC<Props> = ({
 
   const serverMenuRef = useRef<HTMLDivElement>(null);
 
-  // Đóng Server Menu khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (serverMenuRef.current && !serverMenuRef.current.contains(event.target as Node)) {
@@ -105,16 +174,24 @@ export const RoomSidebar: React.FC<Props> = ({
     };
   }, [isServerMenuOpen]);
 
-  const openSettings = (room: Room, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const openSettings = (room: Room, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const style = getRoomCustomStyle(room.id, room.name);
     setEditingRoom(room);
     setNewName(room.name);
     setNewDesc(room.description || '');
+    setRoomIcon(style.icon || '');
+    setRoomColor(style.color || '');
     closeServerMenu();
   };
 
   const handleSaveSettings = () => {
     if (!editingRoom) return;
+    const finalName = newName.trim() || editingRoom.name;
+    saveRoomCustomStyle(editingRoom.id, finalName, {
+      icon: roomIcon || undefined,
+      color: roomColor || undefined
+    });
     if (newName.trim() && newName.trim() !== editingRoom.name && onRenameRoom) {
       onRenameRoom(editingRoom.id, newName.trim());
     }
@@ -126,10 +203,17 @@ export const RoomSidebar: React.FC<Props> = ({
 
   const handleDelete = () => {
     if (!editingRoom) return;
-    if (onDeleteRoom) {
-      onDeleteRoom(editingRoom.id);
-    }
+    const target = editingRoom;
     setEditingRoom(null);
+    setConfirmDeleteRoom(target);
+  };
+
+  const executeConfirmDelete = () => {
+    if (!confirmDeleteRoom) return;
+    if (onDeleteRoom) {
+      onDeleteRoom(confirmDeleteRoom.id);
+    }
+    setConfirmDeleteRoom(null);
   };
 
   const openChannelSettings = (channel: Channel, e: React.MouseEvent) => {
@@ -154,9 +238,54 @@ export const RoomSidebar: React.FC<Props> = ({
     setEditingChannel(null);
   };
 
-  const isManager = currentRoom?.role === 'OWNER' || currentRoom?.role === 'ADMIN';
+  const effectiveRole = currentRoom?.role || currentUserRole;
+  const isRoomOwner = Boolean(isOwner || effectiveRole === 'OWNER');
+  const isManager = Boolean(isRoomOwner || effectiveRole === 'ADMIN');
 
-  // 1. GIAO DIỆN CHẾ ĐỘ TIN NHẮN TRỰC TIẾP (Khi click vào logo ứng dụng ở đầu Cột 1)
+  const userAvatarChar = userStyle.avatarIcon || (currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U');
+
+  const renderUserProfileBar = () => (
+    <div className="user-profile-bar">
+      <div className="user-avatar-wrap">
+        <div
+          className="user-avatar-circle"
+          style={{
+            background: userStyle.avatarColor || 'var(--accent)',
+            fontSize: userStyle.avatarIcon ? '16px' : undefined
+          }}
+        >
+          {userAvatarChar}
+        </div>
+        <div className="status-dot" title="Trực tuyến" />
+      </div>
+
+      <div className="user-info">
+        <div 
+          className="name" 
+          title={currentUser?.displayName || currentUser?.username || 'Người dùng'}
+        >
+          {currentUser?.displayName || currentUser?.username || 'Người dùng'}
+        </div>
+        <div className="status" title={userStyle.bio || 'Trực tuyến'}>
+          {userStyle.bio ? userStyle.bio : 'Trực tuyến'}
+        </div>
+      </div>
+
+      <div className="user-profile-actions">
+        <button
+          type="button"
+          className="user-action-btn"
+          title="Cài đặt người dùng"
+          onClick={onOpenSettings}
+          aria-label="Cài đặt người dùng"
+        >
+          <Settings size={18} />
+        </button>
+      </div>
+    </div>
+  );
+
+  // 1. GIAO DIỆN CHẾ ĐỘ TIN NHẮN TRỰC TIẾP
   if (isDirectMessageMode) {
     return (
       <div className="room-sidebar">
@@ -272,7 +401,6 @@ export const RoomSidebar: React.FC<Props> = ({
                       </div>
                     </div>
 
-                    {/* Nút "×" hiện khi hover để ẩn hội thoại khỏi danh sách */}
                     <button
                       type="button"
                       className="dm-conv-close-btn"
@@ -295,37 +423,7 @@ export const RoomSidebar: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* User Profile Bar ở đáy */}
-        <div className="user-profile-bar">
-          <div className="user-avatar-wrap">
-            <div className="user-avatar-circle">
-              {currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
-            </div>
-            <div className="status-dot" title="Trực tuyến" />
-          </div>
-
-          <div className="user-info">
-            <div 
-              className="name" 
-              title={currentUser?.displayName || currentUser?.username || 'Người dùng'}
-            >
-              {currentUser?.displayName || currentUser?.username || 'Người dùng'}
-            </div>
-            <div className="status" title="Trực tuyến">Trực tuyến</div>
-          </div>
-
-          <div className="user-profile-actions">
-            <button
-              type="button"
-              className="user-action-btn"
-              title="Cài đặt người dùng"
-              onClick={onOpenSettings}
-              aria-label="Cài đặt người dùng"
-            >
-              <Settings size={18} />
-            </button>
-          </div>
-        </div>
+        {renderUserProfileBar()}
       </div>
     );
   }
@@ -392,17 +490,30 @@ export const RoomSidebar: React.FC<Props> = ({
               </div>
             )}
 
-            {onLeaveRoom && (
+            {isRoomOwner ? (
               <div 
                 className="dropdown-item danger" 
                 onClick={() => {
                   closeServerMenu();
-                  onLeaveRoom();
+                  setConfirmDeleteRoom(currentRoom);
                 }}
               >
-                <span>Rời khỏi phòng</span>
-                <LogOut size={16} />
+                <span>Xóa phòng</span>
+                <Trash2 size={16} />
               </div>
+            ) : (
+              onLeaveRoom && (
+                <div 
+                  className="dropdown-item danger" 
+                  onClick={() => {
+                    closeServerMenu();
+                    onLeaveRoom();
+                  }}
+                >
+                  <span>Rời khỏi phòng</span>
+                  <LogOut size={16} />
+                </div>
+              )
             )}
           </div>
         )}
@@ -414,9 +525,9 @@ export const RoomSidebar: React.FC<Props> = ({
           <>
             <div className="section-title">
               <span>▾ KÊNH CHAT</span>
-              {/* Nút "+" cạnh KÊNH CHAT chỉ cho phép chủ phòng hoặc quản lý */}
               {isManager && (
                 <button 
+                  type="button"
                   className="add-btn" 
                   title={`Tạo kênh chat trong ${currentRoom.name}`} 
                   onClick={onCreateChannel}
@@ -470,41 +581,12 @@ export const RoomSidebar: React.FC<Props> = ({
       </div>
 
       {/* 3. User Profile Bar ở đáy Cột 2 */}
-      <div className="user-profile-bar">
-        <div className="user-avatar-wrap">
-          <div className="user-avatar-circle">
-            {currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
-          </div>
-          <div className="status-dot" title="Trực tuyến" />
-        </div>
+      {renderUserProfileBar()}
 
-        <div className="user-info">
-          <div 
-            className="name" 
-            title={currentUser?.displayName || currentUser?.username || 'Người dùng'}
-          >
-            {currentUser?.displayName || currentUser?.username || 'Người dùng'}
-          </div>
-          <div className="status" title="Trực tuyến">Trực tuyến</div>
-        </div>
-
-        <div className="user-profile-actions">
-          <button
-            type="button"
-            className="user-action-btn"
-            title="Cài đặt người dùng"
-            onClick={onOpenSettings}
-            aria-label="Cài đặt người dùng"
-          >
-            <Settings size={18} />
-          </button>
-        </div>
-      </div>
-
-      {/* Modal Cài đặt Phòng (Đổi tên, mô tả, xóa phòng) */}
+      {/* Modal Cài đặt Phòng (Đổi tên, mô tả, icon, màu sắc, xóa phòng) */}
       {editingRoom && (
         <div className="modal-backdrop" onClick={() => setEditingRoom(null)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
             <h3 style={{ marginTop: 0 }}>Cài đặt phòng: {editingRoom.name}</h3>
 
             <div className="modal-field">
@@ -527,15 +609,48 @@ export const RoomSidebar: React.FC<Props> = ({
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
-              {editingRoom.role === 'OWNER' && (
+            <div className="modal-field">
+              <label>Biểu tượng phòng (Icon)</label>
+              <div className="custom-icon-picker-row">
+                {ROOM_ICON_PRESETS.map((ic, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={`custom-icon-chip ${roomIcon === ic ? 'active' : ''}`}
+                    onClick={() => setRoomIcon(ic)}
+                  >
+                    {ic || 'Chữ'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="modal-field">
+              <label>Màu nền biểu tượng</label>
+              <div className="custom-color-picker-row">
+                {ROOM_COLOR_PRESETS.map((colorHex, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={`custom-color-swatch ${roomColor === colorHex ? 'active' : ''}`}
+                    style={{ backgroundColor: colorHex || '#313338' }}
+                    onClick={() => setRoomColor(colorHex)}
+                    title={colorHex ? `Màu ${colorHex}` : 'Mặc định'}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 18 }}>
+              {(editingRoom.role === 'OWNER' || (currentRoom?.id === editingRoom.id && isRoomOwner)) && (
                 <button
                   type="button"
                   className="btn-danger-outline"
                   onClick={handleDelete}
                   style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                 >
-                  Xóa phòng
+                  <Trash2 size={15} />
+                  <span>Xóa phòng</span>
                 </button>
               )}
               <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
@@ -546,6 +661,42 @@ export const RoomSidebar: React.FC<Props> = ({
                   Lưu thay đổi
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Xác nhận Xóa Phòng */}
+      {confirmDeleteRoom && (
+        <div className="modal-backdrop" onClick={() => setConfirmDeleteRoom(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <h3 style={{ marginTop: 0, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Trash2 size={20} />
+              <span>Xóa phòng "{confirmDeleteRoom.name}"?</span>
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-normal)', lineHeight: 1.5, marginBottom: 20 }}>
+              Bạn có chắc chắn muốn xóa vĩnh viễn phòng <strong>{confirmDeleteRoom.name}</strong>? Toàn bộ các kênh và lịch sử tin nhắn trong phòng này sẽ bị xóa và không thể khôi phục.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" className="btn-cancel" onClick={() => setConfirmDeleteRoom(null)}>
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={executeConfirmDelete}
+                style={{
+                  background: 'var(--danger)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '8px 18px',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Xóa phòng ngay
+              </button>
             </div>
           </div>
         </div>

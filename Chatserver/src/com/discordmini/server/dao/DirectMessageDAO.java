@@ -10,6 +10,24 @@ import com.discordmini.server.config.DatabaseConnection;
  * Bảng: direct_messages (id, sender_id, receiver_id, content, sent_at, is_read).
  */
 public class DirectMessageDAO {
+    private static volatile boolean schemaChecked = false;
+
+    public DirectMessageDAO() {
+        if (!schemaChecked) {
+            synchronized (DirectMessageDAO.class) {
+                if (!schemaChecked) {
+                    try (Connection conn = DatabaseConnection.getConnection()) {
+                        if (conn != null) {
+                            try (Statement st = conn.createStatement()) {
+                                st.executeUpdate("ALTER TABLE direct_messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE");
+                            } catch (Exception ignored) {}
+                            schemaChecked = true;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+    }
 
     public record DirectMessageItem(
             long id,
@@ -21,8 +39,24 @@ public class DirectMessageDAO {
             String receiverDisplayName,
             String content,
             Timestamp sentAt,
-            boolean isRead
+            boolean isRead,
+            boolean isEdited
     ) {
+        public DirectMessageItem(
+                long id,
+                int senderId,
+                String senderUsername,
+                String senderDisplayName,
+                int receiverId,
+                String receiverUsername,
+                String receiverDisplayName,
+                String content,
+                Timestamp sentAt,
+                boolean isRead
+        ) {
+            this(id, senderId, senderUsername, senderDisplayName, receiverId, receiverUsername, receiverDisplayName, content, sentAt, isRead, false);
+        }
+
         public long sentAtEpochMs() {
             return sentAt != null ? sentAt.getTime() : System.currentTimeMillis();
         }
@@ -73,7 +107,7 @@ public class DirectMessageDAO {
                     return new DirectMessageItem(
                             id, senderId, senderUsername, senderDisplayName,
                             receiverId, receiverUsername, receiverDisplayName,
-                            content, sentAt, false
+                            content, sentAt, false, false
                     );
                 }
             }
@@ -91,7 +125,7 @@ public class DirectMessageDAO {
         String sql = """
             SELECT m.id, m.sender_id, u1.username AS s_user, u1.display_name AS s_name,
                    m.receiver_id, u2.username AS r_user, u2.display_name AS r_name,
-                   m.content, m.sent_at, m.is_read
+                   m.content, m.sent_at, m.is_read, m.is_edited
             FROM (
                 SELECT * FROM direct_messages
                 WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
@@ -113,6 +147,8 @@ public class DirectMessageDAO {
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    boolean isEdited = false;
+                    try { isEdited = rs.getBoolean("is_edited"); } catch (Exception ignored) {}
                     list.add(new DirectMessageItem(
                             rs.getLong("id"),
                             rs.getInt("sender_id"),
@@ -123,7 +159,8 @@ public class DirectMessageDAO {
                             rs.getString("r_name"),
                             rs.getString("content"),
                             rs.getTimestamp("sent_at"),
-                            rs.getBoolean("is_read")
+                            rs.getBoolean("is_read"),
+                            isEdited
                     ));
                 }
             }
@@ -131,6 +168,48 @@ public class DirectMessageDAO {
             System.err.println("[DirectMessageDAO ERROR] getHistory: " + e.getMessage());
         }
         return list;
+    }
+
+    /**
+     * Sửa nội dung tin nhắn riêng của chính người gửi. Trả về ID người nhận nếu sửa thành công, hoặc -1 nếu thất bại.
+     */
+    public int editMessage(long messageId, int senderId, String newContent) {
+        if (newContent == null || newContent.isBlank()) return -1;
+        String sql = "UPDATE direct_messages SET content = ?, is_edited = TRUE WHERE id = ? AND sender_id = ? RETURNING receiver_id";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newContent.trim());
+            ps.setLong(2, messageId);
+            ps.setInt(3, senderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("receiver_id");
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[DirectMessageDAO ERROR] editMessage: " + e.getMessage());
+        }
+        return -1;
+    }
+
+    /**
+     * Xóa tin nhắn riêng của chính người gửi. Trả về ID người nhận nếu xóa thành công, hoặc -1 nếu thất bại.
+     */
+    public int deleteMessage(long messageId, int senderId) {
+        String sql = "DELETE FROM direct_messages WHERE id = ? AND sender_id = ? RETURNING receiver_id";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, messageId);
+            ps.setInt(2, senderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("receiver_id");
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[DirectMessageDAO ERROR] deleteMessage: " + e.getMessage());
+        }
+        return -1;
     }
 
     /**

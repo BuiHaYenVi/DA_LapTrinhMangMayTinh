@@ -26,6 +26,7 @@ export const MemberSidebar: React.FC<Props> = ({
   const onlineMembers = members.filter(m => m.online !== false);
   const offlineMembers = members.filter(m => m.online === false);
   const isOwner = currentUserRole === 'OWNER';
+  const isAdmin = currentUserRole === 'ADMIN';
 
   const handleAction = (type: 'role' | 'transfer' | 'kick', target: User) => {
     setSelectedMember(null);
@@ -41,6 +42,7 @@ export const MemberSidebar: React.FC<Props> = ({
 
   const renderMemberItem = (member: User, isOnline: boolean) => {
     const isMe = member.id === currentUserId;
+    const canManage = !isMe && (isOwner || (isAdmin && member.role !== 'OWNER' && member.role !== 'ADMIN'));
 
     return (
       <div 
@@ -73,9 +75,10 @@ export const MemberSidebar: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Nút tùy chọn của Chủ phòng */}
-        {isOwner && !isMe && (
+        {/* Nút tùy chọn của Chủ phòng hoặc Quản trị viên */}
+        {canManage && (
           <button
+            type="button"
             className="channel-settings-btn"
             title="Tùy chọn quản lý thành viên"
             onClick={(e) => {
@@ -90,21 +93,28 @@ export const MemberSidebar: React.FC<Props> = ({
         {/* Dropdown quản lý thành viên */}
         {selectedMember?.id === member.id && (
           <div className="member-action-menu" onClick={e => e.stopPropagation()}>
-            <button
-              className="member-action-btn"
-              onClick={() => handleAction('role', member)}
-            >
-              {member.role === 'ADMIN' ? 'Hạ xuống Thành viên' : 'Phong làm Quản trị viên'}
-            </button>
+            {isOwner && (
+              <>
+                <button
+                  type="button"
+                  className="member-action-btn"
+                  onClick={() => handleAction('role', member)}
+                >
+                  {member.role === 'ADMIN' ? 'Hạ xuống Thành viên' : 'Phong làm Quản trị viên'}
+                </button>
+
+                <button
+                  type="button"
+                  className="member-action-btn warning"
+                  onClick={() => handleAction('transfer', member)}
+                >
+                  Chuyển quyền Chủ phòng
+                </button>
+              </>
+            )}
 
             <button
-              className="member-action-btn warning"
-              onClick={() => handleAction('transfer', member)}
-            >
-              Chuyển quyền Chủ phòng
-            </button>
-
-            <button
+              type="button"
               className="member-action-btn danger"
               onClick={() => handleAction('kick', member)}
             >

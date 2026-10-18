@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import type { Room } from '../../types/chat';
 import { Logo } from '../Logo';
@@ -23,6 +23,7 @@ interface Props {
   onOpenSettings?: (room: Room) => void;
   onCreateChannel?: (room: Room) => void;
   onLeaveRoom: (room: Room) => void;
+  onDeleteRoom?: (room: Room) => void;
 }
 
 export const RoomRail: React.FC<Props> = ({
@@ -41,12 +42,20 @@ export const RoomRail: React.FC<Props> = ({
   onInvite,
   onOpenSettings,
   onCreateChannel,
-  onLeaveRoom
+  onLeaveRoom,
+  onDeleteRoom
 }) => {
   const [contextMenuState, setContextMenuState] = useState<{
     room: Room;
     position: ContextMenuPosition;
   } | null>(null);
+  const [, setCustomStyleTick] = useState(0);
+
+  useEffect(() => {
+    const handleCustomUpdate = () => setCustomStyleTick(t => t + 1);
+    window.addEventListener('room_custom_updated', handleCustomUpdate);
+    return () => window.removeEventListener('room_custom_updated', handleCustomUpdate);
+  }, []);
 
   const handleContextMenu = (room: Room, position: ContextMenuPosition) => {
     setContextMenuState({ room, position });
@@ -126,8 +135,8 @@ export const RoomRail: React.FC<Props> = ({
           position={contextMenuState.position}
           unreadCount={unreadMap[contextMenuState.room.id] || 0}
           isMuted={mutedRooms.has(contextMenuState.room.id)}
-          currentUserRole={currentUserRole}
-          isOwner={isOwner || contextMenuState.room.role === 'OWNER'}
+          currentUserRole={currentRoom?.id === contextMenuState.room.id ? currentUserRole : contextMenuState.room.role}
+          isOwner={(currentRoom?.id === contextMenuState.room.id && isOwner) || contextMenuState.room.role === 'OWNER'}
           onClose={handleCloseContextMenu}
           onMarkAsRead={onMarkAsRead}
           onInvite={onInvite}
@@ -135,6 +144,7 @@ export const RoomRail: React.FC<Props> = ({
           onOpenSettings={onOpenSettings}
           onCreateChannel={onCreateChannel}
           onLeaveRoom={onLeaveRoom}
+          onDeleteRoom={onDeleteRoom}
         />
       )}
     </nav>

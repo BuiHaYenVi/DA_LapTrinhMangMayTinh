@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Room, Friend, User } from '../types/chat';
 import { X, UserPlus, Check, Search, Copy, CheckCheck } from 'lucide-react';
 
@@ -25,11 +25,22 @@ export const InviteToRoomModal: React.FC<Props> = ({
   const [directIdError, setDirectIdError] = useState('');
   const [copiedId, setCopiedId] = useState(false);
 
-  // Tập hợp các ID đã có trong phòng
+  useEffect(() => {
+    if (isOpen) {
+      setInvitedMap({});
+      setSearchQuery('');
+      setDirectIdInput('');
+      setDirectIdError('');
+    }
+  }, [isOpen, room?.id]);
+
+  // Tập hợp các ID đã có trong phòng hiện tại
   const memberIdSet = useMemo(() => {
     const set = new Set<number>();
     members.forEach(m => {
-      if (m.id) set.add(m.id);
+      if (m && typeof m.id === 'number' && m.id > 0) {
+        set.add(m.id);
+      }
     });
     return set;
   }, [members]);
@@ -119,21 +130,23 @@ export const InviteToRoomModal: React.FC<Props> = ({
         style={{ width: 460, maxWidth: '94vw' }}
       >
         {/* Header Modal */}
-        <div className="modal-header" style={{ paddingBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <UserPlus size={20} color="var(--accent)" />
-            <div>
-              <h3 id="invite-room-modal-title" className="modal-title" style={{ fontSize: 16, margin: 0 }}>
+        <div className="invite-modal-header">
+          <div className="invite-modal-header-left">
+            <div className="invite-modal-icon-badge">
+              <UserPlus size={20} />
+            </div>
+            <div style={{ minWidth: 0, overflow: 'hidden' }}>
+              <h3 id="invite-room-modal-title" className="invite-modal-title">
                 Mời bạn bè tham gia
               </h3>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-                Phòng <strong>#{room.name}</strong> (ID: #{room.id})
-              </div>
+              <p className="invite-modal-subtitle">
+                Phòng <span className="highlight-friend">#{room.name}</span> (ID: #{room.id})
+              </p>
             </div>
           </div>
           <button 
             type="button" 
-            className="modal-close-btn" 
+            className="invite-modal-close-btn" 
             onClick={onClose}
             aria-label="Đóng"
           >
@@ -142,7 +155,7 @@ export const InviteToRoomModal: React.FC<Props> = ({
         </div>
 
         {/* Body Modal */}
-        <div className="modal-body" style={{ maxHeight: 420, overflowY: 'auto', padding: '16px 20px' }}>
+        <div className="invite-modal-body">
           {/* Ô tìm kiếm bạn bè */}
           <div style={{ position: 'relative', marginBottom: 14 }}>
             <Search 
@@ -344,8 +357,11 @@ export const InviteToRoomModal: React.FC<Props> = ({
         </div>
 
         {/* Footer Modal */}
-        <div className="modal-footer" style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="button" className="btn-cancel" onClick={onClose} style={{ padding: '8px 16px' }}>
+        <div className="invite-modal-footer">
+          <span className="invite-footer-hint">
+            Nhấn <kbd>Esc</kbd> để đóng
+          </span>
+          <button type="button" className="btn-cancel" onClick={onClose} style={{ padding: '7px 16px', borderRadius: 6 }}>
             Đóng
           </button>
         </div>

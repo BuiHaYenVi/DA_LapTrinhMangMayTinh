@@ -28,7 +28,8 @@ interface UserSettingsModalProps {
 }
 
 const AVATAR_COLORS = [
-  '#2DD4BF', // Teal (Primary Accent)
+  '#5865F2', // Blurple
+  '#2DD4BF', // Teal
   '#0EA5E9', // Sky
   '#6366F1', // Indigo
   '#EC4899', // Pink
@@ -38,9 +39,12 @@ const AVATAR_COLORS = [
   '#8B5CF6'  // Purple
 ];
 
-const LOCAL_STORAGE_KEY = 'ltmang_settings_v2';
+const AVATAR_ICONS = ['', '😎', '🐱', '🐶', '🦊', '🐼', '👑', '⚡', '🔥', '🎮', '💻', '🌸'];
 
-interface StoredSettings {
+const LOCAL_STORAGE_KEY = 'discord_mini_user_settings_v2';
+const LEGACY_STORAGE_KEY = 'ltmang_settings_v2';
+
+export interface StoredSettings {
   themeMode: 'dark' | 'light' | 'system';
   fontSize: 'small' | 'medium' | 'large';
   messageDensity: 'compact' | 'cozy';
@@ -53,6 +57,7 @@ interface StoredSettings {
   showTyping: boolean;
   autoReconnect: boolean;
   avatarColor: string;
+  avatarIcon: string;
   bio: string;
 }
 
@@ -68,13 +73,14 @@ const DEFAULT_SETTINGS: StoredSettings = {
   enterToSend: true,
   showTyping: true,
   autoReconnect: true,
-  avatarColor: '#2DD4BF',
+  avatarColor: '#5865F2',
+  avatarIcon: '',
   bio: ''
 };
 
-const loadStoredSettings = (): StoredSettings => {
+export const loadStoredSettings = (): StoredSettings => {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return DEFAULT_SETTINGS;
     const parsed = JSON.parse(raw);
     return { ...DEFAULT_SETTINGS, ...parsed };
@@ -83,9 +89,14 @@ const loadStoredSettings = (): StoredSettings => {
   }
 };
 
-const saveStoredSettings = (settings: StoredSettings) => {
+export const saveStoredSettings = (settings: StoredSettings) => {
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(settings));
+    const json = JSON.stringify(settings);
+    localStorage.setItem(LOCAL_STORAGE_KEY, json);
+    localStorage.setItem(LEGACY_STORAGE_KEY, json);
+    document.documentElement.setAttribute('data-font-size', settings.fontSize);
+    document.documentElement.setAttribute('data-density', settings.messageDensity);
+    window.dispatchEvent(new CustomEvent('user_settings_updated', { detail: settings }));
   } catch (err) {
     console.warn('Lỗi ghi cài đặt vào localStorage:', err);
   }
@@ -119,7 +130,8 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   // Profile Form state
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
-  const [avatarColor, setAvatarColor] = useState('#2DD4BF');
+  const [avatarColor, setAvatarColor] = useState('#5865F2');
+  const [avatarIcon, setAvatarIcon] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileFeedback, setProfileFeedback] = useState<{ text: string; type: 'success' | 'error' | 'notice' } | null>(null);
 
@@ -147,7 +159,8 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
       setSettings(stored);
       setDisplayName(currentUser?.displayName || currentUser?.username || '');
       setBio(stored.bio || '');
-      setAvatarColor(stored.avatarColor || '#2DD4BF');
+      setAvatarColor(stored.avatarColor || '#5865F2');
+      setAvatarIcon(stored.avatarIcon || '');
       setProfileFeedback(null);
       setPassFeedback(null);
       setOldPassword('');
@@ -261,11 +274,13 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   // Kiểm tra có thay đổi ở form hồ sơ không
   const initialName = currentUser?.displayName || currentUser?.username || '';
   const initialBio = settings.bio || '';
-  const initialColor = settings.avatarColor || '#2DD4BF';
+  const initialColor = settings.avatarColor || '#5865F2';
+  const initialIcon = settings.avatarIcon || '';
   const hasProfileChanges = 
     displayName.trim() !== initialName.trim() ||
     bio.trim() !== initialBio.trim() ||
-    avatarColor !== initialColor;
+    avatarColor !== initialColor ||
+    avatarIcon !== initialIcon;
 
   // Xử lý Lưu hồ sơ
   const handleSaveProfile = async () => {
@@ -283,24 +298,40 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     setIsSavingProfile(true);
     setProfileFeedback(null);
 
-    const res = await chatBridge.updateProfile(trimmedName, bio.trim(), avatarColor);
-    setIsSavingProfile(false);
+    // Luôn lưu màu sắc, icon đại diện và tiểu sử ngay lập tức
+    setSettings(prev => {
+      const next = {
+        ...prev,
+        avatarColor,
+        avatarIcon,
+        bio: bio.trim()
+      };
+      saveStoredSettings(next);
+      return next;
+    });
 
-    if (res.notSupported) {
-      setProfileFeedback({ text: 'Tính năng đang phát triển', type: 'notice' });
-      return;
-    }
+    if (trimmedName !== initialName.trim()) {
+      const res = await chatBridge.updateProfile(trimmedName, bio.trim(), avatarColor);
+      setIsSavingProfile(false);
 
-    if (res.success) {
-      updateSetting('avatarColor', avatarColor);
-      updateSetting('bio', bio.trim());
-      if (onProfileUpdated) {
-        onProfileUpdated(res.displayName || trimmedName);
+      if (res.notSupported) {
+        setProfileFeedback({ text: 'Đã lưu biểu tượng & tiểu sử. Tên hiển thị đang chờ máy chủ cập nhật.', type: 'notice' });
+        return;
       }
-      setProfileFeedback({ text: 'Đã lưu thay đổi hồ sơ thành công!', type: 'success' });
-      setTimeout(() => setProfileFeedback(null), 3000);
+
+      if (res.success) {
+        if (onProfileUpdated) {
+          onProfileUpdated(res.displayName || trimmedName);
+        }
+        setProfileFeedback({ text: 'Đã lưu thay đổi hồ sơ thành công!', type: 'success' });
+        setTimeout(() => setProfileFeedback(null), 3000);
+      } else {
+        setProfileFeedback({ text: res.message || 'Lỗi khi cập nhật tên hiển thị trên máy chủ.', type: 'error' });
+      }
     } else {
-      setProfileFeedback({ text: res.message || 'Lỗi khi cập nhật hồ sơ.', type: 'error' });
+      setIsSavingProfile(false);
+      setProfileFeedback({ text: 'Đã lưu biểu tượng, màu đại diện và tiểu sử thành công!', type: 'success' });
+      setTimeout(() => setProfileFeedback(null), 3000);
     }
   };
 
@@ -444,9 +475,9 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                 <div className="settings-profile-preview-row">
                   <div 
                     className="settings-avatar-large" 
-                    style={{ backgroundColor: avatarColor }}
+                    style={{ backgroundColor: avatarColor, fontSize: avatarIcon ? '28px' : undefined }}
                   >
-                    {displayName ? displayName.charAt(0).toUpperCase() : 'U'}
+                    {avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')}
                   </div>
                   <div className="settings-profile-preview-meta">
                     <h3 className="settings-profile-preview-name">{displayName || 'Chưa đặt tên'}</h3>
@@ -454,7 +485,25 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                   </div>
                 </div>
 
-                {/* Chọn màu avatar từ 8 màu */}
+                {/* Chọn biểu tượng đại diện (Icon / Emoji) */}
+                <div className="settings-form-group">
+                  <label className="settings-form-label">Biểu tượng đại diện (Icon)</label>
+                  <div className="custom-icon-picker-row">
+                    {AVATAR_ICONS.map((ic, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`custom-icon-chip ${avatarIcon === ic ? 'active' : ''}`}
+                        onClick={() => setAvatarIcon(ic)}
+                        title={ic ? `Biểu tượng ${ic}` : 'Chữ cái đầu mặc định'}
+                      >
+                        {ic || 'Chữ'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Chọn màu avatar */}
                 <div className="settings-form-group">
                   <label className="settings-form-label">Màu ảnh đại diện</label>
                   <div className="settings-color-swatches">
@@ -468,7 +517,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                         title={c}
                         aria-label={`Chọn màu ${c}`}
                       >
-                        {avatarColor === c && <Check size={14} color="#04201C" />}
+                        {avatarColor === c && <Check size={14} color="#fff" />}
                       </button>
                     ))}
                   </div>

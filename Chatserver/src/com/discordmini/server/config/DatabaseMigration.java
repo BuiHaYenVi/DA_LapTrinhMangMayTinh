@@ -73,6 +73,7 @@ public class DatabaseMigration {
                     )
                 """);
                 st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE CASCADE");
+                st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE");
                 st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
 
                 st.executeUpdate("""
@@ -104,7 +105,7 @@ public class DatabaseMigration {
                 st.executeUpdate("""
                     ALTER TABLE messages ADD COLUMN IF NOT EXISTS channel_id INT REFERENCES channels(id) ON DELETE CASCADE
                 """);
-                System.out.println("[MIGRATION] Đã kiểm tra/bổ sung cột 'channel_id' trong bảng 'messages'.");
+                System.out.println("[MIGRATION] Đã kiểm tra/bổ sung cột 'channel_id' và 'is_edited' trong bảng 'messages'.");
 
                 // 3. Tạo index
                 st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_channels_room_id ON channels(room_id)");
@@ -118,9 +119,11 @@ public class DatabaseMigration {
                         receiver_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                         content TEXT NOT NULL,
                         sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                        is_read BOOLEAN DEFAULT FALSE
+                        is_read BOOLEAN DEFAULT FALSE,
+                        is_edited BOOLEAN DEFAULT FALSE
                     )
                 """);
+                st.executeUpdate("ALTER TABLE direct_messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE");
                 st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_dm_pair ON direct_messages(sender_id, receiver_id)");
                 st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_dm_recv ON direct_messages(receiver_id, is_read)");
 

@@ -1191,7 +1191,7 @@ body {
 .msg-quick-toolbar {
   position: absolute;
   right: 16px;
-  top: -14px;
+  top: 2px;
   background-color: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1200,13 +1200,14 @@ body {
   align-items: center;
   padding: 2px;
   gap: 2px;
-  z-index: 10;
+  z-index: 20;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s ease;
 }
 
-.discord-message-row:hover .msg-quick-toolbar {
+.discord-message-row:hover .msg-quick-toolbar,
+.dm-message-row:hover .msg-quick-toolbar {
   opacity: 1;
   pointer-events: auto;
 }
@@ -5001,18 +5002,285 @@ body {
   margin: 0;
 }
 
-/* Modal Mời bạn bè vào phòng */
+/* ==========================================================================
+   MODAL MỜI BẠN BÈ VÀO PHÒNG CHAT (DISCORD-STYLE)
+   ========================================================================== */
+
 .invite-modal-card {
   width: 480px;
-  max-width: 94vw;
+  max-width: 95vw;
+  background-color: var(--bg-card, #2b2d31);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: inviteModalPopIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes inviteModalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.invite-modal-header {
+  padding: 18px 20px 14px 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.invite-modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.invite-modal-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(45, 212, 191, 0.15);
+  color: var(--accent, #2dd4bf);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.invite-modal-title {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 700;
+  color: var(--text-header, #f2f3f5);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invite-modal-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: var(--text-muted, #949ba4);
+  line-height: 1.4;
+}
+
+.invite-modal-subtitle .highlight-friend {
+  color: var(--accent, #2dd4bf);
+  font-weight: 600;
+}
+
+.invite-modal-close-btn {
+  background: transparent;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #949ba4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.invite-modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.invite-modal-body {
+  padding: 16px 20px;
+  max-height: 380px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.invite-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.invite-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted, #949ba4);
+  pointer-events: none;
+}
+
+.invite-search-input {
+  width: 100%;
+  padding: 9px 36px 9px 36px;
+  border-radius: 8px;
+  background: var(--bg-input, #1e1f22);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  color: var(--text-normal, #dbdee1);
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.invite-search-input:focus {
+  border-color: var(--accent, #2dd4bf);
+}
+
+.invite-search-clear {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #949ba4);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.invite-search-clear:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.invite-room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .invite-room-row {
-  transition: background-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background-color: var(--bg-3, #232428);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.15s ease;
 }
 
 .invite-room-row:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-hover, #35373c);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.invite-room-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.invite-room-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent, #2dd4bf) 0%, #0d9488 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.invite-room-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-header, #f2f3f5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invite-room-meta {
+  font-size: 12px;
+  color: var(--text-muted, #949ba4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.invite-btn-action {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  background: var(--accent, #2dd4bf);
+  color: var(--on-accent, #042f2e);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.invite-btn-action:hover {
+  filter: brightness(1.1);
+  transform: scale(1.02);
+}
+
+.invite-btn-action:active {
+  transform: scale(0.98);
+}
+
+.invite-badge-success {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  background: rgba(35, 165, 90, 0.15);
+  color: #23a55a;
+  border: 1px solid rgba(35, 165, 90, 0.3);
+  white-space: nowrap;
+}
+
+.invite-modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  background: rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.invite-footer-hint {
+  font-size: 12px;
+  color: var(--text-muted, #949ba4);
+}
+
+.invite-footer-hint kbd {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 /* ==========================================================================
@@ -5520,6 +5788,546 @@ body {
   border-radius: 6px;
   margin: 4px 0;
 }
+
+/* ==========================================================================
+   FIX NÚT ĐÓNG MODAL MỜI BẠN BÈ & BỘ CHỌN EMOJI / STICKER / ICON TÙY CHỈNH
+   ========================================================================== */
+.invite-modal-header .invite-modal-close-btn {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  padding: 0 !important;
+  flex: 0 0 32px !important;
+}
+
+/* Bảng chọn Emoji & Sticker nổi phía trên ô nhập tin nhắn */
+.emoji-sticker-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  width: 348px;
+  max-width: calc(100vw - 32px);
+  height: 380px;
+  background-color: var(--bg-card, #2b2d31);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 120;
+  animation: inviteModalPopIn 0.14s ease-out;
+}
+
+.emoji-sticker-header,
+.emoji-picker-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 10px 12px 8px;
+  background-color: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.emoji-sticker-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.emoji-sticker-tab,
+.emoji-picker-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.emoji-sticker-tab:hover,
+.emoji-picker-tab-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.emoji-sticker-tab.active,
+.emoji-picker-tab-btn.active {
+  background-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.emoji-sticker-close,
+.emoji-picker-close-btn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.emoji-sticker-close:hover,
+.emoji-picker-close-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.emoji-category-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-1);
+}
+
+.emoji-cat-btn {
+  flex: 1;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.emoji-cat-btn:hover {
+  background-color: var(--bg-hover);
+}
+
+.emoji-cat-btn.active {
+  background-color: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.emoji-search-wrap,
+.emoji-picker-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 12px;
+  padding: 6px 10px;
+  background-color: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-3);
+}
+
+.emoji-search-input,
+.emoji-picker-search-wrap input {
+  flex: 1;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  color: var(--text-1) !important;
+  font-size: 13px !important;
+  padding: 2px 0 !important;
+}
+
+.emoji-sticker-body,
+.emoji-picker-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px 12px;
+}
+
+.emoji-cat-title,
+.emoji-category-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-3);
+  letter-spacing: 0.4px;
+  margin-bottom: 8px;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.emoji-cell-btn {
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease, background-color 0.1s ease;
+  padding: 0;
+}
+
+.emoji-cell-btn:hover {
+  background-color: var(--bg-hover);
+  transform: scale(1.18);
+}
+
+.sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.sticker-card-btn,
+.sticker-cell-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  color: #ffffff;
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.sticker-card-btn:hover,
+.sticker-cell-btn:hover {
+  transform: translateY(-2px) scale(1.03);
+  border-color: #ffffff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+}
+
+.sticker-card-emoji,
+.sticker-cell-emoji {
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.sticker-card-label,
+.sticker-cell-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+  line-height: 1.25;
+}
+
+/* Menu đính kèm nhanh ở nút "+" */
+.quick-attach-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  width: 256px;
+  background-color: var(--bg-card, #2b2d31);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quick-attach-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.12s ease;
+}
+
+.quick-attach-item:hover {
+  background-color: var(--accent-soft);
+}
+
+.quick-attach-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.25;
+}
+
+.quick-attach-desc {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+  line-height: 1.25;
+}
+
+/* Hiển thị nhãn dán (Sticker Bubble) trong luồng tin nhắn */
+.msg-sticker-bubble {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 22px;
+  margin-top: 4px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  user-select: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  transition: transform 0.15s ease;
+}
+
+.msg-sticker-bubble:hover {
+  transform: scale(1.03);
+}
+
+.msg-sticker-emoji {
+  font-size: 46px;
+  line-height: 1.1;
+}
+
+.msg-sticker-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #ffffff;
+}
+
+/* Popover Tin nhắn đã ghim (Pinned Messages) */
+.pinned-count-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 8px;
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+.pinned-messages-popover {
+  position: absolute;
+  top: 46px;
+  right: 16px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: 420px;
+  background-color: var(--bg-card, #2b2d31);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  z-index: 150;
+  overflow: hidden;
+}
+
+.pinned-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background-color: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.pinned-popover-body {
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pinned-empty,
+.pinned-empty-state {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pinned-item-card,
+.pinned-msg-card {
+  padding: 10px 12px;
+  background-color: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.15s ease;
+}
+
+.pinned-item-card:hover,
+.pinned-msg-card:hover {
+  border-color: var(--accent);
+}
+
+.pinned-item-top,
+.pinned-msg-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--text-1);
+}
+
+.pinned-unpin-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.pinned-unpin-btn:hover {
+  color: var(--accent-red);
+}
+
+.pinned-item-content,
+.pinned-msg-content {
+  font-size: 13px;
+  color: var(--text-2);
+  word-break: break-word;
+}
+
+.msg-pinned-tag,
+.pinned-badge-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background-color: var(--accent-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
+.discord-message-row.pinned-row {
+  border-left: 2px solid var(--accent);
+}
+
+/* Bộ chọn Icon & Màu sắc tùy chỉnh cho Phòng và Hồ sơ */
+.custom-icon-picker-row,
+.custom-color-picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.custom-icon-chip {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background-color: var(--bg-3);
+  color: var(--text-1);
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.custom-icon-chip:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.custom-icon-chip.active {
+  background-color: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.custom-color-chip,
+.custom-color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.custom-color-chip:hover,
+.custom-color-swatch:hover {
+  transform: scale(1.12);
+}
+
+.custom-color-chip.active,
+.custom-color-swatch.active {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* Tùy chọn Cỡ chữ & Mật độ tin nhắn từ UserSettingsModal */
+html[data-font-size="14px"] .msg-body,
+html[data-font-size="14px"] .msg-text-content {
+  font-size: 13.5px !important;
+}
+
+html[data-font-size="15px"] .msg-body,
+html[data-font-size="15px"] .msg-text-content {
+  font-size: 15px !important;
+}
+
+html[data-font-size="16px"] .msg-body,
+html[data-font-size="16px"] .msg-text-content {
+  font-size: 16.5px !important;
+}
+
+html[data-density="compact"] .discord-message-row {
+  margin-top: 4px !important;
+  min-height: 34px !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+}
+
+html[data-density="compact"] .dm-message-row {
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+}
+
 
 
 

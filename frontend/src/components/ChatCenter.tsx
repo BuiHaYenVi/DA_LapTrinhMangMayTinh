@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { Room, Channel, MessageItem } from '../types/chat';
 import { 
   Hash, Search, UserPlus, Send, Edit3, Trash2,
-  Users, ArrowRight, Loader2, MessageSquare, PlusCircle, Smile, Bell, Pin
+  Users, ArrowRight, Loader2, MessageSquare, PlusCircle, Smile, Bell, BellOff, Pin, X
 } from 'lucide-react';
 import { Logo } from './Logo';
+import { EmojiStickerPicker, QuickAttachMenu, parseStickerToken } from './chat/EmojiStickerPicker';
 
 interface Props {
   currentRoom: Room | null;
@@ -24,26 +25,55 @@ interface Props {
   onLeave: () => void;
   onKick: () => void;
   isOwner: boolean;
+  isRoomMuted?: boolean;
+  onToggleRoomMute?: () => void;
 }
 
-// 1. Định dạng giờ tin nhắn dạng HH:mm, di chuột vào hiện đầy đủ ngày giờ giây
+// 1. Định dạng giờ tin nhắn theo 24h hoặc 12h từ cài đặt người dùng
 function formatMessageTime(rawTime: string): { short: string; full: string } {
   if (!rawTime) return { short: 'Vừa xong', full: '' };
   const normalized = rawTime.includes('T') ? rawTime : rawTime.replace(' ', 'T');
   const d = new Date(normalized);
 
-  if (isNaN(d.getTime())) {
-    const match = rawTime.match(/(\d{2}:\d{2})/);
-    return { short: match ? match[1] : rawTime, full: rawTime };
+  let use12h = false;
+  try {
+    const raw = localStorage.getItem('discord_mini_user_settings_v2');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.timeFormat === '12h') use12h = true;
+    }
+  } catch {
+    // default 24h
   }
 
-  const hours = String(d.getHours()).padStart(2, '0');
+  if (isNaN(d.getTime())) {
+    const match = rawTime.match(/(\d{2}):(\d{2})/);
+    if (match && use12h) {
+      const h24 = parseInt(match[1], 10);
+      const suffix = h24 >= 12 ? 'PM' : 'AM';
+      const h12 = h24 % 12 || 12;
+      return { short: `${h12}:${match[2]} ${suffix}`, full: rawTime };
+    }
+    return { short: match ? `${match[1]}:${match[2]}` : rawTime, full: rawTime };
+  }
+
+  const h24 = d.getHours();
   const minutes = String(d.getMinutes()).padStart(2, '0');
   const seconds = String(d.getSeconds()).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();
 
+  if (use12h) {
+    const suffix = h24 >= 12 ? 'PM' : 'AM';
+    const h12 = h24 % 12 || 12;
+    return {
+      short: `${h12}:${minutes} ${suffix}`,
+      full: `${h12}:${minutes}:${seconds} ${suffix} ngày ${day}/${month}/${year}`
+    };
+  }
+
+  const hours = String(h24).padStart(2, '0');
   return {
     short: `${hours}:${minutes}`,
     full: `${hours}:${minutes}:${seconds} ngày ${day}/${month}/${year}`
@@ -116,6 +146,8 @@ function shouldGroupWithPrevious(
   return false;
 }
 
+const PINNED_STORAGE_KEY = 'discord_mini_pinned_messages_v1';
+
 export const ChatCenter: React.FC<Props> = ({
   currentRoom,
   currentChannel,
@@ -131,20 +163,57 @@ export const ChatCenter: React.FC<Props> = ({
   onDeleteMessage,
   onLoadMore,
   onInvite,
-  isOwner
+  isOwner,
+  isRoomMuted = false,
+  onToggleRoomMute
 }) => {
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [showPinnedPopover, setShowPinnedPopover] = useState(false);
+  const [pinnedIdsByChannel, setPinnedIdsByChannel] = useState<Record<string, number[]>>(() => {
+    try {
+      const raw = localStorage.getItem(PINNED_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
   const chatMessagesRef = useRef<HTMLDivElement>(null);
   const mainInputRef = useRef<HTMLInputElement>(null);
+
+  const channelPinKey = `${currentRoom?.id || 0}_${currentChannel?.id || 0}`;
+  const currentPinnedIds = pinnedIdsByChannel[channelPinKey] || [];
+  const pinnedMessages = messages.filter(m => currentPinnedIds.includes(m.id));
+
+  const togglePinMessage = (msgId: number) => {
+    setPinnedIdsByChannel(prev => {
+      const existing = prev[channelPinKey] || [];
+      const nextList = existing.includes(msgId)
+        ? existing.filter(id => id !== msgId)
+        : [...existing, msgId];
+      const updated = { ...prev, [channelPinKey]: nextList };
+      try {
+        localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
 
   // Xóa ô nhập tin khi đổi kênh hoặc đổi phòng để tránh gửi nhầm
   useEffect(() => {
     setInputText('');
     setEditingId(null);
     setSearchTerm('');
+    setShowEmojiPicker(false);
+    setShowAttachMenu(false);
+    setShowPinnedPopover(false);
   }, [currentRoom?.id, currentChannel?.id, isDirectMessageMode]);
 
   const displayedMessages = searchTerm.trim()
@@ -158,10 +227,23 @@ export const ChatCenter: React.FC<Props> = ({
     if (!inputText.trim()) return;
     onSendMessage(inputText.trim());
     setInputText('');
+    setShowEmojiPicker(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      try {
+        const raw = localStorage.getItem('discord_mini_user_settings_v2');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.enterToSend === false && !e.ctrlKey) {
+            return;
+          }
+        }
+      } catch {
+        // default enterToSend = true
+      }
+      e.preventDefault();
       handleSend();
     }
   };
@@ -188,8 +270,17 @@ export const ChatCenter: React.FC<Props> = ({
     }
   };
 
-  // Cuộn xuống tin mới nhất
+  // Cuộn xuống tin mới nhất (tôn trọng cài đặt autoScroll)
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem('discord_mini_user_settings_v2');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.autoScroll === false) return;
+      }
+    } catch {
+      // default autoScroll = true
+    }
     if (chatMessagesRef.current && !isLoading) {
       chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
     }
@@ -213,8 +304,7 @@ export const ChatCenter: React.FC<Props> = ({
             </div>
             <h2 className="empty-state-title">Khu vực Tin nhắn trực tiếp</h2>
             <p className="empty-state-desc">
-              Chức năng kết bạn và nhắn tin riêng 1–1 chưa được triển khai trong lượt này theo đúng yêu cầu phạm vi.
-              Hệ thống hiện đang tập trung hoàn thiện mô hình <strong>PHÒNG → KÊNH</strong> chat chữ.
+              Hãy chọn một người bạn ở danh sách bên trái để bắt đầu trò chuyện 1–1.
             </p>
           </div>
         </div>
@@ -223,7 +313,7 @@ export const ChatCenter: React.FC<Props> = ({
   }
 
   return (
-    <div className="chat-center">
+    <div className="chat-center" style={{ position: 'relative' }}>
       {/* 1. Header Bar: Tiêu đề kênh chat (# tên-kênh) và các công cụ kênh */}
       <div className="chat-header">
         <div className="chat-header-left">
@@ -244,20 +334,80 @@ export const ChatCenter: React.FC<Props> = ({
           )}
         </div>
 
-        <div className="chat-header-right">
-          {/* Nút thông báo */}
-          <button className="header-icon-btn" title="Thông báo" aria-label="Thông báo">
-            <Bell size={20} />
+        <div className="chat-header-right" style={{ position: 'relative' }}>
+          {/* Nút bật/tắt thông báo phòng */}
+          <button
+            type="button"
+            className={`header-icon-btn ${isRoomMuted ? 'muted' : ''}`}
+            title={isRoomMuted ? 'Đang tắt thông báo phòng (Bấm để bật)' : 'Tắt thông báo phòng này'}
+            aria-label="Thông báo"
+            onClick={onToggleRoomMute}
+          >
+            {isRoomMuted ? <BellOff size={20} style={{ color: 'var(--danger)' }} /> : <Bell size={20} />}
           </button>
 
-          {/* Nút tin nhắn ghim */}
-          <button className="header-icon-btn" title="Tin nhắn đã ghim" aria-label="Tin nhắn đã ghim">
+          {/* Nút tin nhắn đã ghim */}
+          <button
+            type="button"
+            className={`header-icon-btn ${showPinnedPopover ? 'active' : ''}`}
+            title={`Tin nhắn đã ghim (${pinnedMessages.length})`}
+            aria-label="Tin nhắn đã ghim"
+            onClick={() => setShowPinnedPopover(v => !v)}
+            style={{ position: 'relative' }}
+          >
             <Pin size={20} />
+            {pinnedMessages.length > 0 && (
+              <span className="pinned-count-dot">{pinnedMessages.length}</span>
+            )}
           </button>
+
+          {/* Popover Tin nhắn đã ghim */}
+          {showPinnedPopover && (
+            <div className="pinned-messages-popover" onClick={e => e.stopPropagation()}>
+              <div className="pinned-popover-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+                  <Pin size={16} />
+                  <span>Tin nhắn đã ghim ({pinnedMessages.length})</span>
+                </div>
+                <button type="button" className="emoji-sticker-close" onClick={() => setShowPinnedPopover(false)}>
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="pinned-popover-body">
+                {pinnedMessages.length === 0 ? (
+                  <div className="pinned-empty">
+                    Chưa có tin nhắn nào được ghim trong kênh <strong>#{currentChannel?.name}</strong>.
+                    <br />
+                    <span style={{ fontSize: '12px', opacity: 0.75 }}>Di chuột vào tin nhắn và bấm biểu tượng Ghim để lưu lại.</span>
+                  </div>
+                ) : (
+                  pinnedMessages.map(pm => (
+                    <div key={pm.id} className="pinned-item-card">
+                      <div className="pinned-item-top">
+                        <strong>{pm.senderName}</strong>
+                        <button
+                          type="button"
+                          className="pinned-unpin-btn"
+                          title="Bỏ ghim"
+                          onClick={() => togglePinMessage(pm.id)}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="pinned-item-content">
+                        {parseStickerToken(pm.content)?.label || pm.content}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Nút bật/tắt danh sách thành viên phòng */}
           {onToggleMemberList && (
             <button 
+              type="button"
               className={`header-icon-btn ${isMemberListOpen ? 'active' : ''}`}
               title="Danh sách thành viên phòng"
               onClick={onToggleMemberList}
@@ -270,7 +420,7 @@ export const ChatCenter: React.FC<Props> = ({
           {/* Hộp tìm kiếm */}
           <div className="discord-search-box">
             <input 
-              placeholder={`Tìm kiếm`}
+              placeholder="Tìm kiếm"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               disabled={!currentChannel || isLoading}
@@ -315,8 +465,9 @@ export const ChatCenter: React.FC<Props> = ({
               {displayedMessages.length === 0 && (
                 <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
                   <button 
+                    type="button"
                     className="header-btn blurple" 
-                    onClick={onInvite} 
+                    onClick={() => onInvite()} 
                     title="Mời bạn bè vào phòng"
                     style={{ padding: '8px 14px', borderRadius: '4px' }}
                   >
@@ -324,6 +475,7 @@ export const ChatCenter: React.FC<Props> = ({
                     <span>Mời bạn bè</span>
                   </button>
                   <button 
+                    type="button"
                     className="header-btn" 
                     onClick={() => mainInputRef.current?.focus()} 
                     title="Gửi tin nhắn đầu tiên"
@@ -372,8 +524,11 @@ export const ChatCenter: React.FC<Props> = ({
                 );
               }
 
-              const canEdit = msg.senderId === currentUserId;
-              const canDelete = msg.senderId === currentUserId || isOwner || currentUserRole === 'ADMIN';
+              const isMyMsg = Boolean(msg.isMe || (currentUserId && Number(msg.senderId) === Number(currentUserId)));
+              const sticker = parseStickerToken(msg.content);
+              const canEdit = isMyMsg && msg.id > 0 && !sticker;
+              const canDelete = (isMyMsg || isOwner || currentUserRole === 'OWNER' || currentUserRole === 'ADMIN') && msg.id > 0;
+              const isPinned = currentPinnedIds.includes(msg.id);
 
               return (
                 <React.Fragment key={msg.id || idx}>
@@ -385,7 +540,7 @@ export const ChatCenter: React.FC<Props> = ({
                   )}
 
                   <div 
-                    className={`discord-message-row ${isGrouped ? 'grouped' : ''}`}
+                    className={`discord-message-row ${isGrouped ? 'grouped' : ''} ${isPinned ? 'pinned-row' : ''}`}
                     id={`msg-${msg.id}`}
                   >
                     {isGrouped ? (
@@ -409,6 +564,11 @@ export const ChatCenter: React.FC<Props> = ({
                           <span className="msg-timestamp" title={timeInfo.full}>
                             {timeInfo.short}
                           </span>
+                          {isPinned && (
+                            <span className="msg-pinned-tag" title="Tin nhắn đã ghim">
+                              📌 Đã ghim
+                            </span>
+                          )}
                         </div>
                       )}
 
@@ -426,9 +586,14 @@ export const ChatCenter: React.FC<Props> = ({
                             maxLength={5000}
                           />
                           <div className="msg-edit-actions">
-                            <button className="btn-cancel" onClick={() => setEditingId(null)}>Hủy (Esc)</button>
-                            <button className="btn-primary" onClick={() => handleSaveEdit(msg.id)}>Lưu (Enter)</button>
+                            <button type="button" className="btn-cancel" onClick={() => setEditingId(null)}>Hủy (Esc)</button>
+                            <button type="button" className="btn-primary" onClick={() => handleSaveEdit(msg.id)}>Lưu (Enter)</button>
                           </div>
+                        </div>
+                      ) : sticker ? (
+                        <div className="msg-sticker-bubble" style={{ background: sticker.bgGradient }}>
+                          <span className="msg-sticker-emoji">{sticker.emoji}</span>
+                          <span className="msg-sticker-label">{sticker.label}</span>
                         </div>
                       ) : (
                         <div className="msg-body">
@@ -438,10 +603,19 @@ export const ChatCenter: React.FC<Props> = ({
                       )}
                     </div>
 
-                    {/* Toolbar thao tác sửa / xóa tin nhắn */}
+                    {/* Toolbar thao tác ghim / sửa / xóa tin nhắn */}
                     <div className="msg-quick-toolbar">
+                      <button
+                        type="button"
+                        className={`quick-action-btn ${isPinned ? 'active' : ''}`}
+                        title={isPinned ? 'Bỏ ghim tin nhắn' : 'Ghim tin nhắn'}
+                        onClick={() => togglePinMessage(msg.id)}
+                      >
+                        <Pin size={14} />
+                      </button>
                       {canEdit && editingId !== msg.id && (
                         <button 
+                          type="button"
                           className="quick-action-btn" 
                           title="Chỉnh sửa tin nhắn"
                           onClick={() => {
@@ -454,6 +628,7 @@ export const ChatCenter: React.FC<Props> = ({
                       )}
                       {canDelete && (
                         <button 
+                          type="button"
                           className="quick-action-btn danger" 
                           title="Xóa tin nhắn"
                           onClick={() => handleDelete(msg.id)}
@@ -486,13 +661,46 @@ export const ChatCenter: React.FC<Props> = ({
       </div>
 
       {/* 3. Bottom Input Box */}
-      <div className="chat-input-container">
+      <div className="chat-input-container" style={{ position: 'relative' }}>
+        {showEmojiPicker && (
+          <EmojiStickerPicker
+            onSelectEmoji={(emoji) => {
+              setInputText((prev) => prev + emoji);
+              mainInputRef.current?.focus();
+            }}
+            onSelectSticker={(stickerToken) => {
+              onSendMessage(stickerToken);
+              setShowEmojiPicker(false);
+            }}
+            onClose={() => setShowEmojiPicker(false)}
+          />
+        )}
+
+        {showAttachMenu && (
+          <QuickAttachMenu
+            onInsertTemplate={(tpl) => {
+              setInputText((prev) => prev + tpl);
+              mainInputRef.current?.focus();
+            }}
+            onOpenStickerTab={() => {
+              setShowAttachMenu(false);
+              setShowEmojiPicker(true);
+            }}
+            onClose={() => setShowAttachMenu(false)}
+          />
+        )}
+
         <div className="chat-input-pill">
           <button 
             type="button" 
             className="input-attach-btn" 
-            title="Đính kèm tệp"
-            aria-label="Đính kèm tệp"
+            title="Chèn nhanh / Nhãn dán"
+            aria-label="Chèn nhanh"
+            disabled={!currentChannel || isLoading}
+            onClick={() => {
+              setShowAttachMenu((v) => !v);
+              setShowEmojiPicker(false);
+            }}
           >
             <PlusCircle size={22} />
           </button>
@@ -512,9 +720,14 @@ export const ChatCenter: React.FC<Props> = ({
 
           <button 
             type="button" 
-            className="input-emoji-btn" 
-            title="Biểu cảm"
-            aria-label="Biểu cảm"
+            className={`input-emoji-btn ${showEmojiPicker ? 'active' : ''}`}
+            title="Chọn Emoji & Sticker"
+            aria-label="Chọn Emoji & Sticker"
+            disabled={!currentChannel || isLoading}
+            onClick={() => {
+              setShowEmojiPicker((v) => !v);
+              setShowAttachMenu(false);
+            }}
           >
             <Smile size={22} />
           </button>

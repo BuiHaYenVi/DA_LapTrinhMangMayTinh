@@ -9,6 +9,8 @@ interface Props {
   currentUser: User | null;
   messages: MessageItem[];
   onSendMessage: (targetUserId: number, content: string) => void;
+  onEditMessage?: (messageId: number, content: string) => void;
+  onDeleteMessage?: (messageId: number) => void;
   onOpenInviteModal: (friend: Friend) => void;
   onBackToFriends: () => void;
   onRemoveFriend?: (friendId: number) => void;
@@ -19,6 +21,8 @@ export const DirectMessageChat: React.FC<Props> = ({
   currentUser,
   messages,
   onSendMessage,
+  onEditMessage,
+  onDeleteMessage,
   onOpenInviteModal,
   onBackToFriends,
   onRemoveFriend
@@ -116,16 +120,18 @@ export const DirectMessageChat: React.FC<Props> = ({
         </div>
       </header>
 
-      {/* 2. Danh sách tin nhắn dùng chung (có .dm-scroll và .dm-scroll-inner) */}
+      {/* 2. Danh sách tin nhắn dùng chung (hỗ trợ Sửa & Xóa tin nhắn riêng tư) */}
       <ChatMessageList
         messages={messages}
         currentUserId={currentUser?.id || 0}
         currentUserName={currentUser?.displayName || 'Tôi'}
         introComponent={introComponent}
         onRetryMessage={handleRetry}
+        onEditMessage={onEditMessage}
+        onDeleteMessage={onDeleteMessage}
       />
 
-      {/* 3. Ô nhập tin nhắn luôn bám đáy (có .dm-composer) */}
+      {/* 3. Ô nhập tin nhắn luôn bám đáy (có Emoji & Sticker) */}
       <ChatComposer
         placeholder={`Nhắn tin cho @${targetUser.displayName}`}
         onSendMessage={handleSend}
