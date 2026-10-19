@@ -5,7 +5,6 @@ import com.discordmini.server.dao.RoomDAO;
 import com.discordmini.server.dao.UserDAO;
 import com.discordmini.server.manager.ClientManager;
 import com.discordmini.server.manager.RoomManager;
-import com.discordmini.server.model.Room;
 import com.discordmini.server.model.User;
 import com.discordmini.server.protocol.ProtocolHandler;
 import com.discordmini.server.service.AuthService;
@@ -15,7 +14,6 @@ import com.discordmini.server.service.RoomService;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -29,6 +27,7 @@ public class ChatServer {
     private final RoomDAO roomDAO = new RoomDAO();
     private final MessageDAO messageDAO = new MessageDAO();
     private final com.discordmini.server.dao.FriendDAO friendDAO = new com.discordmini.server.dao.FriendDAO();
+    private final com.discordmini.server.dao.DirectMessageDAO directMessageDAO = new com.discordmini.server.dao.DirectMessageDAO();
 
     private final ClientManager clientManager = new ClientManager();
     private final RoomManager roomManager = new RoomManager();
@@ -65,19 +64,15 @@ public class ChatServer {
 
     private void initDefaultDatabaseRecords() {
         try {
+            // Tự động kiểm tra và nâng cấp cấu trúc bảng channels và migrate tin nhắn
+            com.discordmini.server.config.DatabaseMigration.runMigration();
+
             User systemUser = userDAO.findUser("system");
             if (systemUser == null) {
-                systemUser = userDAO.register("system", "system_protected_pwd", "Hệ Thống");
-            }
-            List<Room> rooms = roomDAO.listRooms();
-            if (rooms.isEmpty() && systemUser != null) {
-                roomDAO.createRoom("General", systemUser.getId());
-                roomDAO.createRoom("Gaming", systemUser.getId());
-                roomDAO.createRoom("Study", systemUser.getId());
-                System.out.println("[DB] Đã khởi tạo các phòng mặc định (General, Gaming, Study).");
+                userDAO.register("system", "system_protected_pwd", "Hệ Thống");
             }
         } catch (Exception e) {
-            System.err.println("[DB WARNING] Chưa thể khởi tạo phòng mặc định: " + e.getMessage());
+            System.err.println("[DB WARNING] Lỗi kiểm tra database: " + e.getMessage());
         }
     }
 
@@ -155,4 +150,5 @@ public class ChatServer {
     public ChatService getChatService() { return chatService; }
     public com.discordmini.server.service.FriendService getFriendService() { return friendService; }
     public com.discordmini.server.dao.FriendDAO getFriendDAO() { return friendDAO; }
+    public com.discordmini.server.dao.DirectMessageDAO getDirectMessageDAO() { return directMessageDAO; }
 }

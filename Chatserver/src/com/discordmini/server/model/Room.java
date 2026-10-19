@@ -10,6 +10,10 @@ public class Room {
     private String name;
     private int createdBy;
     private Timestamp createdAt;
+    private String description = "";
+    private String inviteCode = "";
+    private String userRole = "MEMBER";
+    private boolean isPrivate = false;
     private final Set<Integer> memberIds = Collections.synchronizedSet(new LinkedHashSet<>());
 
     public Room(int id, String name) {
@@ -34,6 +38,18 @@ public class Room {
 
     public Timestamp getCreatedAt() { return createdAt; }
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
+
+    public String getDescription() { return description != null ? description : ""; }
+    public void setDescription(String description) { this.description = description; }
+
+    public String getInviteCode() { return inviteCode != null ? inviteCode : ""; }
+    public void setInviteCode(String inviteCode) { this.inviteCode = inviteCode; }
+
+    public String getUserRole() { return userRole != null ? userRole : "MEMBER"; }
+    public void setUserRole(String userRole) { this.userRole = userRole != null ? userRole : "MEMBER"; }
+
+    public boolean isPrivate() { return isPrivate; }
+    public void setPrivate(boolean isPrivate) { this.isPrivate = isPrivate; }
 
     public Set<Integer> getMemberIds() { return memberIds; }
 

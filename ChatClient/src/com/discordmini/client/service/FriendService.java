@@ -32,4 +32,9 @@ public class FriendService {
     public void getFriendList() {
         client.sendCommand("FRIEND_LIST");
     }
+
+    public void removeFriend(int friendId) {
+        client.sendCommand("FRIEND_REMOVE", String.valueOf(friendId));
+    }
 }
+

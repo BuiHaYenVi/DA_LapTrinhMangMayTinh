@@ -22,8 +22,9 @@ public class RoomPanel extends JPanel implements RoomEventListener {
     private final RoomService roomService;
     private final DefaultListModel<Room> roomModel = new DefaultListModel<>();
     private final JList<Room> roomList = new JList<>(roomModel);
-    private final JButton btnCreate = new JButton("+ Tạo phòng");
-    private final JButton btnLeave = new JButton("Rời phòng");
+    private final JButton btnCreate = new JButton("➕ Tạo phòng");
+    private final JButton btnRefresh = new JButton("🔄 Làm mới");
+    private final JButton btnLeave = new JButton("🚪 Rời phòng");
 
     public RoomPanel(RoomService roomService) {
         this.roomService = roomService;
@@ -39,22 +40,39 @@ public class RoomPanel extends JPanel implements RoomEventListener {
     }
 
     private void buildUi() {
-        JLabel title = new JLabel("  PHÒNG CHAT", SwingConstants.LEFT);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        JLabel title = new JLabel("  DANH SÁCH PHÒNG", SwingConstants.LEFT);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 13));
         title.setForeground(new Color(33, 33, 33));
         title.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
         add(title, BorderLayout.NORTH);
 
         roomList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         roomList.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        roomList.setCellRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof Room r) {
+                    setText("# " + r.name());
+                }
+                setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
+                return this;
+            }
+        });
         add(new JScrollPane(roomList), BorderLayout.CENTER);
 
-        JPanel btnPanel = new JPanel(new GridLayout(2, 1, 4, 4));
+        JPanel btnPanel = new JPanel(new GridLayout(3, 1, 4, 4));
         btnCreate.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnRefresh.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         btnLeave.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         btnPanel.add(btnCreate);
+        btnPanel.add(btnRefresh);
         btnPanel.add(btnLeave);
         add(btnPanel, BorderLayout.SOUTH);
+
+        btnRefresh.addActionListener(e -> {
+            if (roomService != null) roomService.listRooms();
+        });
 
         // Sự kiện chọn phòng từ danh sách (khi selection thay đổi)
         roomList.addListSelectionListener(e -> {
@@ -170,6 +188,17 @@ public class RoomPanel extends JPanel implements RoomEventListener {
     @Override
     public void onRoomError(String errorMessage) {
         SwingUtilities.invokeLater(() -> {
+            Room current = (roomService != null) ? roomService.getCurrentRoom() : null;
+            if (current != null) {
+                for (int i = 0; i < roomModel.size(); i++) {
+                    if (roomModel.get(i).id() == current.id()) {
+                        roomList.setSelectedIndex(i);
+                        break;
+                    }
+                }
+            } else {
+                roomList.clearSelection();
+            }
             JOptionPane.showMessageDialog(this, errorMessage, "Lỗi phòng", JOptionPane.WARNING_MESSAGE);
         });
     }

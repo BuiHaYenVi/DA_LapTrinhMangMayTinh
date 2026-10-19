@@ -41,6 +41,10 @@ public class ClientConnection implements Closeable {
         return socket.isClosed();
     }
 
+    public boolean isConnected() {
+        return socket != null && socket.isConnected() && !socket.isClosed();
+    }
+
     @Override
     public synchronized void close() throws IOException {
         try {

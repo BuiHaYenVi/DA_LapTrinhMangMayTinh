@@ -14,6 +14,7 @@ import java.util.Objects;
 public class ChatMessage {
     private final String requestId;           // Client-generated request ID (null nếu là tin từ người khác)
     private volatile Integer serverMessageId;   // Database message ID từ Server (null nếu đang PENDING)
+    private volatile int channelId;           // ID kênh chat chứa tin nhắn này
     private final String sender;              // Tên hiển thị người gửi
     private final String content;             // Nội dung tin nhắn (hỗ trợ Unicode tiếng Việt, emoji)
     private final String timestamp;           // Thời gian định dạng HH:mm:ss
@@ -21,9 +22,10 @@ public class ChatMessage {
     private volatile String errorMessage;     // Thông điệp lỗi nếu FAILED
     private final boolean isMine;             // Đánh dấu tin nhắn do chính người dùng hiện tại gửi
 
-    public ChatMessage(String requestId, Integer serverMessageId, String sender, String content, String timestamp, MessageStatus status, boolean isMine) {
+    public ChatMessage(String requestId, Integer serverMessageId, int channelId, String sender, String content, String timestamp, MessageStatus status, boolean isMine) {
         this.requestId = requestId;
         this.serverMessageId = serverMessageId;
+        this.channelId = channelId;
         this.sender = sender;
         this.content = content;
         this.timestamp = timestamp;
@@ -31,13 +33,33 @@ public class ChatMessage {
         this.isMine = isMine;
     }
 
+    public ChatMessage(String requestId, Integer serverMessageId, String sender, String content, String timestamp, MessageStatus status, boolean isMine) {
+        this(requestId, serverMessageId, 0, sender, content, timestamp, status, isMine);
+    }
+
     public static ChatMessage createOutgoing(String requestId, String sender, String content) {
+        return createOutgoing(requestId, 0, sender, content);
+    }
+
+    public static ChatMessage createOutgoing(String requestId, int channelId, String sender, String content) {
         String now = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
-        return new ChatMessage(requestId, null, sender, content, now, MessageStatus.PENDING, true);
+        return new ChatMessage(requestId, null, channelId, sender, content, now, MessageStatus.PENDING, true);
+    }
+
+    public static ChatMessage createIncoming(int serverMessageId, int channelId, String sender, String content, String timestamp, boolean isMine) {
+        return new ChatMessage(null, serverMessageId, channelId, sender, content, timestamp, MessageStatus.SENT, isMine);
     }
 
     public static ChatMessage createIncoming(int serverMessageId, String sender, String content, String timestamp, boolean isMine) {
-        return new ChatMessage(null, serverMessageId, sender, content, timestamp, MessageStatus.SENT, isMine);
+        return createIncoming(serverMessageId, 0, sender, content, timestamp, isMine);
+    }
+
+    public int getChannelId() {
+        return channelId;
+    }
+
+    public void setChannelId(int channelId) {
+        this.channelId = channelId;
     }
 
     public String getRequestId() {

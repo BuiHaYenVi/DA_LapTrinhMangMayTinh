@@ -1,6 +1,5 @@
 package com.discordmini.client.network;
 
-import com.discordmini.client.model.ChatMessage;
 import com.discordmini.client.model.MessageStatus;
 import com.discordmini.client.protocol.ProtocolHandler;
 import com.discordmini.client.service.AuthCallback;
@@ -9,7 +8,6 @@ import com.discordmini.client.service.AuthService;
 import com.discordmini.client.service.ChatService;
 import com.discordmini.client.service.RoomService;
 
-import javax.swing.*;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -302,7 +300,6 @@ public class ReconnectManagerTest {
 
             SocketClient client = new SocketClient();
             client.connect("127.0.0.1", port);
-            AuthService authService = new AuthService(client);
             ChatService chatService = new ChatService(client, "Bao An");
             RoomService roomService = new RoomService(client, chatService);
 

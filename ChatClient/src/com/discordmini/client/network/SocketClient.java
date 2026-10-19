@@ -471,4 +471,7 @@ public class SocketClient {
         markDisconnected(generation);
         closeSocketQuietly();
     }
+
+    public String getHost() { return serverHost != null ? serverHost : "127.0.0.1"; }
+    public int getPort() { return serverPort > 0 ? serverPort : 5000; }
 }

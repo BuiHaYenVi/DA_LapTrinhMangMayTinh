@@ -1,42 +1,98 @@
-import type { Room, MessageItem, User, Friend, PendingFriendRequest } from '../types/chat';
+import type { Room, Channel, ChannelType, MessageItem, User, Friend, PendingFriendRequest } from '../types/chat';
+import { getChannelMeta, saveChannelMeta } from '../utils/channelMeta';
 
 type Listener = (event: string, data: any) => void;
+
+export interface SessionResponse {
+  authenticated: boolean;
+  user?: User;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  message?: string;
+  user?: User;
+}
+
+export interface ServerStatusResponse {
+  serverOnline: boolean;
+  host: string;
+  port: number;
+}
 
 class ChatBridgeService {
   private listeners: Listener[] = [];
   private eventSource: EventSource | null = null;
-  private baseUrl = typeof window !== 'undefined' && window.location && window.location.port
+  private isConnectingStream = false;
+
+  private baseUrl = typeof window !== 'undefined' && window.location
     ? `${window.location.origin}/api`
     : 'http://localhost:8080/api';
 
   constructor() {
-    this.connectEventSource();
+    // Không tự động kết nối EventSource khi chưa xác thực đăng nhập
   }
 
-  private connectEventSource() {
+  /**
+   * Bắt đầu luồng Server-Sent Events (SSE) khi người dùng đã đăng nhập thành công.
+   * Ngăn chặn việc tạo kết nối trùng lặp.
+   */
+  public startEventStream(): void {
+    if (this.eventSource || this.isConnectingStream) {
+      return;
+    }
+    this.isConnectingStream = true;
+
     try {
-      this.eventSource = new EventSource(`${this.baseUrl}/events`);
-      this.eventSource.onmessage = (e) => {
+      // EventSource tự động mang cookie trong cùng origin (hoặc qua Vite proxy)
+      const es = new EventSource(`${this.baseUrl}/events`, { withCredentials: true });
+      this.eventSource = es;
+
+      es.onopen = () => {
+        this.isConnectingStream = false;
+        this.emit('STREAM_STATUS', { streamConnected: true });
+      };
+
+      es.onmessage = (e) => {
         try {
           const payload = JSON.parse(e.data);
           this.emit(payload.event, payload.data);
         } catch (err) {
-          console.error("SSE parse error", err);
+          console.error('[SSE] Lỗi phân tích cú pháp gói tin SSE:', err);
         }
       };
-      this.eventSource.onerror = () => {
-        this.emit('STATUS', { connected: false });
-        setTimeout(() => this.connectEventSource(), 3000);
-      };
-      this.eventSource.onopen = () => {
-        this.emit('STATUS', { connected: true });
+
+      es.onerror = () => {
+        this.isConnectingStream = false;
+        this.emit('STREAM_STATUS', { 
+          streamConnected: false, 
+          reason: 'Mất kết nối luồng sự kiện tới dịch vụ Web cầu nối. Trình duyệt đang tự động kết nối lại...' 
+        });
+        // Trình duyệt tự động thử kết nối lại (auto-reconnect), không gọi tạo new EventSource lặp
       };
     } catch (e) {
-      console.warn("EventSource fallback mode");
+      this.isConnectingStream = false;
+      this.emit('STREAM_STATUS', { streamConnected: false, reason: 'Không thể mở kết nối luồng sự kiện.' });
+      console.warn('[SSE] Trình duyệt không thể mở kết nối EventSource:', e);
     }
   }
 
-  public subscribe(listener: Listener) {
+  public isStreamActive(): boolean {
+    return this.eventSource !== null && this.eventSource.readyState === EventSource.OPEN;
+  }
+
+  /**
+   * Đóng và dọn dẹp kết nối SSE khi đăng xuất hoặc rời màn hình.
+   */
+  public stopEventStream(): void {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+    this.isConnectingStream = false;
+  }
+
+  public subscribe(listener: Listener): () => void {
     this.listeners.push(listener);
     return () => {
       this.listeners = this.listeners.filter(l => l !== listener);
@@ -44,127 +100,484 @@ class ChatBridgeService {
   }
 
   private emit(event: string, data: any) {
-    this.listeners.forEach(l => l(event, data));
+    this.listeners.forEach(l => {
+      try {
+        l(event, data);
+      } catch (e) {
+        console.error('[Bridge] Lỗi trong listener:', e);
+      }
+    });
   }
 
+  /**
+   * Thực hiện gửi HTTP request với cookie xác thực.
+   * Tham số requiresAuth (mặc định = true): Chỉ khi API được bảo vệ nhận mã HTTP 401
+   * thì mới phát sự kiện UNAUTHORIZED để điều hướng về màn hình đăng nhập.
+   * Các API công khai (login, register, status, session check) khi trả về 401 sẽ không làm mất phiên.
+   */
+  private async fetchWithAuth(url: string, options: RequestInit = {}, requiresAuth = true): Promise<Response> {
+    const defaultHeaders = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers: defaultHeaders,
+      credentials: 'include' // Bắt buộc gửi và lưu cookie HttpOnly DISCORD_SESSION
+    });
+
+    if (requiresAuth && response.status === 401) {
+      this.stopEventStream();
+      this.emit('UNAUTHORIZED', { message: 'Phiên đăng nhập đã hết hạn hoặc mất kết nối tới ChatServer. Vui lòng đăng nhập lại.' });
+    }
+
+    return response;
+  }
+
+  /**
+   * Kiểm tra trạng thái máy chủ ChatServer TCP (Public API).
+   */
+  public async getStatus(): Promise<ServerStatusResponse> {
+    try {
+      const res = await this.fetchWithAuth(`${this.baseUrl}/status`, { method: 'GET' }, false);
+      return await res.json();
+    } catch {
+      return { serverOnline: false, host: '127.0.0.1', port: 5000 };
+    }
+  }
+
+  /**
+   * Kiểm tra phiên đăng nhập hiện tại từ cookie (Public API - kiểm tra phiên nhưng không kích hoạt UNAUTHORIZED).
+   */
+  public async getSession(): Promise<SessionResponse> {
+    try {
+      const res = await this.fetchWithAuth(`${this.baseUrl}/session`, { method: 'GET' }, false);
+      if (!res.ok) return { authenticated: false };
+      return await res.json();
+    } catch {
+      return { authenticated: false };
+    }
+  }
+
+  /**
+   * Đăng nhập tài khoản (Public API).
+   */
+  public async login(username: string, pass: string): Promise<AuthResponse> {
+    try {
+      const res = await this.fetchWithAuth(`${this.baseUrl}/login`, {
+        method: 'POST',
+        body: JSON.stringify({ username, password: pass })
+      }, false);
+      const data = await res.json();
+      return {
+        success: data.success === true,
+        message: data.message,
+        user: data.user
+      };
+    } catch (e: any) {
+      return {
+        success: false,
+        message: 'Lỗi kết nối mạng: ' + (e?.message || 'Không xác định')
+      };
+    }
+  }
+
+  /**
+   * Đăng ký tài khoản mới (Public API).
+   */
+  public async register(username: string, pass: string, displayName: string): Promise<AuthResponse> {
+    try {
+      const res = await this.fetchWithAuth(`${this.baseUrl}/register`, {
+        method: 'POST',
+        body: JSON.stringify({ username, password: pass, displayName })
+      }, false);
+      const data = await res.json();
+      return {
+        success: data.success === true,
+        message: data.message
+      };
+    } catch (e: any) {
+      return {
+        success: false,
+        message: 'Lỗi kết nối mạng: ' + (e?.message || 'Không xác định')
+      };
+    }
+  }
+
+  /**
+   * Đăng xuất tài khoản và xóa phiên an toàn.
+   */
+  public async logout(): Promise<{ success: boolean; networkError?: boolean; message?: string }> {
+    try {
+      const res = await this.fetchWithAuth(`${this.baseUrl}/logout`, { method: 'POST' });
+      if (res.ok) {
+        this.stopEventStream();
+        return { success: true };
+      }
+      return { 
+        success: false, 
+        networkError: false, 
+        message: 'Phản hồi không thành công khi đăng xuất (HTTP ' + res.status + ').' 
+      };
+    } catch (e: any) {
+      return { 
+        success: false, 
+        networkError: true, 
+        message: 'Lỗi kết nối mạng: ' + (e?.message || 'Không thể liên lạc với hệ thống.') 
+      };
+    }
+  }
+
+  /**
+   * Tải trạng thái ban đầu của phòng chat, kênh, tin nhắn, bạn bè sau khi đăng nhập.
+   */
   public async getInitialState(): Promise<{
     user: User;
     rooms: Room[];
     currentRoom: Room | null;
+    channels: Channel[];
+    currentChannel: Channel | null;
     messages: MessageItem[];
     members: User[];
     friends: Friend[];
     pendingRequests: PendingFriendRequest[];
-  }> {
-    const res = await fetch(`${this.baseUrl}/state`);
+  } | null> {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/state`, { method: 'GET' });
+    if (!res.ok) return null;
     return await res.json();
   }
 
-  public async login(username: string, pass: string): Promise<boolean> {
-    const res = await fetch(`${this.baseUrl}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password: pass })
-    });
-    return (await res.json()).success;
-  }
-
-  public async register(username: string, pass: string, displayName: string): Promise<boolean> {
-    const res = await fetch(`${this.baseUrl}/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password: pass, displayName })
-    });
-    return (await res.json()).success;
-  }
-
   public async joinRoom(roomId: number): Promise<void> {
-    await fetch(`${this.baseUrl}/rooms/join`, {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/join`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomId })
     });
   }
 
-  public async createRoom(name: string): Promise<void> {
-    await fetch(`${this.baseUrl}/rooms/create`, {
+  public async createRoom(name: string): Promise<{ success: boolean; roomId?: number; name?: string; message?: string }> {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/rooms/create`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      throw new Error(data.message || `Lỗi máy chủ khi tạo phòng (HTTP ${res.status})`);
+    }
+    return data;
+  }
+
+  public async leaveRoom(roomId?: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/leave`, {
+      method: 'POST',
+      body: JSON.stringify(roomId ? { roomId } : {})
     });
   }
 
-  public async leaveRoom(): Promise<void> {
-    await fetch(`${this.baseUrl}/rooms/leave`, { method: 'POST' });
+  public async getChannels(roomId: number): Promise<Channel[]> {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/channels?roomId=${roomId}`, { method: 'GET' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const list: Channel[] = data.channels || [];
+    return list.map(ch => {
+      const meta = getChannelMeta(ch.id, ch.name);
+      return {
+        ...ch,
+        type: ch.type || meta.type || 'text',
+        isPrivate: ch.isPrivate ?? meta.isPrivate ?? false
+      };
+    });
   }
 
-  public async sendMessage(content: string): Promise<void> {
-    await fetch(`${this.baseUrl}/messages/send`, {
+  public async createChannel(
+    roomId: number, 
+    name: string,
+    type: ChannelType = 'text',
+    isPrivate: boolean = false
+  ): Promise<{ success: boolean; channel?: Channel; message?: string }> {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/channels/create`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content })
+      body: JSON.stringify({ roomId, name, type, isPrivate })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      throw new Error(data.message || `HTTP ${res.status}`);
+    }
+    if (data.channel) {
+      saveChannelMeta(data.channel.id, data.channel.name, { type, isPrivate });
+      data.channel = {
+        ...data.channel,
+        type,
+        isPrivate
+      };
+    }
+    return data;
+  }
+
+  public async joinChannel(roomId: number, channelId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/channels/join`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, channelId })
+    });
+  }
+
+  public async renameChannel(roomId: number, channelId: number, name: string): Promise<void> {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/channels/rename`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, channelId, name })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  }
+
+  public async deleteChannel(roomId: number, channelId: number): Promise<void> {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/channels/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, channelId })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  }
+
+  public async sendMessage(content: string, channelId?: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/send`, {
+      method: 'POST',
+      body: JSON.stringify({ content, channelId })
     });
   }
 
   public async sendPrivateMessage(targetId: number, content: string): Promise<void> {
-    await fetch(`${this.baseUrl}/messages/private`, {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/private`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetId, content })
     });
   }
 
-  public async inviteMember(roomId: number, targetUserId: number): Promise<void> {
-    await fetch(`${this.baseUrl}/rooms/invite`, {
+  public async getDirectHistory(targetUserId: number, limit = 50): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/direct-history`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomId, targetUserId })
+      body: JSON.stringify({ targetUserId, limit })
+    });
+  }
+
+  public async inviteMember(roomId: number, target: number | string): Promise<void> {
+    const payload = typeof target === 'number'
+      ? { roomId, targetUserId: target }
+      : { roomId, targetUsername: target.trim() };
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/invite`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
     });
   }
 
   public async kickMember(roomId: number, targetUserId: number): Promise<void> {
-    await fetch(`${this.baseUrl}/rooms/kick`, {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/kick`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomId, targetUserId })
     });
   }
 
   public async sendFriendRequest(targetUserId: number): Promise<void> {
-    await fetch(`${this.baseUrl}/friends/request`, {
+    await this.fetchWithAuth(`${this.baseUrl}/friends/request`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetUserId })
     });
   }
 
   public async acceptFriendRequest(requestId: number): Promise<void> {
-    await fetch(`${this.baseUrl}/friends/accept`, {
+    await this.fetchWithAuth(`${this.baseUrl}/friends/accept`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId })
     });
   }
 
   public async rejectFriendRequest(requestId: number): Promise<void> {
-    await fetch(`${this.baseUrl}/friends/reject`, {
+    await this.fetchWithAuth(`${this.baseUrl}/friends/reject`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId })
     });
   }
 
-  public async refreshFriends(): Promise<void> {
-    await fetch(`${this.baseUrl}/friends/refresh`, {
-      method: 'POST'
+  public async removeFriend(friendId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/friends/remove`, {
+      method: 'POST',
+      body: JSON.stringify({ friendId })
     });
   }
 
+  public async refreshFriends(): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/friends/refresh`, { method: 'POST' });
+  }
+
   public async searchFriends(query: string): Promise<void> {
-    await fetch(`${this.baseUrl}/friends/search`, {
+    await this.fetchWithAuth(`${this.baseUrl}/friends/search`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query })
+    });
+  }
+
+  public async editMessage(messageId: number, content: string): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/edit`, {
+      method: 'POST',
+      body: JSON.stringify({ messageId, content })
+    });
+  }
+
+  public async deleteMessage(messageId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ messageId })
+    });
+  }
+
+  public async editDirectMessage(messageId: number, content: string): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/private/edit`, {
+      method: 'POST',
+      body: JSON.stringify({ messageId, content })
+    });
+  }
+
+  public async deleteDirectMessage(messageId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/private/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ messageId })
+    });
+  }
+
+  public async loadMoreHistory(roomId: number, beforeId: number, limit = 25): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/messages/history`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, beforeId, limit })
+    });
+  }
+
+  public async renameRoom(roomId: number, name: string): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/rename`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, name })
+    });
+  }
+
+  public async deleteRoom(roomId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId })
+    });
+  }
+
+  public async setRoomDesc(roomId: number, description: string): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/desc`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, description })
+    });
+  }
+
+  public async transferOwner(roomId: number, targetUserId: number): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/transfer`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, targetUserId })
+    });
+  }
+
+  public async setMemberRole(roomId: number, targetUserId: number, role: string): Promise<void> {
+    await this.fetchWithAuth(`${this.baseUrl}/rooms/role`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, targetUserId, role })
+    });
+  }
+
+  public async updateProfile(displayName: string, bio: string = '', avatarColor: string = ''): Promise<{ success: boolean; message?: string; notSupported?: boolean; displayName?: string }> {
+    try {
+      const res = await this.fetchWithAuth(`${this.baseUrl}/user/profile`, {
+        method: 'POST',
+        body: JSON.stringify({ displayName, bio, avatarColor })
+      });
+      if (res.status === 404 || res.status === 501) {
+        return { success: false, notSupported: true, message: 'Tính năng đang phát triển' };
+      }
+      const data = await res.json();
+      return {
+        success: data.success === true,
+        displayName: data.displayName || displayName,
+        message: data.message
+      };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi mạng khi cập nhật hồ sơ' };
+    }
+  }
+
+  public async changePassword(oldPassword: string, newPassword: string): Promise<{ success: boolean; message?: string; notSupported?: boolean }> {
+    try {
+      const res = await this.fetchWithAuth(`${this.baseUrl}/user/password`, {
+        method: 'POST',
+        body: JSON.stringify({ oldPassword, newPassword })
+      });
+      if (res.status === 404 || res.status === 501) {
+        return { success: false, notSupported: true, message: 'Tính năng đang phát triển' };
+      }
+      const data = await res.json();
+      return {
+        success: data.success === true,
+        message: data.message
+      };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi mạng khi đổi mật khẩu' };
+    }
+  }
+
+  public async uploadFile(file: File): Promise<{ success: boolean; url: string; name: string; size: string; type: string }> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result as string;
+          const sizeStr = file.size > 1024 * 1024 
+            ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+            : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+
+          const res = await this.fetchWithAuth(`${this.baseUrl}/files/upload`, {
+            method: 'POST',
+            body: JSON.stringify({
+              name: file.name,
+              size: sizeStr,
+              type: file.type || 'application/octet-stream',
+              data: base64Data
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+              resolve(data);
+              return;
+            }
+          }
+
+          // Fallback nếu không có endpoint backend: dùng base64 data URL trực tiếp
+          resolve({
+            success: true,
+            url: base64Data,
+            name: file.name,
+            size: sizeStr,
+            type: file.type || 'application/octet-stream'
+          });
+        } catch {
+          const sizeStr = `${Math.max(1, Math.round(file.size / 1024))} KB`;
+          resolve({
+            success: true,
+            url: reader.result as string,
+            name: file.name,
+            size: sizeStr,
+            type: file.type || 'application/octet-stream'
+          });
+        }
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
     });
   }
 }

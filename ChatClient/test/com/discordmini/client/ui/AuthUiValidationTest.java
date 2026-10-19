@@ -38,6 +38,7 @@ public final class AuthUiValidationTest {
         testRegisterWindowCloseAndRestoreParent();
         testDisposedWindowCallbackSafety();
         testDisconnectUpdatesUiState();
+        testLoginSuccessOpensMainFrame();
         System.out.println("=== TẤT CẢ TEST AN-07: LOGIN/REGISTER UI ĐÃ PASS! ===");
     }
 
@@ -129,11 +130,8 @@ public final class AuthUiValidationTest {
 
             // Giả lập nhập thông tin qua Swing EDT
             SwingUtilities.invokeAndWait(() -> {
-                JTextField uField = findComponent(frame, JTextField.class);
-                JPasswordField pField = findComponent(frame, JPasswordField.class);
-                check(uField != null && pField != null, "Phải tìm thấy input fields");
-                uField.setText("user_spam");
-                pField.setText("pass_spam");
+                frame.getUsernameField().setText("user_spam");
+                frame.getPasswordField().setText("pass_spam");
             });
 
             // Người dùng click đăng nhập nhiều lần liên tiếp
@@ -250,10 +248,8 @@ public final class AuthUiValidationTest {
 
             // Giả lập trạng thái inFlight
             SwingUtilities.invokeAndWait(() -> {
-                JTextField u = findComponent(frame, JTextField.class);
-                JPasswordField p = findComponent(frame, JPasswordField.class);
-                u.setText("user_test");
-                p.setText("pass_test");
+                frame.getUsernameField().setText("user_test");
+                frame.getPasswordField().setText("pass_test");
             });
 
             // Ngắt kết nối
@@ -265,6 +261,74 @@ public final class AuthUiValidationTest {
             frame.dispose();
         }
         System.out.println("  [PASS] testDisconnectUpdatesUiState");
+    }
+
+    /**
+     * Tiêu chí kiểm tra tích hợp: Đăng nhập thành công phải đóng LoginFrame và mở MainFrame thật.
+     */
+    private static void testLoginSuccessOpensMainFrame() throws Exception {
+        try (ServerSocket fakeServer = new ServerSocket(0)) {
+            int port = fakeServer.getLocalPort();
+
+            Thread serverThread = new Thread(() -> {
+                try (Socket peer = fakeServer.accept();
+                     BufferedReader reader = new BufferedReader(new InputStreamReader(peer.getInputStream(), StandardCharsets.UTF_8));
+                     PrintWriter writer = new PrintWriter(new OutputStreamWriter(peer.getOutputStream(), StandardCharsets.UTF_8), true)) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (line.startsWith("LOGIN|")) {
+                            String[] parts = line.split("\\|", -1);
+                            String reqId = parts[1];
+                            // Server phản hồi ACK mạng và OK đăng nhập thành công theo đúng giao thức
+                            writer.println("ACK|" + reqId);
+                            writer.println("OK|LOGIN|1|" + ProtocolHandler.encode("Bảo An"));
+                        }
+                    }
+                } catch (Exception ignored) {}
+            });
+            serverThread.setDaemon(true);
+            serverThread.start();
+
+            SocketClient client = new SocketClient();
+            client.connect("127.0.0.1", port);
+            LoginFrame loginFrame = new LoginFrame(client);
+
+            SwingUtilities.invokeAndWait(() -> {
+                loginFrame.getUsernameField().setText("bao_an");
+                loginFrame.getPasswordField().setText("secret123");
+            });
+
+            SwingUtilities.invokeAndWait(loginFrame::doLogin);
+
+            // Chờ phản hồi và mở MainFrame
+            MainFrame openedMainFrame = null;
+            long start = System.currentTimeMillis();
+            while (System.currentTimeMillis() - start < 3000) {
+                Thread.sleep(100);
+                for (java.awt.Window w : java.awt.Window.getWindows()) {
+                    if (w instanceof MainFrame mf && mf.isDisplayable()) {
+                        openedMainFrame = mf;
+                        break;
+                    }
+                }
+                if (openedMainFrame != null) break;
+            }
+
+            check(loginFrame.isDisposed(), "LoginFrame phải được dispose() sau khi đăng nhập thành công");
+            check(openedMainFrame != null, "MainFrame thực sự phải được mở sau khi đăng nhập thành công");
+            check(openedMainFrame.getTitle().contains("Bảo An"), "MainFrame phải hiển thị đúng tên hiển thị của người dùng");
+
+            // Kiểm tra các panel bên trong MainFrame đã được tạo và hiển thị
+            check(openedMainFrame.getRoomPanel() != null, "MainFrame phải chứa RoomPanel");
+            check(openedMainFrame.getChatPanel() != null, "MainFrame phải chứa ChatPanel");
+            check(openedMainFrame.getUserPanel() != null, "MainFrame phải chứa UserPanel");
+            check(openedMainFrame.getNetworkStatusPanel() != null, "MainFrame phải chứa NetworkStatusPanel");
+
+            final MainFrame mfToClose = openedMainFrame;
+            SwingUtilities.invokeAndWait(mfToClose::dispose);
+            client.close();
+        }
+        System.out.println("  [PASS] testLoginSuccessOpensMainFrame");
     }
 
     @SuppressWarnings("unchecked")

@@ -1,31 +1,127 @@
 package com.discordmini.client;
 
+import com.discordmini.client.bridge.UiBridgeServer;
 import com.discordmini.client.network.SocketClient;
 import com.discordmini.client.ui.LoginFrame;
 
 import javax.swing.*;
+import java.awt.Desktop;
+import java.io.IOException;
+import java.net.URI;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
+/**
+ * ClientApplication: Điểm khởi động ứng dụng Discord Mini Client.
+ *
+ * Mặc định:
+ * - Khởi chạy chế độ Web UI: Khởi động cầu nối HTTP/SSE UiBridgeServer trên localhost trước khi đăng nhập.
+ * - Mở trình duyệt web trỏ tới đúng cổng HTTP đang chạy (mặc định http://localhost:8080).
+ * - Toàn bộ trải nghiệm đăng ký, đăng nhập và chat chạy trên giao diện Web.
+ * - Không hiển thị cửa sổ JFrame / JOptionPane Swing trong chế độ web.
+ * - Trang web vẫn mở được bình thường ngay cả khi TCP Server chưa chạy.
+ *
+ * Tương thích ngược:
+ * - Sử dụng cờ lệnh `--swing` (hoặc `-swing`) để khởi chạy giao diện Swing cũ.
+ */
 public class ClientApplication {
     public static final String DEFAULT_HOST = "127.0.0.1";
     public static final int DEFAULT_PORT = 5000;
+    public static final int DEFAULT_HTTP_PORT = 8080;
 
     public static void main(String[] args) {
-        String host = (args != null && args.length > 0 && !args[0].isBlank()) ? args[0] : DEFAULT_HOST;
+        boolean swingMode = false;
+        String host = DEFAULT_HOST;
         int port = DEFAULT_PORT;
-        if (args != null && args.length > 1) {
+        int httpPort = DEFAULT_HTTP_PORT;
+
+        // 1. Kiểm tra biến môi trường (ưu tiên khi chạy trên Docker/Render/Cloud)
+        String envPort = System.getenv("PORT");
+        if (envPort != null && !envPort.isBlank()) {
             try {
-                port = Integer.parseInt(args[1]);
-            } catch (NumberFormatException ignored) {
-                port = DEFAULT_PORT;
+                httpPort = Integer.parseInt(envPort.trim());
+            } catch (NumberFormatException ignored) {}
+        }
+        String envHost = System.getenv("CHAT_SERVER_HOST");
+        if (envHost != null && !envHost.isBlank()) {
+            host = envHost.trim();
+        }
+        String envChatPort = System.getenv("CHAT_SERVER_PORT");
+        if (envChatPort != null && !envChatPort.isBlank()) {
+            try {
+                port = Integer.parseInt(envChatPort.trim());
+            } catch (NumberFormatException ignored) {}
+        }
+
+        if (args != null) {
+            for (String arg : args) {
+                if ("--swing".equalsIgnoreCase(arg) || "-swing".equalsIgnoreCase(arg)) {
+                    swingMode = true;
+                    break;
+                }
+            }
+            if (args.length > 0 && !args[0].startsWith("-") && !args[0].isBlank()) {
+                host = args[0];
+            }
+            if (args.length > 1 && !args[1].startsWith("-")) {
+                try {
+                    port = Integer.parseInt(args[1]);
+                } catch (NumberFormatException ignored) {}
+            }
+            if (args.length > 2 && !args[2].startsWith("-")) {
+                try {
+                    httpPort = Integer.parseInt(args[2]);
+                } catch (NumberFormatException ignored) {}
             }
         }
-        CountDownLatch latch = new CountDownLatch(1);
-        connectAsync(new SocketClient(), host, port, true, true, latch);
+
+        if (swingMode) {
+            System.out.println("[ClientApplication] Khởi động ở chế độ Desktop Java Swing (--swing)...");
+            CountDownLatch latch = new CountDownLatch(1);
+            connectAsync(new SocketClient(), host, port, true, true, latch);
+            try {
+                latch.await();
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            return;
+        }
+
+        // Chế độ Web UI mặc định
         try {
-            latch.await();
-        } catch (InterruptedException ignored) {
+            UiBridgeServer bridge = new UiBridgeServer(httpPort, host, port);
+            bridge.start();
+
+            String webUrl = "http://localhost:" + bridge.getPort();
+            System.out.println("============================================================");
+            System.out.println("  DISCORD MINI - GIAO DIỆN WEB LOCALHOST ĐÃ SẴN SÀNG");
+            System.out.println("  Địa chỉ truy cập trình duyệt: " + webUrl);
+            System.out.println("  Cầu nối máy chủ ChatServer: " + host + ":" + port);
+            System.out.println("  (Để chạy giao diện Swing cũ, truyền cờ lệnh: --swing)");
+            System.out.println("============================================================");
+
+            // Tự động mở trình duyệt nếu môi trường hỗ trợ
+            try {
+                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    Desktop.getDesktop().browse(new URI(webUrl));
+                } else {
+                    System.out.println("[Thông báo] Vui lòng mở trình duyệt và truy cập: " + webUrl);
+                }
+            } catch (Exception e) {
+                System.out.println("[Thông báo] Không thể tự động mở trình duyệt (" + e.getMessage() + "). Vui lòng truy cập thủ công: " + webUrl);
+            }
+
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                System.out.println("[ClientApplication] Đang dừng UiBridgeServer...");
+                bridge.stop();
+            }));
+
+            // Giữ luồng chính hoạt động phục vụ web server
+            Thread.currentThread().join();
+
+        } catch (IOException e) {
+            System.err.println("[ClientApplication LỖI] Không thể khởi động UiBridgeServer: " + e.getMessage());
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
@@ -64,7 +160,6 @@ public class ClientApplication {
         SwingWorker<SocketClient, Void> worker = new SwingWorker<>() {
             @Override
             protected SocketClient doInBackground() throws Exception {
-                // Tác vụ mạng kết nối TCP chạy trên luồng nền (Worker Thread), KHÔNG chặn EDT của Swing
                 client.getConnectionManager().setConnecting();
                 client.connect(host, port);
                 return client;
@@ -72,14 +167,12 @@ public class ClientApplication {
 
             @Override
             protected void done() {
-                // done() luôn được thực thi trên Event Dispatch Thread (EDT)
                 try {
                     SocketClient connectedClient = get();
                     if (showLoginFrame) {
                         new LoginFrame(connectedClient).setVisible(true);
                     }
                 } catch (Exception e) {
-                    // Giải phóng tài nguyên client nếu kết nối thất bại
                     client.close();
                     if (showErrorDialog) {
                         Throwable cause = e.getCause() != null ? e.getCause() : e;

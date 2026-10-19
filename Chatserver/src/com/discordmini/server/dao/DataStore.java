@@ -32,12 +32,6 @@ public class DataStore {
         this.messagesFile = dataDir.resolve("messages.txt");
         Files.createDirectories(dataDir);
         load();
-        if (roomsById.isEmpty()) {
-            createRoomInternal("General");
-            createRoomInternal("Gaming");
-            createRoomInternal("Study");
-            saveRooms();
-        }
     }
 
     public synchronized User findUser(String username) {

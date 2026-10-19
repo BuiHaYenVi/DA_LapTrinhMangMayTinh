@@ -1,0 +1,12 @@
+.git
+.github
+.vscode
+node_modules
+frontend/node_modules
+frontend/dist
+Chatserver/build
+Chatserver/dist
+ChatClient/build
+ChatClient/dist
+*.bat
+*.ps1

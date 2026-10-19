@@ -120,3 +120,52 @@ Run each test's `main` method from NetBeans or compile it with the matching proj
 - **An:** client UX, connection-state display, reconnect policy and end-to-end client tests.
 
 Changes to command fields or response shapes must be coordinated between Client and Server and reflected in this document.
+
+## 9. Direct message protocol contract (Thống nhất 3 tầng)
+
+Định dạng tin nhắn riêng 1-1 thống nhất giữa Server TCP, Cầu nối Web SSE và Frontend React:
+
+### A. Gửi tin nhắn riêng (Client -> Server)
+```text
+SEND_PRIVATE_MESSAGE|<target_username_or_id>|<base64-content>|@RID|<uuid>
+```
+- `target_username_or_id`: ID người nhận (số) hoặc username chuẩn hóa (chữ thường).
+- `content`: Nội dung mã hóa Base64 UTF-8 (không dùng dấu `;` làm phân cách trường).
+
+### B. Xác nhận đã gửi cho người gửi (Server -> Sender)
+```text
+DM_SENT|<id>|<to_id>|<base64-to_username>|<base64-content>|<sent_at_epoch_ms>
+```
+- Trường 1 (`id`): ID tin nhắn tạo trong PostgreSQL (`long`).
+- Trường 2 (`to_id`): ID người nhận (`int`).
+- Trường 3 (`to_username`): Username người nhận chuẩn hóa chữ thường (Base64 UTF-8).
+- Trường 4 (`content`): Nội dung tin nhắn (Base64 UTF-8).
+- Trường 5 (`sent_at_epoch_ms`): Mốc thời gian lưu trữ dạng epoch milliseconds (chuỗi số nguyên).
+
+### C. Đẩy tin nhắn tới người nhận trực tuyến (Server -> Recipient)
+```text
+DM_RECEIVED|<id>|<from_id>|<base64-from_username>|<base64-from_display_name>|<base64-content>|<sent_at_epoch_ms>|<to_id>|<base64-to_username>
+```
+- Trường 1 (`id`): ID tin nhắn (`long`).
+- Trường 2 (`from_id`): ID người gửi (`int`).
+- Trường 3 (`from_username`): Username người gửi chuẩn hóa chữ thường (Base64 UTF-8).
+- Trường 4 (`from_display_name`): Tên hiển thị người gửi (Base64 UTF-8).
+- Trường 5 (`content`): Nội dung tin nhắn (Base64 UTF-8).
+- Trường 6 (`sent_at_epoch_ms`): Mốc thời gian gửi dạng epoch milliseconds (chuỗi số nguyên).
+- Trường 7 (`to_id`): ID người nhận (`int`).
+- Trường 8 (`to_username`): Username người nhận chuẩn hóa chữ thường (Base64 UTF-8).
+
+### D. Tải lịch sử tin nhắn riêng (GET_DM_HISTORY)
+Yêu cầu:
+```text
+GET_DM_HISTORY|<target_user_id>|<limit>|@RID|<uuid>
+```
+Phản hồi luồng:
+```text
+DM_HISTORY_BEGIN|<target_user_id>
+DM_HISTORY_ITEM|<id>|<sender_id>|<base64-sender_username>|<base64-sender_display_name>|<base64-content>|<sent_at_epoch_ms>|<is_mine>
+...
+DM_HISTORY_END|<target_user_id>
+```
+- `is_mine`: `true` nếu người gửi là chính client đang yêu cầu, `false` nếu là của đối phương.
+

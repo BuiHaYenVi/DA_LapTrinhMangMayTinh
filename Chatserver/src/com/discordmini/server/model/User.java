@@ -8,6 +8,7 @@ public class User {
     private String password;
     private String displayName;
     private String status; // "ONLINE" or "OFFLINE"
+    private String role = "MEMBER"; // Room role when loaded as a room member
     private Timestamp createdAt;
 
     public User(int id, String username, String password, String displayName) {
@@ -37,6 +38,9 @@ public class User {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getRole() { return role != null ? role : "MEMBER"; }
+    public void setRole(String role) { this.role = role != null ? role : "MEMBER"; }
 
     public boolean isOnline() { return "ONLINE".equalsIgnoreCase(this.status); }
     public void setOnline(boolean online) { this.status = online ? "ONLINE" : "OFFLINE"; }

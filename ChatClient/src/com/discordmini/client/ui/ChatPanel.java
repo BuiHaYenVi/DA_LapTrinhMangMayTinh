@@ -3,8 +3,6 @@ package com.discordmini.client.ui;
 import com.discordmini.client.model.ChatMessage;
 import com.discordmini.client.model.MessageStatus;
 import com.discordmini.client.model.Room;
-import com.discordmini.client.network.ConnectionManager;
-import com.discordmini.client.network.ConnectionState;
 import com.discordmini.client.network.SocketClient;
 import com.discordmini.client.service.ChatEventListener;
 import com.discordmini.client.service.ChatService;
@@ -37,6 +35,7 @@ public class ChatPanel extends JPanel implements ChatEventListener, RoomEventLis
     private final String currentDisplayName;
 
     private final JLabel roomTitleLabel = new JLabel("Chưa chọn phòng", SwingConstants.LEFT);
+    private final JButton btnLeaveRoom = new JButton("🚪 Rời phòng");
     private final DefaultListModel<ChatMessage> messageListModel = new DefaultListModel<>();
     private final JList<ChatMessage> messageList = new JList<>(messageListModel);
     private final JTextField messageInput = new JTextField();
@@ -67,12 +66,41 @@ public class ChatPanel extends JPanel implements ChatEventListener, RoomEventLis
         roomTitleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         roomTitleLabel.setForeground(new Color(33, 33, 33));
         headerPanel.add(roomTitleLabel, BorderLayout.WEST);
+
+        btnLeaveRoom.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btnLeaveRoom.setFocusPainted(false);
+        btnLeaveRoom.setVisible(false);
+        btnLeaveRoom.addActionListener(e -> {
+            if (roomService != null) roomService.leaveRoom();
+        });
+        headerPanel.add(btnLeaveRoom, BorderLayout.EAST);
         add(headerPanel, BorderLayout.NORTH);
 
         // 2. Danh sách tin nhắn với custom renderer MessagePanel
         messageList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         messageList.setCellRenderer(new MessageListCellRenderer());
         messageList.setBackground(new Color(250, 250, 250));
+        messageList.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                int index = messageList.locationToIndex(e.getPoint());
+                if (index >= 0 && index < messageListModel.size()) {
+                    ChatMessage msg = messageListModel.get(index);
+                    if (msg.isMine() && (msg.getStatus() == MessageStatus.FAILED || msg.getStatus() == MessageStatus.UNKNOWN_TIMEOUT)) {
+                        int choice = JOptionPane.showConfirmDialog(
+                                ChatPanel.this,
+                                "Tin nhắn chưa được gửi thành công:\n\"" + msg.getContent() + "\"\n\nBạn có muốn thử gửi lại (Retry) không?",
+                                "Gửi lại tin nhắn",
+                                JOptionPane.YES_NO_OPTION,
+                                JOptionPane.QUESTION_MESSAGE
+                        );
+                        if (choice == JOptionPane.YES_OPTION) {
+                            retrySendMessage(msg, index);
+                        }
+                    }
+                }
+            }
+        });
         add(scrollPane, BorderLayout.CENTER);
 
         // 3. Khung nhập tin nhắn
@@ -150,16 +178,36 @@ public class ChatPanel extends JPanel implements ChatEventListener, RoomEventLis
         }
     }
 
+    private void retrySendMessage(ChatMessage oldMsg, int index) {
+        if (chatService == null || roomService == null || !roomService.isInRoom()) {
+            JOptionPane.showMessageDialog(this, "Bạn phải đang trong phòng chat để gửi lại tin nhắn.",
+                    "Chưa vào phòng", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String newRequestId = chatService.sendMessage(oldMsg.getContent());
+        if (newRequestId != null) {
+            ChatMessage retryMsg = ChatMessage.createOutgoing(newRequestId, currentDisplayName, oldMsg.getContent());
+            messageListModel.set(index, retryMsg);
+            smartScrollToBottom(true);
+        }
+    }
+
     /**
      * Dọn sạch toàn bộ tin nhắn phòng cũ khi chuyển hoặc rời phòng.
      * Tiêu chí AN-08: Dọn dữ liệu phòng cũ đúng thời điểm.
      */
     public void clearMessages() {
-        SwingUtilities.invokeLater(() -> {
+        Runnable r = () -> {
             messageListModel.clear();
             roomTitleLabel.setText("Chưa chọn phòng");
+            btnLeaveRoom.setVisible(false);
             updateSendState();
-        });
+        };
+        if (SwingUtilities.isEventDispatchThread()) {
+            r.run();
+        } else {
+            SwingUtilities.invokeLater(r);
+        }
     }
 
     public void addOrUpdateMessage(ChatMessage msg) {
@@ -211,7 +259,11 @@ public class ChatPanel extends JPanel implements ChatEventListener, RoomEventLis
             if (!found) {
                 messageListModel.addElement(msg);
             }
-            scrollToBottom();
+            if (msg.isMine()) {
+                scrollToBottom();
+            } else {
+                smartScrollToBottom(false);
+            }
         };
 
         if (SwingUtilities.isEventDispatchThread()) {
@@ -221,13 +273,30 @@ public class ChatPanel extends JPanel implements ChatEventListener, RoomEventLis
         }
     }
 
-    private void scrollToBottom() {
+    private void smartScrollToBottom(boolean force) {
         SwingUtilities.invokeLater(() -> {
             int size = messageListModel.getSize();
-            if (size > 0) {
+            if (size == 0) return;
+            if (force) {
+                messageList.ensureIndexIsVisible(size - 1);
+                return;
+            }
+            JScrollBar vbar = scrollPane.getVerticalScrollBar();
+            if (vbar != null) {
+                int extent = vbar.getModel().getExtent();
+                int value = vbar.getValue();
+                int max = vbar.getMaximum();
+                if (value + extent >= max - 60) {
+                    messageList.ensureIndexIsVisible(size - 1);
+                }
+            } else {
                 messageList.ensureIndexIsVisible(size - 1);
             }
         });
+    }
+
+    private void scrollToBottom() {
+        smartScrollToBottom(true);
     }
 
     // ================= ChatEventListener Callbacks =================
@@ -293,6 +362,7 @@ public class ChatPanel extends JPanel implements ChatEventListener, RoomEventLis
     public void onRoomJoined(Room room) {
         SwingUtilities.invokeLater(() -> {
             roomTitleLabel.setText("# " + room.name());
+            btnLeaveRoom.setVisible(true);
             messageListModel.clear(); // Xóa tin nhắn phòng cũ trước khi tải lịch sử phòng mới
             updateSendState();
             messageInput.requestFocusInWindow();

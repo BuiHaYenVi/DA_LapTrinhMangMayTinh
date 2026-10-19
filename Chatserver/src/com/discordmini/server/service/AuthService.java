@@ -10,13 +10,8 @@ public class AuthService {
         this.userDAO = userDAO != null ? userDAO : new UserDAO();
     }
 
-    public User login(String username, String password) {
-        try {
-            return userDAO.login(username, password);
-        } catch (Exception e) {
-            System.err.println("Lỗi Đăng nhập Database: " + e.getMessage());
-            return null;
-        }
+    public User login(String username, String password) throws Exception {
+        return userDAO.login(username, password);
     }
 
     public User register(String username, String password, String displayName) throws Exception {

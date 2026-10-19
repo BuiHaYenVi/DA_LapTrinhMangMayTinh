@@ -29,10 +29,14 @@ public class RoomService {
     private final ChatService chatService;
 
     private volatile Room currentRoom = null;
+    private volatile com.discordmini.client.model.Channel currentChannel = null;
     private volatile Integer pendingJoinRoomId = null;
     private volatile int pendingJoinEpoch = 0;
     private volatile int lastLeaveEpoch = 0;
     private volatile Integer lastSuccessfulRoomId = null;
+
+    // Quản lý danh sách kênh theo từng phòng: roomId -> List<Channel>
+    private final java.util.concurrent.ConcurrentMap<Integer, List<com.discordmini.client.model.Channel>> cachedChannels = new java.util.concurrent.ConcurrentHashMap<>();
 
     // Thế hệ phòng nhằm ngăn chặn dữ liệu phòng cũ đến trễ
     private final AtomicInteger roomEpoch = new AtomicInteger(0);
@@ -93,6 +97,56 @@ public class RoomService {
         }
     }
 
+    public com.discordmini.client.model.Channel getCurrentChannel() {
+        return currentChannel;
+    }
+
+    public List<com.discordmini.client.model.Channel> getCachedChannels(int roomId) {
+        List<com.discordmini.client.model.Channel> list = cachedChannels.get(roomId);
+        return list != null ? new ArrayList<>(list) : Collections.emptyList();
+    }
+
+    public String createChannel(int roomId, String channelName) {
+        if (channelName == null || channelName.isBlank() || !client.isConnected() || roomId <= 0) {
+            notifyListeners(l -> l.onRoomError("Tên kênh không hợp lệ."));
+            return null;
+        }
+        return client.sendCommandWithId("CREATE_CHANNEL", String.valueOf(roomId), channelName.trim());
+    }
+
+    public void listChannels(int roomId) {
+        if (client.isConnected() && roomId > 0) {
+            client.sendCommand("LIST_CHANNELS", String.valueOf(roomId));
+        }
+    }
+
+    public String joinChannel(int roomId, int channelId) {
+        if (!client.isConnected()) {
+            notifyListeners(l -> l.onRoomError("Chưa kết nối đến máy chủ."));
+            return null;
+        }
+        if (chatService != null) {
+            chatService.clearRoomState();
+        }
+        return client.sendCommandWithId("JOIN_CHANNEL", String.valueOf(roomId), String.valueOf(channelId));
+    }
+
+    public String renameChannel(int roomId, int channelId, String newName) {
+        if (newName == null || newName.isBlank() || !client.isConnected() || roomId <= 0 || channelId <= 0) {
+            notifyListeners(l -> l.onRoomError("Tên kênh không hợp lệ."));
+            return null;
+        }
+        return client.sendCommandWithId("RENAME_CHANNEL", String.valueOf(roomId), String.valueOf(channelId), newName.trim());
+    }
+
+    public String deleteChannel(int roomId, int channelId) {
+        if (!client.isConnected() || roomId <= 0 || channelId <= 0) {
+            notifyListeners(l -> l.onRoomError("Kênh không hợp lệ."));
+            return null;
+        }
+        return client.sendCommandWithId("DELETE_CHANNEL", String.valueOf(roomId), String.valueOf(channelId));
+    }
+
     public int getRoomEpoch() {
         return roomEpoch.get();
     }
@@ -150,20 +204,34 @@ public class RoomService {
      * Cập nhật currentRoom = null để UI không còn cho phép gửi tin vào phòng đã rời.
      */
     public void leaveRoom() {
-        int epoch = roomEpoch.incrementAndGet();
-        this.lastLeaveEpoch = epoch;
-        this.currentRoom = null;
-        this.pendingJoinRoomId = null;
-        this.lastSuccessfulRoomId = null; // Người dùng chủ động rời phòng: reconnect không được tự đưa lại phòng này
+        leaveRoom(0);
+    }
 
-        if (chatService != null) {
-            chatService.clearRoomState();
+    public void leaveRoom(int targetRoomId) {
+        int currentId = (this.currentRoom != null) ? this.currentRoom.id() : 0;
+        if (targetRoomId <= 0 || currentId == targetRoomId) {
+            int epoch = roomEpoch.incrementAndGet();
+            this.lastLeaveEpoch = epoch;
+            this.currentRoom = null;
+            this.currentChannel = null;
+            this.pendingJoinRoomId = null;
+            this.lastSuccessfulRoomId = null;
+
+            if (chatService != null) {
+                chatService.clearRoomState();
+            }
         }
 
         if (client.isConnected()) {
-            client.sendCommand("LEAVE_ROOM");
+            if (targetRoomId > 0) {
+                client.sendWithId("LEAVE_ROOM|" + targetRoomId);
+            } else {
+                client.sendCommand("LEAVE_ROOM");
+            }
         }
-        notifyListeners(RoomEventListener::onRoomLeft);
+        if (targetRoomId <= 0 || currentId == targetRoomId) {
+            notifyListeners(RoomEventListener::onRoomLeft);
+        }
     }
 
     /**
@@ -187,6 +255,7 @@ public class RoomService {
 
             switch (type) {
                 case "ROOMS" -> handleRoomsList(parts);
+                case "CHANNELS" -> handleChannelsList(parts);
                 case "OK" -> handleOkResponse(parts);
                 case "ERROR" -> handleErrorResponse(parts);
                 case "ROOM_MEMBERS" -> handleRoomMembers(parts);
@@ -196,15 +265,35 @@ public class RoomService {
         }
     }
 
+    private void handleChannelsList(String[] parts) {
+        if (parts.length < 2) return;
+        try {
+            int roomId = Integer.parseInt(parts[1]);
+            List<com.discordmini.client.model.Channel> channels = new ArrayList<>();
+            for (int i = 2; i < parts.length; i++) {
+                String[] x = parts[i].split(",", 2);
+                if (x.length >= 2) {
+                    int chId = Integer.parseInt(x[0]);
+                    String chName = ProtocolHandler.decode(x[1]);
+                    channels.add(new com.discordmini.client.model.Channel(chId, roomId, chName));
+                }
+            }
+            cachedChannels.put(roomId, channels);
+            notifyListeners(l -> l.onChannelsUpdated(roomId, channels));
+        } catch (Exception ex) {
+            System.err.println("[RoomService] Lỗi handleChannelsList: " + ex.getMessage());
+        }
+    }
+
     private void handleRoomsList(String[] parts) {
         List<Room> newRooms = new ArrayList<>();
         for (int i = 1; i < parts.length; i++) {
             String item = parts[i];
-            int commaIdx = item.indexOf(',');
-            if (commaIdx > 0) {
+            String[] x = item.split(",", 4);
+            if (x.length >= 2) {
                 try {
-                    int id = Integer.parseInt(item.substring(0, commaIdx));
-                    String name = ProtocolHandler.decode(item.substring(commaIdx + 1));
+                    int id = Integer.parseInt(x[0]);
+                    String name = ProtocolHandler.decode(x[1]);
                     newRooms.add(new Room(id, name));
                 } catch (Exception ignored) {}
             }
@@ -228,6 +317,21 @@ public class RoomService {
             Room room = new Room(id, name);
             notifyListeners(l -> l.onRoomCreated(room));
             listRooms(); // Tự động làm mới danh sách phòng
+        } else if ("CHANNEL_CREATED".equals(action) && parts.length >= 5) {
+            int roomId = Integer.parseInt(parts[2]);
+            int chId = Integer.parseInt(parts[3]);
+            String chName = ProtocolHandler.decode(parts[4]);
+            com.discordmini.client.model.Channel ch = new com.discordmini.client.model.Channel(chId, roomId, chName);
+            List<com.discordmini.client.model.Channel> chList = cachedChannels.computeIfAbsent(roomId, k -> new CopyOnWriteArrayList<>());
+            chList.add(ch);
+            notifyListeners(l -> l.onChannelCreated(roomId, ch));
+            listChannels(roomId);
+        } else if ("JOIN_CHANNEL".equals(action) && parts.length >= 5) {
+            int roomId = Integer.parseInt(parts[2]);
+            int chId = Integer.parseInt(parts[3]);
+            String chName = ProtocolHandler.decode(parts[4]);
+            this.currentChannel = new com.discordmini.client.model.Channel(chId, roomId, chName);
+            notifyListeners(l -> l.onChannelJoined(roomId, this.currentChannel));
         } else if ("JOIN_ROOM".equals(action) && parts.length >= 4) {
             int id = Integer.parseInt(parts[2]);
             String name = ProtocolHandler.decode(parts[3]);
@@ -247,6 +351,15 @@ public class RoomService {
             this.lastSuccessfulRoomId = id;
             this.pendingJoinRoomId = null;
             this.pendingJoinEpoch = 0;
+
+            if (parts.length >= 6) {
+                try {
+                    int chId = Integer.parseInt(parts[4]);
+                    String chName = ProtocolHandler.decode(parts[5]);
+                    this.currentChannel = new com.discordmini.client.model.Channel(chId, id, chName);
+                    notifyListeners(l -> l.onChannelJoined(id, this.currentChannel));
+                } catch (Exception ignored) {}
+            }
 
             notifyListeners(l -> l.onRoomJoined(this.currentRoom));
         }
@@ -272,10 +385,10 @@ public class RoomService {
         List<String> memberNames = new ArrayList<>();
         for (int i = 1; i < parts.length; i++) {
             String item = parts[i];
-            int commaIdx = item.indexOf(',');
-            if (commaIdx > 0) {
+            String[] x = item.split(",", 4);
+            if (x.length >= 2) {
                 try {
-                    String name = ProtocolHandler.decode(item.substring(commaIdx + 1));
+                    String name = ProtocolHandler.decode(x[1]);
                     memberNames.add(name);
                 } catch (Exception ignored) {}
             }
@@ -289,6 +402,7 @@ public class RoomService {
         if ("CLIENT_DISCONNECTED".equals(event)) {
             // Khi rớt mạng: hủy phòng hiện tại nhưng vẫn giữ lastSuccessfulRoomId để AN-10 tự động vào lại
             this.currentRoom = null;
+            this.currentChannel = null;
             this.pendingJoinRoomId = null;
             int epoch = roomEpoch.incrementAndGet();
             this.lastLeaveEpoch = epoch;
@@ -307,10 +421,15 @@ public class RoomService {
     }
 
     public void inviteMember(int roomId, int targetUserId) {
-        client.sendCommand("INVITE_ROOM", String.valueOf(roomId), String.valueOf(targetUserId));
+        client.sendWithId("INVITE_ROOM|" + roomId + "|" + targetUserId);
+    }
+
+    public void inviteMemberByUsername(int roomId, String targetUsername) {
+        if (targetUsername == null || targetUsername.isBlank()) return;
+        client.sendCommand("INVITE_ROOM", String.valueOf(roomId), targetUsername.trim());
     }
 
     public void kickMember(int roomId, int targetUserId) {
-        client.sendCommand("KICK_ROOM", String.valueOf(roomId), String.valueOf(targetUserId));
+        client.sendWithId("KICK_ROOM|" + roomId + "|" + targetUserId);
     }
 }

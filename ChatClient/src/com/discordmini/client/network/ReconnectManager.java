@@ -6,8 +6,6 @@ import com.discordmini.client.service.AuthResult;
 import com.discordmini.client.service.AuthService;
 import com.discordmini.client.service.RoomEventListener;
 import com.discordmini.client.service.RoomService;
-
-import javax.swing.*;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
@@ -98,6 +96,14 @@ public class ReconnectManager {
     public synchronized void clearCredentials() {
         this.cachedUsername = null;
         this.cachedPassword = null;
+    }
+
+    public synchronized boolean hasCredentials() {
+        return cachedUsername != null && cachedPassword != null;
+    }
+
+    public synchronized String getCachedUsername() {
+        return cachedUsername;
     }
 
     private void registerConnectionStateListener() {
