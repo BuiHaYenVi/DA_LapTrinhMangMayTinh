@@ -73,6 +73,7 @@ export interface StoredSettings {
   autoReconnect: boolean;
   avatarColor: string;
   avatarIcon: string;
+  avatarImage?: string;
   bannerColor: string;
   bio: string;
   presenceStatus: PresenceStatus;
@@ -93,6 +94,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
   autoReconnect: true,
   avatarColor: '#2DD4BF',
   avatarIcon: '',
+  avatarImage: '',
   bannerColor: '#23A55A',
   bio: '',
   presenceStatus: 'online',

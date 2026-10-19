@@ -11,6 +11,7 @@ export interface User {
   bio?: string;
   avatarColor?: string;
   avatarIcon?: string;
+  avatarImage?: string;
   bannerColor?: string;
   email?: string;
 }
