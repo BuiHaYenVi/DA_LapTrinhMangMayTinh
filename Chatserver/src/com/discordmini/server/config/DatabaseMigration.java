@@ -103,6 +103,8 @@ public class DatabaseMigration {
                         CONSTRAINT uq_room_channel_name UNIQUE (room_id, name)
                     )
                 """);
+                st.executeUpdate("ALTER TABLE channels ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'text'");
+                st.executeUpdate("ALTER TABLE channels ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE");
                 System.out.println("[MIGRATION] Đã kiểm tra/khởi tạo bảng 'channels'.");
 
                 // 2. Thêm cột channel_id vào messages

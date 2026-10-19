@@ -65,13 +65,17 @@ export const CreateChannelModal: React.FC<Props> = ({
 
   if (!isOpen || !room) return null;
 
-  const handleClose = () => {
-    if (isSubmitting) return;
+  const handleClose = (force = false) => {
+    if (isSubmitting && !force) return;
     setChannelName('');
     setErrorMsg('');
     setShowEmojiPicker(false);
     onClose();
   };
+
+  // Wrapper không tham số để dùng làm onClick handler (tránh lỗi TypeScript MouseEventHandler)
+  const handleCloseClick = () => handleClose();
+
 
   // Chuẩn hóa tên kênh tự động (thay khoảng trắng thành '-', cho phép emoji và tiếng Việt)
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,7 +128,7 @@ export const CreateChannelModal: React.FC<Props> = ({
     try {
       const result = await onCreateChannel(room.id, trimmed, channelType, isPrivate);
       if (result.success) {
-        handleClose();
+        handleClose(true);
       } else {
         setErrorMsg(result.error || 'Không thể tạo kênh. Vui lòng thử lại.');
       }
@@ -167,7 +171,7 @@ export const CreateChannelModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={handleClose}>
+    <div className="modal-backdrop" onClick={handleCloseClick}>
       <div
         className="channel-modal-card"
         onClick={e => e.stopPropagation()}
@@ -179,7 +183,7 @@ export const CreateChannelModal: React.FC<Props> = ({
         <button
           type="button"
           className="channel-modal-close"
-          onClick={handleClose}
+          onClick={handleCloseClick}
           disabled={isSubmitting}
           title="Đóng (ESC)"
           aria-label="Đóng"
@@ -372,7 +376,7 @@ export const CreateChannelModal: React.FC<Props> = ({
             <button
               type="button"
               className="channel-btn-cancel"
-              onClick={handleClose}
+              onClick={handleCloseClick}
               disabled={isSubmitting}
             >
               Hủy bỏ

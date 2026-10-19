@@ -20,6 +20,17 @@ export function parseDate(raw?: string | number | null): Date {
   let normalized = trimmed.replace(' ', 'T');
   normalized = normalized.replace(/\.(\d{3})\d+/, '.$1');
 
+  // Nếu chuỗi có phần giờ (T) nhưng KHÔNG có timezone suffix (Z / +HH:MM / -HH:MM),
+  // coi timestamp này là UTC (do server lưu giờ UTC trong DB) và thêm Z để
+  // trình duyệt tự chuyển đổi sang giờ địa phương của người dùng.
+  if (
+    normalized.includes('T') &&
+    !normalized.endsWith('Z') &&
+    !/[+-]\d{2}:?\d{2}$/.test(normalized)
+  ) {
+    normalized += 'Z';
+  }
+
   return new Date(normalized);
 }
 

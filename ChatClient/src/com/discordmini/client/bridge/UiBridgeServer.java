@@ -336,13 +336,17 @@ public class UiBridgeServer {
                     int rId = Integer.parseInt(p[1]);
                     List<Map<String, Object>> list = new ArrayList<>();
                     for (int i = 2; i < p.length; i++) {
-                        String[] x = p[i].split(",", 2);
+                        String[] x = p[i].split(",", 4);
                         if (x.length >= 2) {
-                            Map<String, Object> ch = new HashMap<>();
-                            ch.put("id", Integer.parseInt(x[0]));
-                            ch.put("roomId", rId);
-                            ch.put("name", ProtocolHandler.decode(x[1]));
-                            list.add(ch);
+                            String chType = x.length >= 3 ? x[2] : "text";
+                            boolean chPrivate = x.length >= 4 && parsePrivateFlag(x[3]);
+                            list.add(channelJson(
+                                    Integer.parseInt(x[0]),
+                                    rId,
+                                    ProtocolHandler.decode(x[1]),
+                                    chType,
+                                    chPrivate
+                            ));
                         }
                     }
                     channelCacheByRoom.put(rId, list);
@@ -378,10 +382,7 @@ public class UiBridgeServer {
                         Map<String, Object> data = new HashMap<>();
                         data.put("room", roomObj);
                         if (currentChannelId != null && currentChannelId > 0) {
-                            Map<String, Object> defCh = new HashMap<>();
-                            defCh.put("id", currentChannelId);
-                            defCh.put("roomId", currentRoomId);
-                            defCh.put("name", currentChannelName);
+                            Map<String, Object> defCh = channelJson(currentChannelId, currentRoomId, currentChannelName, "text", false);
                             data.put("channel", defCh);
                             channelCache.add(defCh);
                             List<Map<String, Object>> rChs = channelCacheByRoom.computeIfAbsent(currentRoomId, k -> new CopyOnWriteArrayList<>());
@@ -394,16 +395,23 @@ public class UiBridgeServer {
                         int rId = Integer.parseInt(p[2]);
                         int cId = Integer.parseInt(p[3]);
                         String cName = ProtocolHandler.decode(p[4]);
+                        String cType = (p.length > 5) ? normalizeChannelType(p[5]) : "text";
+                        boolean cPrivate = p.length > 6 && parsePrivateFlag(p[6]);
                         currentRoomId = rId;
                         currentChannelId = cId;
                         currentChannelName = cName;
                         messageCache.clear();
-                        broadcastSse("CHANNEL_JOINED", Map.of("roomId", rId, "channel", Map.of("id", cId, "roomId", rId, "name", cName)));
+                        broadcastSse("CHANNEL_JOINED", Map.of(
+                                "roomId", rId,
+                                "channel", channelJson(cId, rId, cName, cType, cPrivate)
+                        ));
                     } else if (p.length > 1 && "CHANNEL_CREATED".equals(p[1])) {
                         int rId = Integer.parseInt(p[2]);
                         int cId = Integer.parseInt(p[3]);
                         String cName = ProtocolHandler.decode(p[4]);
-                        Map<String, Object> ch = Map.of("id", cId, "roomId", rId, "name", cName);
+                        String cType = (p.length > 5) ? normalizeChannelType(p[5]) : "text";
+                        boolean cPrivate = p.length > 6 && parsePrivateFlag(p[6]);
+                        Map<String, Object> ch = channelJson(cId, rId, cName, cType, cPrivate);
                         CompletableFuture<Map<String, Object>> cf = pendingRequests.remove("CREATE_CHANNEL");
                         if (cf != null) {
                             cf.complete(Map.of("success", true, "channel", ch));
@@ -1680,6 +1688,28 @@ public class UiBridgeServer {
         }
     }
 
+    private static String normalizeChannelType(String type) {
+        if (type == null || type.isBlank() || ProtocolHandler.REQUEST_ID_MARKER.equals(type)) return "text";
+        String t = type.trim().toLowerCase();
+        if ("forum".equals(t) || "voice".equals(t) || "text".equals(t)) return t;
+        return "text";
+    }
+
+    private static boolean parsePrivateFlag(String value) {
+        if (value == null || value.isBlank() || ProtocolHandler.REQUEST_ID_MARKER.equals(value)) return false;
+        return "1".equals(value) || "true".equalsIgnoreCase(value);
+    }
+
+    private static Map<String, Object> channelJson(int id, int roomId, String name, String type, boolean isPrivate) {
+        Map<String, Object> ch = new LinkedHashMap<>();
+        ch.put("id", id);
+        ch.put("roomId", roomId);
+        ch.put("name", name);
+        ch.put("type", normalizeChannelType(type));
+        ch.put("isPrivate", isPrivate);
+        return ch;
+    }
+
     private static int parseJsonInt(Map<String, Object> body, String key, int defaultValue) {
         if (body == null || !body.containsKey(key)) return defaultValue;
         Object val = body.get(key);
@@ -1763,10 +1793,13 @@ public class UiBridgeServer {
                     sendJson(exchange, 400, Map.of("success", false, "message", "Tên kênh không được vượt quá 50 ký tự."));
                     return;
                 }
+                String channelType = normalizeChannelType(body.get("type") instanceof String s ? s : "text");
+                boolean isPrivate = Boolean.TRUE.equals(body.get("isPrivate"))
+                        || parsePrivateFlag(String.valueOf(body.getOrDefault("isPrivate", "false")));
 
                 CompletableFuture<Map<String, Object>> cf = new CompletableFuture<>();
                 session.pendingRequests.put("CREATE_CHANNEL", cf);
-                session.roomService.createChannel(roomId, trimmedName);
+                session.roomService.createChannel(roomId, trimmedName, channelType, isPrivate);
                 try {
                     Map<String, Object> res = cf.get(10, TimeUnit.SECONDS);
                     boolean success = Boolean.TRUE.equals(res.get("success"));

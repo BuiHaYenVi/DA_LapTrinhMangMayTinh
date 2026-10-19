@@ -58,7 +58,11 @@ const QUICK_REACTIONS = ['👍', '😭', '💯'];
 // 1. Định dạng giờ tin nhắn theo 24h hoặc 12h từ cài đặt người dùng
 function formatMessageTime(rawTime: string): { short: string; full: string } {
   if (!rawTime) return { short: 'Vừa xong', full: '' };
-  const normalized = rawTime.includes('T') ? rawTime : rawTime.replace(' ', 'T');
+  let normalized = rawTime.includes('T') ? rawTime : rawTime.replace(' ', 'T');
+  // Server gửi timestamp UTC không có suffix timezone — thêm Z để trình duyệt tự chuyển sang giờ địa phương
+  if (normalized.includes('T') && !normalized.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(normalized)) {
+    normalized += 'Z';
+  }
   const d = new Date(normalized);
 
   let use12h = false;
@@ -106,7 +110,11 @@ function formatMessageTime(rawTime: string): { short: string; full: string } {
 // 2. Lấy khóa ngày YYYY-MM-DD để xác định thời điểm đổi ngày
 function getDateKey(rawTime: string): string {
   if (!rawTime) return '';
-  const normalized = rawTime.includes('T') ? rawTime : rawTime.replace(' ', 'T');
+  let normalized = rawTime.includes('T') ? rawTime : rawTime.replace(' ', 'T');
+  // Server gửi timestamp UTC không có suffix timezone — thêm Z để trình duyệt tự chuyển sang giờ địa phương
+  if (normalized.includes('T') && !normalized.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(normalized)) {
+    normalized += 'Z';
+  }
   const d = new Date(normalized);
   if (isNaN(d.getTime())) {
     const m = rawTime.match(/^\d{4}-\d{2}-\d{2}/);

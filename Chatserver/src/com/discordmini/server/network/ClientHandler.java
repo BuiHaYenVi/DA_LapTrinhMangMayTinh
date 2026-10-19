@@ -708,6 +708,8 @@ public class ClientHandler implements Runnable {
 
         int roomId = parseId(parts[1], "ID phòng");
         String channelName = ProtocolHandler.decode(parts[2]).trim();
+        String channelType = decodeOptionalField(parts, 3);
+        boolean isPrivate = parsePrivateFlag(decodeOptionalField(parts, 4));
 
         if (channelName.isBlank()) {
             sendError(ProtocolErrorCode.BAD_REQUEST, "Tên kênh không được để trống.");
@@ -732,7 +734,9 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        com.discordmini.server.model.Channel channel = server.getRoomService().createChannel(roomId, channelName, user.getId());
+        com.discordmini.server.model.Channel channel = server.getRoomService().createChannel(
+                roomId, channelName, user.getId(), channelType, isPrivate
+        );
         if (channel == null) {
             sendError(ProtocolErrorCode.BAD_REQUEST, "Không thể tạo kênh.");
             return;
@@ -745,6 +749,10 @@ public class ClientHandler implements Runnable {
                         + channel.getId()
                         + "|"
                         + ProtocolHandler.encode(channel.getName())
+                        + "|"
+                        + channel.getType()
+                        + "|"
+                        + (channel.isPrivate() ? "1" : "0")
         );
 
         // Đồng bộ danh sách kênh cho tất cả client trong phòng
@@ -774,7 +782,11 @@ public class ClientHandler implements Runnable {
             sb.append('|')
                     .append(ch.getId())
                     .append(',')
-                    .append(ProtocolHandler.encode(ch.getName()));
+                    .append(ProtocolHandler.encode(ch.getName()))
+                    .append(',')
+                    .append(ch.getType())
+                    .append(',')
+                    .append(ch.isPrivate() ? "1" : "0");
         }
         connection.send(sb.toString());
     }
@@ -822,6 +834,10 @@ public class ClientHandler implements Runnable {
                         + channelId
                         + "|"
                         + ProtocolHandler.encode(ch.getName())
+                        + "|"
+                        + ch.getType()
+                        + "|"
+                        + (ch.isPrivate() ? "1" : "0")
         );
 
         handleHistory(channelId);
@@ -1069,6 +1085,17 @@ public class ClientHandler implements Runnable {
             connection.close();
         } catch (IOException ignored) {
         }
+    }
+
+    private String decodeOptionalField(String[] parts, int index) {
+        if (parts == null || index < 0 || index >= parts.length) return "";
+        if (ProtocolHandler.REQUEST_ID_MARKER.equals(parts[index])) return "";
+        return ProtocolHandler.decode(parts[index]).trim();
+    }
+
+    private boolean parsePrivateFlag(String value) {
+        if (value == null || value.isBlank()) return false;
+        return "1".equals(value) || "true".equalsIgnoreCase(value);
     }
 
     private int parseId(String value, String fieldName) {
