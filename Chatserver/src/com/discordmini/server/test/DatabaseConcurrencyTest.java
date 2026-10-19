@@ -8,7 +8,7 @@ import com.discordmini.server.model.Room;
 import com.discordmini.server.model.User;
 import com.discordmini.server.service.ChatPersistenceService;
 
-import java.util.ArrayList;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,11 +35,15 @@ public class DatabaseConcurrencyTest {
         // 1. Chuẩn bị dữ liệu mẫu (User test & Room test)
         System.out.println("\n[STEP 1] Tạo dữ liệu thử nghiệm...");
         User testUser = userDAO.findUser("concurrency_tester");
-        if (testUser == null) {
-            testUser = userDAO.register("concurrency_tester", "pwd123", "Tester Đồng Thời");
-        }
-        if (testUser == null) {
-            testUser = userDAO.login("concurrency_tester", "pwd123");
+        try {
+            if (testUser == null) {
+                testUser = userDAO.register("concurrency_tester", "pwd123", "Tester Đồng Thời");
+            }
+            if (testUser == null) {
+                testUser = userDAO.login("concurrency_tester", "pwd123");
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi thao tác DB khi khởi tạo user test: " + e.getMessage());
         }
 
         if (testUser == null) {
