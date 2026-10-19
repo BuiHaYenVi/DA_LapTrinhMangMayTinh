@@ -15,7 +15,7 @@ export interface RoomCustomStyle {
 export const ROOM_ICON_PRESETS = ['', '🚀', '🎮', '💻', '📚', '🎵', '🔥', '💎', '🌟', '☕', '🏆', '🎨'];
 export const ROOM_COLOR_PRESETS = [
   '',
-  '#5865F2',
+  '#2DD4BF',
   '#23A55A',
   '#EB459E',
   '#F59E0B',

@@ -148,6 +148,20 @@ export const RoomSettingsModal: React.FC<Props> = ({
   return (
     <div className="settings-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="settings-window-card room-settings-window" onClick={e => e.stopPropagation()}>
+        {/* Nút đóng tròn ESC ở góc trên bên phải chuẩn Discord */}
+        <div className="settings-esc-close-wrap">
+          <button
+            type="button"
+            className="settings-close-circle-btn"
+            onClick={onClose}
+            title="Đóng cài đặt (ESC)"
+            aria-label="Đóng"
+          >
+            <X size={18} />
+          </button>
+          <span className="settings-esc-label">ESC</span>
+        </div>
+
         {/* ================= CỘT TRÁI: SIDEBAR CÀI ĐẶT PHÒNG ================= */}
         <aside className="settings-nav-sidebar">
           <div className="settings-sidebar-header">
@@ -636,19 +650,6 @@ export const RoomSettingsModal: React.FC<Props> = ({
             )}
           </div>
 
-          {/* Nút đóng tròn ESC ở góc trên bên phải chuẩn Discord */}
-          <div className="settings-esc-close-wrap">
-            <button
-              type="button"
-              className="settings-close-circle-btn"
-              onClick={onClose}
-              title="Đóng cài đặt (ESC)"
-              aria-label="Đóng"
-            >
-              <X size={18} />
-            </button>
-            <span className="settings-esc-label">ESC</span>
-          </div>
         </main>
       </div>
 
