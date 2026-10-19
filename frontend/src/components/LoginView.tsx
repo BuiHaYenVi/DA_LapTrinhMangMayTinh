@@ -148,26 +148,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
           </div>
 
           <div className="form-group">
-            <div className="label-row">
-              <label className="form-label" htmlFor="login-password">
-                MẬT KHẨU <span className="required-star">*</span>
-              </label>
-              <button
-                type="button"
-                className="show-pass-icon-btn"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex={-1}
-                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-              >
-                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
-            </div>
+            <label className="form-label" htmlFor="login-password">
+              MẬT KHẨU <span className="required-star">*</span>
+            </label>
             <div className="password-input-wrapper">
               <input
                 id="login-password"
                 type={showPassword ? 'text' : 'password'}
-                className="form-input"
+                className="form-input form-input-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
@@ -175,6 +163,16 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 autoComplete="current-password"
                 placeholder="Nhập mật khẩu của bạn"
               />
+              <button
+                type="button"
+                className="show-pass-icon-btn inside-input"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 

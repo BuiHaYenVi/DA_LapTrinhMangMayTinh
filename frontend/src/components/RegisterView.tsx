@@ -155,26 +155,14 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
           </div>
 
           <div className="form-group">
-            <div className="label-row">
-              <label className="form-label" htmlFor="reg-password">
-                MẬT KHẨU <span className="required-star">*</span>
-              </label>
-              <button
-                type="button"
-                className="show-pass-icon-btn"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex={-1}
-                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-              >
-                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
-            </div>
+            <label className="form-label" htmlFor="reg-password">
+              MẬT KHẨU <span className="required-star">*</span>
+            </label>
             <div className="password-input-wrapper">
               <input
                 id="reg-password"
                 type={showPassword ? 'text' : 'password'}
-                className="form-input"
+                className="form-input form-input-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
@@ -182,30 +170,28 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
                 autoComplete="new-password"
                 placeholder="Nhập mật khẩu an toàn"
               />
+              <button
+                type="button"
+                className="show-pass-icon-btn inside-input"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
           <div className="form-group">
-            <div className="label-row">
-              <label className="form-label" htmlFor="reg-confirm-password">
-                XÁC NHẬN MẬT KHẨU <span className="required-star">*</span>
-              </label>
-              <button
-                type="button"
-                className="show-pass-icon-btn"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                tabIndex={-1}
-                aria-label={showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'}
-                title={showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'}
-              >
-                {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
-            </div>
+            <label className="form-label" htmlFor="reg-confirm-password">
+              XÁC NHẬN MẬT KHẨU <span className="required-star">*</span>
+            </label>
             <div className="password-input-wrapper">
               <input
                 id="reg-confirm-password"
                 type={showConfirmPassword ? 'text' : 'password'}
-                className="form-input"
+                className="form-input form-input-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={isLoading}
@@ -213,6 +199,16 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
                 autoComplete="new-password"
                 placeholder="Nhập lại mật khẩu vừa nhập"
               />
+              <button
+                type="button"
+                className="show-pass-icon-btn inside-input"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                tabIndex={-1}
+                aria-label={showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'}
+                title={showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'}
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
