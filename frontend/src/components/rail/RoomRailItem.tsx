@@ -36,19 +36,6 @@ export const ROOM_BANNER_PRESETS = [
   '#4e5058'  // Xám than chì
 ];
 
-export const ROOM_BACKGROUND_PRESETS = [
-  '', // Mặc định (theo theme ứng dụng)
-  '#161E20', // Rừng đêm (Teal Night)
-  '#18191c', // Đen than (Midnight)
-  '#1c2128', // Xám lam đậm (Dark Slate)
-  '#1f2430', // Xanh navy sẫm (Deep Ocean)
-  '#241f31', // Tím bóng đêm (Dark Plum)
-  '#1a2621', // Rêu phong sẫm (Dark Moss)
-  '#F0FDF4', // Bạc hà nhạt (Mint Light)
-  '#F8FAFC', // Trắng ngà nhẹ (Snow Soft)
-  '#F1F5F9'  // Xám đá mờ (Slate Soft)
-];
-
 export function getRoomCustomStyle(roomId?: number, roomName?: string): RoomCustomStyle {
   try {
     const raw = localStorage.getItem(ROOM_CUSTOM_STORAGE_KEY);

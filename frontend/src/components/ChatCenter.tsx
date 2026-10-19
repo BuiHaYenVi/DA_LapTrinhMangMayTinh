@@ -27,9 +27,6 @@ import {
   toggleMessageReaction, 
   type ReactionsMap 
 } from './chat/reactionManager';
-import { ForumChannelView } from './chat/ForumChannelView';
-import { VoiceChannelView } from './chat/VoiceChannelView';
-import { getRoomCustomStyle } from './rail/RoomRailItem';
 
 interface Props {
   currentRoom: Room | null;
@@ -188,7 +185,6 @@ export const ChatCenter: React.FC<Props> = ({
   currentUserId,
   currentUserName,
   currentUserRole,
-  currentUser,
   members = [],
   isMemberListOpen = true,
   onToggleMemberList,
@@ -220,18 +216,6 @@ export const ChatCenter: React.FC<Props> = ({
       return {};
     }
   });
-
-  const [, setRoomCustomTick] = useState(0);
-
-  // Lắng nghe cập nhật tùy chỉnh phòng (màu nền riêng...)
-  useEffect(() => {
-    const handleRoomCustomUpdated = () => setRoomCustomTick(t => t + 1);
-    window.addEventListener('room_custom_updated', handleRoomCustomUpdated);
-    return () => window.removeEventListener('room_custom_updated', handleRoomCustomUpdated);
-  }, []);
-
-  const currentRoomStyle = currentRoom ? getRoomCustomStyle(currentRoom.id, currentRoom.name) : {};
-  const currentRoomBg = currentRoomStyle.chatBackground || undefined;
 
   const chatMessagesRef = useRef<HTMLDivElement>(null);
   const mainInputRef = useRef<HTMLTextAreaElement>(null);
@@ -689,23 +673,13 @@ export const ChatCenter: React.FC<Props> = ({
         </div>
       </div>
 
-      {currentChannel?.type === 'forum' ? (
-        <ForumChannelView channel={currentChannel} currentUser={currentUser || null} />
-      ) : currentChannel?.type === 'voice' ? (
-        <VoiceChannelView 
-          channel={currentChannel} 
-          currentUser={currentUser || null} 
-          members={members} 
-        />
-      ) : (
-        <>
-          {/* 2. Messages List Container */}
-          <div 
-            className="chat-messages-container" 
-            ref={chatMessagesRef}
-            onScroll={handleScroll}
-            style={currentRoomBg ? { backgroundColor: currentRoomBg } : undefined}
-          >
+      <>
+        {/* 2. Messages List Container */}
+        <div 
+          className="chat-messages-container" 
+          ref={chatMessagesRef}
+          onScroll={handleScroll}
+        >
         {isLoading ? (
           <div style={{
             display: 'flex',
@@ -1168,7 +1142,6 @@ export const ChatCenter: React.FC<Props> = ({
         )}
       </div>
         </>
-      )}
     </div>
   );
 };

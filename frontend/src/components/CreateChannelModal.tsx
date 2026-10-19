@@ -198,18 +198,16 @@ export const CreateChannelModal: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Section: LOẠI KÊNH (2 Lựa chọn: Văn bản, Diễn đàn) */}
+          {/* Section: LOẠI KÊNH (Kênh Văn bản thật qua Socket TCP) */}
           <div className="channel-modal-section">
             <label className="channel-section-label">Loại Kênh</label>
 
-            {/* 1. Kênh Văn Bản */}
+            {/* Kênh Văn Bản */}
             <div
-              className={`channel-type-option ${channelType === 'text' ? 'active' : ''}`}
-              onClick={() => setChannelType('text')}
+              className="channel-type-option active"
               role="radio"
-              aria-checked={channelType === 'text'}
+              aria-checked={true}
               tabIndex={0}
-              onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') setChannelType('text'); }}
             >
               <div className="channel-radio-indicator">
                 <div className="channel-radio-dot" />
@@ -218,32 +216,9 @@ export const CreateChannelModal: React.FC<Props> = ({
                 <Hash size={22} />
               </div>
               <div className="channel-type-info">
-                <div className="channel-type-name">Văn bản</div>
+                <div className="channel-type-name">Kênh Văn bản</div>
                 <div className="channel-type-desc">
-                  Gửi tin nhắn, hình ảnh, ảnh GIF, emoji, ý kiến, và chơi chữ
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Kênh Diễn Đàn */}
-            <div
-              className={`channel-type-option ${channelType === 'forum' ? 'active' : ''}`}
-              onClick={() => setChannelType('forum')}
-              role="radio"
-              aria-checked={channelType === 'forum'}
-              tabIndex={0}
-              onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') setChannelType('forum'); }}
-            >
-              <div className="channel-radio-indicator">
-                <div className="channel-radio-dot" />
-              </div>
-              <div className="channel-type-icon">
-                <MessagesSquare size={22} />
-              </div>
-              <div className="channel-type-info">
-                <div className="channel-type-name">Diễn Đàn</div>
-                <div className="channel-type-desc">
-                  Tạo không gian cho những cuộc thảo luận có tổ chức
+                  Trò chuyện thời gian thực, gửi hình ảnh, tệp tin và sticker
                 </div>
               </div>
             </div>

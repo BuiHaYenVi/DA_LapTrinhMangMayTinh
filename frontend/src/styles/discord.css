@@ -1441,7 +1441,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-3);
+  color: var(--text-2);
   font-size: 14px;
 }
 
@@ -1457,7 +1457,7 @@ body {
 
 .system-time {
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-muted);
   margin-left: 6px;
 }
 
@@ -9426,32 +9426,32 @@ html[data-density="compact"] .dm-message-row {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: #2b2d31;
-  border: 1px solid transparent;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 3px 8px;
   font-size: 12px;
-  color: #b5bac1;
+  color: var(--text-2);
   cursor: pointer;
   user-select: none;
   transition: all 0.15s ease;
 }
 
 .discord-reaction-pill:hover {
-  background: #35373c;
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #f2f3f5;
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--text-1);
 }
 
 .discord-reaction-pill.reacted {
-  background: rgba(88, 101, 242, 0.18);
-  border-color: #5865f2;
-  color: #dee0fc;
+  background: rgba(45, 212, 191, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
   font-weight: 600;
 }
 
 .discord-reaction-pill.reacted:hover {
-  background: rgba(88, 101, 242, 0.28);
+  background: rgba(45, 212, 191, 0.25);
 }
 
 .discord-reaction-emoji {
@@ -9468,19 +9468,19 @@ html[data-density="compact"] .dm-message-row {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #2b2d31;
-  border: 1px dashed rgba(255, 255, 255, 0.15);
+  background: var(--bg-3);
+  border: 1px dashed var(--border);
   border-radius: 8px;
   padding: 4px 7px;
-  color: #949ba4;
+  color: var(--text-3);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .discord-reaction-add-btn:hover {
-  background: #35373c;
-  border-color: #5865f2;
-  color: #dee0fc;
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Popover chọn Reaction Emoji */
