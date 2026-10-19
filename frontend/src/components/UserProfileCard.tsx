@@ -110,12 +110,12 @@ export const UserProfileCard: React.FC<Props> = ({
     : (user.avatarIcon || (user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'));
 
   const avatarColor = isMe 
-    ? (storedSettings.avatarColor || '#5865F2') 
+    ? (storedSettings.avatarColor || '#2DD4BF') 
     : (user.avatarColor || '#2DD4BF');
 
   const bannerColor = isMe 
     ? (storedSettings.bannerColor || '#23A55A') 
-    : (user.bannerColor || '#5865F2');
+    : (user.bannerColor || '#0F766E');
 
   const effectivePresence: PresenceStatus = isMe
     ? (storedSettings.presenceStatus || 'online')

@@ -167,7 +167,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   // Profile Form state
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
-  const [avatarColor, setAvatarColor] = useState('#5865F2');
+  const [avatarColor, setAvatarColor] = useState('#2DD4BF');
   const [avatarIcon, setAvatarIcon] = useState('');
   const [bannerColor, setBannerColor] = useState('#23A55A');
   const [presenceStatus, setPresenceStatus] = useState<PresenceStatus>('online');
@@ -201,7 +201,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
       setSettings(stored);
       setDisplayName(currentUser?.displayName || currentUser?.username || '');
       setBio(stored.bio || '');
-      setAvatarColor(stored.avatarColor || '#5865F2');
+      setAvatarColor(stored.avatarColor || '#2DD4BF');
       setAvatarIcon(stored.avatarIcon || '');
       setBannerColor(stored.bannerColor || '#23A55A');
       setPresenceStatus(stored.presenceStatus || 'online');

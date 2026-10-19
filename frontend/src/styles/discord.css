@@ -7699,6 +7699,9 @@ body {
 /* Tùy chọn Cỡ chữ & Mật độ tin nhắn từ UserSettingsModal */
 html[data-font-size="small"] .msg-body,
 html[data-font-size="small"] .msg-text-content,
+html[data-font-size="small"] .pinned-item-text,
+html[data-font-size="small"] .chat-composer-textarea,
+html[data-font-size="small"] .dm-composer-textarea,
 html[data-font-size="14px"] .msg-body,
 html[data-font-size="14px"] .msg-text-content {
   font-size: 13.5px !important;
@@ -7707,6 +7710,9 @@ html[data-font-size="14px"] .msg-text-content {
 
 html[data-font-size="medium"] .msg-body,
 html[data-font-size="medium"] .msg-text-content,
+html[data-font-size="medium"] .pinned-item-text,
+html[data-font-size="medium"] .chat-composer-textarea,
+html[data-font-size="medium"] .dm-composer-textarea,
 html[data-font-size="15px"] .msg-body,
 html[data-font-size="15px"] .msg-text-content {
   font-size: 15px !important;
@@ -7715,6 +7721,9 @@ html[data-font-size="15px"] .msg-text-content {
 
 html[data-font-size="large"] .msg-body,
 html[data-font-size="large"] .msg-text-content,
+html[data-font-size="large"] .pinned-item-text,
+html[data-font-size="large"] .chat-composer-textarea,
+html[data-font-size="large"] .dm-composer-textarea,
 html[data-font-size="16px"] .msg-body,
 html[data-font-size="16px"] .msg-text-content {
   font-size: 16.5px !important;
@@ -7979,7 +7988,7 @@ html[data-density="compact"] .dm-message-row {
   align-items: center;
   gap: 4px;
   background-color: #111214;
-  border: 1px solid #5865f2;
+  border: 1px solid var(--accent);
   border-radius: 10px;
   padding: 3px 6px;
 }
@@ -7994,9 +8003,9 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .bubble-save-btn {
-  background: #5865f2;
+  background: var(--accent);
   border: none;
-  color: #ffffff;
+  color: var(--on-accent);
   border-radius: 4px;
   padding: 3px 6px;
   cursor: pointer;
@@ -8104,8 +8113,8 @@ html[data-density="compact"] .dm-message-row {
 .profile-primary-btn {
   width: 100%;
   padding: 8px 14px;
-  background-color: #5865f2;
-  color: #ffffff;
+  background-color: var(--accent);
+  color: var(--on-accent);
   border: none;
   border-radius: 6px;
   font-size: 13.5px;
@@ -8115,12 +8124,13 @@ html[data-density="compact"] .dm-message-row {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background-color 0.15s ease;
+  transition: all 0.15s ease;
   margin-top: 10px;
 }
 
 .profile-primary-btn:hover {
-  background-color: #4752c4;
+  filter: brightness(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Lưới chọn trạng thái nhanh */
@@ -8152,8 +8162,8 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .quick-presence-chip.active {
-  border-color: #5865f2;
-  background-color: rgba(88, 101, 242, 0.15);
+  border-color: var(--accent);
+  background-color: rgba(45, 212, 191, 0.15);
   font-weight: 600;
   color: #ffffff;
 }
@@ -8178,7 +8188,7 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .profile-quick-dm-form:focus-within {
-  border-color: #5865f2;
+  border-color: var(--accent);
 }
 
 .profile-quick-dm-input {
@@ -8196,9 +8206,9 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .profile-quick-dm-send-btn {
-  background-color: #5865f2;
+  background-color: var(--accent);
   border: none;
-  color: #ffffff;
+  color: var(--on-accent);
   width: 28px;
   height: 28px;
   border-radius: 6px;
@@ -8206,11 +8216,11 @@ html[data-density="compact"] .dm-message-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .profile-quick-dm-send-btn:hover {
-  background-color: #4752c4;
+  filter: brightness(1.1);
 }
 
 .profile-dm-link-btn {
@@ -8265,8 +8275,18 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .manager-dropdown-item:hover {
-  background-color: #5865f2;
-  color: #ffffff;
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.manager-dropdown-item.highlight {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.manager-dropdown-item.highlight:hover {
+  background-color: var(--accent);
+  color: var(--on-accent);
 }
 
 .manager-dropdown-item.warning:hover {
@@ -8303,9 +8323,9 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .profile-full-view-btn:hover {
-  background-color: #5865f2;
-  border-color: #5865f2;
-  color: #ffffff;
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }
 
 .profile-meta-val {
@@ -10359,56 +10379,260 @@ html[data-density="compact"] .dm-message-row {
 /* 1. Profile Popout Card (Khi click vào avatar người dùng) */
 :root[data-theme="light"] .discord-profile-card {
   background-color: #ffffff;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15), 0 0 0 1px #e3e5e8;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--border);
 }
 
 :root[data-theme="light"] .discord-profile-card-inner {
-  background-color: #f2f3f5;
-  border-color: #e3e5e8;
+  background-color: var(--bg-1);
+  border-color: var(--border);
 }
 
 :root[data-theme="light"] .discord-profile-header-info .profile-display-name {
-  color: #060607;
+  color: var(--text-1);
 }
 
 :root[data-theme="light"] .discord-profile-header-info .profile-username,
 :root[data-theme="light"] .discord-profile-header-info .profile-you-badge {
-  color: #5c5e66;
+  color: var(--text-3);
+  font-weight: 600;
 }
 
 :root[data-theme="light"] .profile-divider {
-  background-color: #e3e5e8;
+  background-color: var(--border);
 }
 
 :root[data-theme="light"] .profile-section-title {
-  color: #4e5058;
+  color: var(--text-3);
+  font-weight: 700;
+}
+
+:root[data-theme="light"] .profile-meta-val {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+:root[data-theme="light"] .profile-meta-val .meta-icon {
+  color: var(--text-3);
+}
+
+:root[data-theme="light"] .profile-bio-text {
+  color: var(--text-1);
 }
 
 :root[data-theme="light"] .discord-profile-avatar {
   border-color: #ffffff;
 }
 
-:root[data-theme="light"] .profile-bubble-content {
-  background-color: #f2f3f5;
-  border-color: #e3e5e8;
-  color: #313338;
-}
-
-:root[data-theme="light"] .discord-profile-status-bubble {
+/* Bong bóng trạng thái trên Profile Card */
+:root[data-theme="light"] .discord-profile-bubble {
   background-color: #ffffff;
-  border-color: #e3e5e8;
-  color: #313338;
+  border: 1px solid var(--border);
+  color: var(--text-1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-:root[data-theme="light"] .discord-profile-status-bubble::before {
+:root[data-theme="light"] .discord-profile-bubble.interactive:hover {
+  background-color: var(--bg-1);
+  border-color: var(--border);
+}
+
+:root[data-theme="light"] .discord-profile-bubble-tail {
   border-right-color: #ffffff;
+}
+
+:root[data-theme="light"] .discord-profile-bubble-edit {
+  background-color: #ffffff;
+  border: 1px solid var(--accent);
+}
+
+:root[data-theme="light"] .bubble-edit-input {
+  color: var(--text-1);
+}
+
+:root[data-theme="light"] .bubble-save-btn {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* Các chip vai trò trong Light Theme */
+:root[data-theme="light"] .profile-role-pill.member {
+  background: var(--bg-1);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+}
+
+:root[data-theme="light"] .profile-role-pill.owner {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+:root[data-theme="light"] .profile-role-pill.admin {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border: 1px solid var(--accent);
+}
+
+/* Nút Sửa Hồ Sơ & Nút Xem hồ sơ đầy đủ */
+:root[data-theme="light"] .profile-primary-btn {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .profile-primary-btn:hover {
+  background-color: var(--accent-strong);
+  filter: none;
+}
+
+:root[data-theme="light"] .profile-full-view-btn {
+  background-color: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text-1);
+}
+
+:root[data-theme="light"] .profile-full-view-btn:hover {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+/* Ghi chú cá nhân trong Profile Card */
+:root[data-theme="light"] .note-preview-mini {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text-1);
+}
+
+:root[data-theme="light"] .note-preview-mini.empty {
+  color: var(--text-3);
+}
+
+:root[data-theme="light"] .note-preview-mini:hover {
+  background: var(--bg-1);
+  border-color: var(--border);
+}
+
+:root[data-theme="light"] .note-input-mini {
+  background: #ffffff;
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+
+/* Lưới chip trạng thái nhanh trong Light Theme */
+:root[data-theme="light"] .quick-presence-chip {
+  background-color: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text-1);
+}
+
+:root[data-theme="light"] .quick-presence-chip:hover {
+  background-color: var(--bg-1);
+  border-color: var(--border);
+}
+
+:root[data-theme="light"] .quick-presence-chip.active {
+  background-color: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+:root[data-theme="light"] .quick-presence-chip .chip-dot.invisible {
+  background-color: #94a3b8 !important;
+  box-shadow: none !important;
+}
+
+/* Form nhắn tin nhanh cho người khác */
+:root[data-theme="light"] .profile-quick-dm-form {
+  background-color: #ffffff;
+  border: 1px solid var(--border);
+}
+
+:root[data-theme="light"] .profile-quick-dm-form:focus-within {
+  border-color: var(--accent);
+}
+
+:root[data-theme="light"] .profile-quick-dm-input {
+  color: var(--text-1);
+}
+
+:root[data-theme="light"] .profile-quick-dm-input::placeholder {
+  color: var(--text-3);
+}
+
+:root[data-theme="light"] .profile-quick-dm-send-btn {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .profile-quick-dm-send-btn:hover {
+  background-color: var(--accent-strong);
+  filter: none;
+}
+
+:root[data-theme="light"] .profile-dm-link-btn {
+  border-color: var(--border);
+  color: var(--text-1);
+}
+
+:root[data-theme="light"] .profile-dm-link-btn:hover {
+  background-color: var(--bg-1);
+  color: var(--text-1);
+  border-color: var(--border);
+}
+
+/* Menu 3 chấm (More dropdown) trong Profile Card */
+:root[data-theme="light"] .profile-manager-dropdown {
+  background-color: #ffffff;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+:root[data-theme="light"] .manager-dropdown-item {
+  color: var(--text-1);
+}
+
+:root[data-theme="light"] .manager-dropdown-item:hover {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .manager-dropdown-item.highlight {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+:root[data-theme="light"] .manager-dropdown-item.highlight:hover {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .manager-dropdown-item.warning {
+  color: #d97706;
+}
+
+:root[data-theme="light"] .manager-dropdown-item.warning:hover {
+  background-color: #d97706;
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .manager-dropdown-item.danger {
+  color: #dc2626;
+}
+
+:root[data-theme="light"] .manager-dropdown-item.danger:hover {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .dropdown-divider {
+  background-color: var(--border);
 }
 
 /* 2. Settings Live Preview Card (Xem trước hồ sơ trong cài đặt tài khoản) */
 :root[data-theme="light"] .settings-discord-live-card {
   background-color: #ffffff;
-  border-color: #e3e5e8;
+  border-color: var(--border);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
@@ -10421,21 +10645,21 @@ html[data-density="compact"] .dm-message-row {
 }
 
 :root[data-theme="light"] .settings-live-card-body {
-  background-color: #f2f3f5;
+  background-color: var(--bg-1);
 }
 
 :root[data-theme="light"] .settings-live-name {
-  color: #060607;
+  color: var(--text-1);
 }
 
 :root[data-theme="light"] .settings-live-handle {
-  color: #5c5e66;
+  color: var(--text-3);
 }
 
 :root[data-theme="light"] .settings-live-status-bubble {
   background-color: #ffffff;
-  border-color: #e3e5e8;
-  color: #313338;
+  border-color: var(--border);
+  color: var(--text-1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
@@ -10446,12 +10670,12 @@ html[data-density="compact"] .dm-message-row {
 /* 3. Full Profile Modal (Hồ sơ đầy đủ 2 cột) */
 :root[data-theme="light"] .full-profile-modal-card {
   background-color: #ffffff;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 0 0 1px #e3e5e8;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 0 0 1px var(--border);
 }
 
 :root[data-theme="light"] .full-profile-left-col {
-  background-color: #f2f3f5;
-  border-right-color: #e3e5e8;
+  background-color: var(--bg-1);
+  border-right-color: var(--border);
 }
 
 :root[data-theme="light"] .full-profile-right-col {
@@ -10459,50 +10683,52 @@ html[data-density="compact"] .dm-message-row {
 }
 
 :root[data-theme="light"] .full-profile-avatar {
-  border-color: #f2f3f5;
+  border-color: var(--bg-1);
 }
 
 :root[data-theme="light"] .full-profile-status-ring {
-  border-color: #f2f3f5;
+  border-color: var(--bg-1);
 }
 
 :root[data-theme="light"] .full-profile-display-name {
-  color: #060607;
+  color: var(--text-1);
 }
 
 :root[data-theme="light"] .full-profile-username,
 :root[data-theme="light"] .full-profile-you-tag {
-  color: #5c5e66;
+  color: var(--text-3);
 }
 
 :root[data-theme="light"] .full-profile-status-bubble {
   background-color: #ffffff;
-  border-color: #e3e5e8;
-  color: #313338;
+  border-color: var(--border);
+  color: var(--text-1);
 }
 
 :root[data-theme="light"] .full-profile-divider {
-  background-color: #e3e5e8;
+  background-color: var(--border);
 }
 
 :root[data-theme="light"] .info-group-title {
-  color: #5c5e66;
+  color: var(--text-3);
+  font-weight: 700;
 }
 
 :root[data-theme="light"] .info-group-val {
-  color: #313338;
+  color: var(--text-1);
+  font-weight: 500;
 }
 
 :root[data-theme="light"] .full-profile-tabs-header {
-  border-bottom-color: #e3e5e8;
+  border-bottom-color: var(--border);
 }
 
 :root[data-theme="light"] .full-profile-tab-btn {
-  color: #5c5e66;
+  color: var(--text-3);
 }
 
 :root[data-theme="light"] .full-profile-tab-btn:hover {
-  color: #060607;
+  color: var(--text-1);
 }
 
 :root[data-theme="light"] .full-profile-tab-btn.active {
@@ -10510,18 +10736,85 @@ html[data-density="compact"] .dm-message-row {
 }
 
 :root[data-theme="light"] .note-display-box {
-  background: rgba(0, 0, 0, 0.04);
-  color: #313338;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text-1);
 }
 
 :root[data-theme="light"] .note-display-box:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--bg-1);
 }
 
 :root[data-theme="light"] .note-textarea {
   background: #ffffff;
   border-color: var(--accent);
-  color: #060607;
+  color: var(--text-1);
+}
+
+:root[data-theme="light"] .full-profile-dropdown-menu {
+  background-color: #ffffff;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+:root[data-theme="light"] .full-profile-dropdown-menu .dropdown-item {
+  color: var(--text-1);
+}
+
+:root[data-theme="light"] .full-profile-dropdown-menu .dropdown-item:hover {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .full-profile-dropdown-menu .dropdown-item.danger {
+  color: #dc2626;
+}
+
+:root[data-theme="light"] .full-profile-dropdown-menu .dropdown-item.danger:hover {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .full-profile-btn-icon {
+  background-color: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+:root[data-theme="light"] .full-profile-btn-icon:hover {
+  background-color: var(--bg-1);
+  color: var(--text-1);
+}
+
+:root[data-theme="light"] .full-profile-btn-primary {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .full-profile-btn-primary:hover {
+  background-color: var(--accent-strong);
+}
+
+:root[data-theme="light"] .mutual-room-item {
+  background-color: #ffffff;
+  border: 1px solid var(--border);
+}
+
+:root[data-theme="light"] .mutual-room-item:hover {
+  background-color: var(--bg-1);
+}
+
+:root[data-theme="light"] .mutual-room-name {
+  color: var(--text-1);
+}
+
+:root[data-theme="light"] .mutual-room-sub {
+  color: var(--text-3);
+}
+
+:root[data-theme="light"] .activity-section-title {
+  color: var(--text-3);
+  font-weight: 700;
 }
 
 

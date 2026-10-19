@@ -143,6 +143,14 @@ export const App: React.FC = () => {
   // Quản lý Chế độ Giao diện Sáng / Tối (Theme Mode)
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
+      const stored = loadStoredSettings();
+      if (stored.themeMode === 'system') {
+        const isSystemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        return isSystemDark ? 'dark' : 'light';
+      }
+      if (stored.themeMode === 'light' || stored.themeMode === 'dark') {
+        return stored.themeMode;
+      }
       const saved = localStorage.getItem('ltmang_theme');
       return saved === 'light' ? 'light' : 'dark';
     } catch {
@@ -159,7 +167,7 @@ export const App: React.FC = () => {
     }
   }, [theme]);
 
-  // Khởi tạo cỡ chữ & mật độ tin nhắn từ cài đặt người dùng khi tải trang
+  // Khởi tạo cỡ chữ, mật độ tin nhắn & theme hệ thống từ cài đặt người dùng khi tải trang
   useEffect(() => {
     const applyDisplaySettings = () => {
       try {
@@ -170,13 +178,36 @@ export const App: React.FC = () => {
         if (stored.messageDensity) {
           document.documentElement.setAttribute('data-density', stored.messageDensity);
         }
+        if (stored.themeMode === 'system') {
+          const isSystemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          setTheme(isSystemDark ? 'dark' : 'light');
+        } else if (stored.themeMode === 'light' || stored.themeMode === 'dark') {
+          setTheme(stored.themeMode);
+        }
       } catch {
         // ignore
       }
     };
     applyDisplaySettings();
+
+    const mediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    const handleSystemChange = (e: MediaQueryListEvent) => {
+      try {
+        const stored = loadStoredSettings();
+        if (stored.themeMode === 'system') {
+          setTheme(e.matches ? 'dark' : 'light');
+        }
+      } catch {
+        // ignore
+      }
+    };
+    mediaQuery?.addEventListener?.('change', handleSystemChange);
+
     window.addEventListener('user_settings_updated', applyDisplaySettings);
-    return () => window.removeEventListener('user_settings_updated', applyDisplaySettings);
+    return () => {
+      mediaQuery?.removeEventListener?.('change', handleSystemChange);
+      window.removeEventListener('user_settings_updated', applyDisplaySettings);
+    };
   }, []);
 
   const playNotificationSound = useCallback(() => {
