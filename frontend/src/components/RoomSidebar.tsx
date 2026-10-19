@@ -52,6 +52,7 @@ interface Props {
 function getLocalUserStyle(): { 
   avatarColor: string; 
   avatarIcon: string; 
+  avatarImage: string;
   bannerColor: string;
   bio: string; 
   presenceStatus: 'online' | 'idle' | 'dnd' | 'invisible';
@@ -62,8 +63,9 @@ function getLocalUserStyle(): {
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
-        avatarColor: parsed.avatarColor || '#5865F2',
+        avatarColor: parsed.avatarColor || '#2DD4BF',
         avatarIcon: parsed.avatarIcon || '',
+        avatarImage: parsed.avatarImage || '',
         bannerColor: parsed.bannerColor || '#23A55A',
         bio: parsed.bio || '',
         presenceStatus: parsed.presenceStatus || 'online',
@@ -74,8 +76,9 @@ function getLocalUserStyle(): {
     // ignore
   }
   return { 
-    avatarColor: '#5865F2', 
+    avatarColor: '#2DD4BF', 
     avatarIcon: '', 
+    avatarImage: '',
     bannerColor: '#23A55A',
     bio: '', 
     presenceStatus: 'online', 
@@ -298,7 +301,11 @@ export const RoomSidebar: React.FC<Props> = ({
             fontSize: userStyle.avatarIcon ? '16px' : undefined
           }}
         >
-          {userAvatarChar}
+          {userStyle.avatarImage ? (
+            <img src={userStyle.avatarImage} alt="avatar" className="avatar-img-cover" />
+          ) : (
+            userAvatarChar
+          )}
         </div>
         <div 
           className={`status-dot ${userStyle.presenceStatus || 'online'}`} 

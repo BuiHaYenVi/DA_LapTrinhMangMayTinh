@@ -807,6 +807,17 @@ body {
   color: var(--on-accent);
   font-size: 13px;
   user-select: none;
+  overflow: hidden;
+}
+
+.avatar-img-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .status-dot {
@@ -4714,6 +4725,7 @@ body {
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
 }
 
 .settings-sidebar-mini-info {
@@ -4799,6 +4811,7 @@ body {
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
 }
 
 .settings-account-hero-meta {
@@ -5080,6 +5093,7 @@ body {
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
 }
 
 .settings-live-status-dot {
@@ -7886,6 +7900,7 @@ html[data-density="compact"] .dm-message-row {
   font-weight: 700;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
   background-color: #5865f2;
+  overflow: hidden;
 }
 
 .discord-profile-status-badge {
@@ -8523,6 +8538,7 @@ html[data-density="compact"] .dm-message-row {
   font-weight: 700;
   font-size: 32px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
 }
 
 .full-profile-status-ring {

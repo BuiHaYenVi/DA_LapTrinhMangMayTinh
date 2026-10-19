@@ -4,7 +4,8 @@ import { chatBridge } from '../services/chatBridge';
 import { 
   X, User as UserIcon, Palette, Bell, MessageSquare, 
   Activity, Keyboard, Info, LogOut, Check, Volume2, 
-  ArrowDown, Lock, RefreshCw, UserCheck, Edit2, ShieldCheck
+  ArrowDown, Lock, RefreshCw, UserCheck, Edit2, ShieldCheck,
+  Upload, Trash2
 } from 'lucide-react';
 import { getJoinedDate } from './FullProfileModal';
 
@@ -171,11 +172,13 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const [bio, setBio] = useState('');
   const [avatarColor, setAvatarColor] = useState('#2DD4BF');
   const [avatarIcon, setAvatarIcon] = useState('');
+  const [avatarImage, setAvatarImage] = useState('');
   const [bannerColor, setBannerColor] = useState('#23A55A');
   const [presenceStatus, setPresenceStatus] = useState<PresenceStatus>('online');
   const [customStatus, setCustomStatus] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileFeedback, setProfileFeedback] = useState<{ text: string; type: 'success' | 'error' | 'notice' } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Change Password state
   const [oldPassword, setOldPassword] = useState('');
@@ -205,6 +208,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
       setBio(stored.bio || '');
       setAvatarColor(stored.avatarColor || '#2DD4BF');
       setAvatarIcon(stored.avatarIcon || '');
+      setAvatarImage(stored.avatarImage || '');
       setBannerColor(stored.bannerColor || '#23A55A');
       setPresenceStatus(stored.presenceStatus || 'online');
       setCustomStatus(stored.customStatus || '');
@@ -318,11 +322,37 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, activeTab, onClose, tabs]);
 
+  // Xử lý tải ảnh đại diện từ máy tính
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setProfileFeedback({ text: 'Vui lòng chọn tệp hình ảnh (.png, .jpg, .jpeg, .webp, .gif).', type: 'error' });
+      return;
+    }
+    // Giới hạn kích thước tối đa 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      setProfileFeedback({ text: 'Kích thước ảnh đại diện không được vượt quá 2MB.', type: 'error' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setAvatarImage(dataUrl);
+      setProfileFeedback({ text: 'Đã tải ảnh lên! Hãy bấm "Lưu thay đổi" để áp dụng.', type: 'notice' });
+    };
+    reader.onerror = () => {
+      setProfileFeedback({ text: 'Không thể đọc tệp ảnh.', type: 'error' });
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Kiểm tra có thay đổi ở form hồ sơ không
   const initialName = currentUser?.displayName || currentUser?.username || '';
   const initialBio = settings.bio || '';
-  const initialColor = settings.avatarColor || '#5865F2';
+  const initialColor = settings.avatarColor || '#2DD4BF';
   const initialIcon = settings.avatarIcon || '';
+  const initialImage = settings.avatarImage || '';
   const initialBanner = settings.bannerColor || '#23A55A';
   const initialPresence = settings.presenceStatus || 'online';
   const initialCustomStatus = settings.customStatus || '';
@@ -331,6 +361,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     bio.trim() !== initialBio.trim() ||
     avatarColor !== initialColor ||
     avatarIcon !== initialIcon ||
+    avatarImage !== initialImage ||
     bannerColor !== initialBanner ||
     presenceStatus !== initialPresence ||
     customStatus.trim() !== initialCustomStatus.trim();
@@ -351,12 +382,13 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     setIsSavingProfile(true);
     setProfileFeedback(null);
 
-    // Luôn lưu màu sắc, icon, banner, trạng thái và tiểu sử ngay lập tức
+    // Luôn lưu màu sắc, icon, ảnh đại diện, banner, trạng thái và tiểu sử ngay lập tức
     setSettings(prev => {
       const next = {
         ...prev,
         avatarColor,
         avatarIcon,
+        avatarImage,
         bannerColor,
         presenceStatus,
         customStatus: customStatus.trim(),
@@ -371,7 +403,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
       setIsSavingProfile(false);
 
       if (res.notSupported) {
-        setProfileFeedback({ text: 'Đã lưu biểu tượng & tiểu sử. Tên hiển thị đang chờ máy chủ cập nhật.', type: 'notice' });
+        setProfileFeedback({ text: 'Đã lưu ảnh đại diện & tiểu sử. Tên hiển thị đang chờ máy chủ cập nhật.', type: 'notice' });
         return;
       }
 
@@ -386,7 +418,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
       }
     } else {
       setIsSavingProfile(false);
-      setProfileFeedback({ text: 'Đã lưu biểu tượng, màu đại diện và tiểu sử thành công!', type: 'success' });
+      setProfileFeedback({ text: 'Đã lưu ảnh đại diện, màu sắc và tiểu sử thành công!', type: 'success' });
       setTimeout(() => setProfileFeedback(null), 3000);
     }
   };
@@ -396,11 +428,13 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     const stored = loadStoredSettings();
     setDisplayName(currentUser?.displayName || currentUser?.username || '');
     setBio(stored.bio || '');
-    setAvatarColor(stored.avatarColor || '#5865F2');
+    setAvatarColor(stored.avatarColor || '#2DD4BF');
     setAvatarIcon(stored.avatarIcon || '');
+    setAvatarImage(stored.avatarImage || '');
     setBannerColor(stored.bannerColor || '#23A55A');
     setPresenceStatus(stored.presenceStatus || 'online');
     setCustomStatus(stored.customStatus || '');
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setProfileFeedback(null);
   };
 
@@ -504,7 +538,11 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
               className="settings-sidebar-mini-avatar" 
               style={{ backgroundColor: avatarColor }}
             >
-              {avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')}
+              {avatarImage ? (
+                <img src={avatarImage} alt="avatar" className="avatar-img-cover" />
+              ) : (
+                avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')
+              )}
             </div>
             <div className="settings-sidebar-mini-info">
               <span className="settings-sidebar-mini-name">{currentUser?.username || 'user'}</span>
@@ -588,7 +626,11 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                           className="settings-account-hero-avatar"
                           style={{ backgroundColor: avatarColor, fontSize: avatarIcon ? '26px' : undefined }}
                         >
-                          {avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')}
+                          {avatarImage ? (
+                            <img src={avatarImage} alt="avatar" className="avatar-img-cover" />
+                          ) : (
+                            avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')
+                          )}
                         </div>
                         <div 
                           className={`status-dot ${presenceStatus}`} 
@@ -833,13 +875,81 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
 
                   {/* ẢNH ĐẠI DIỆN & BIỂU TƯỢNG */}
                   <div className="settings-card-box">
-                    <label className="settings-form-label">Biểu tượng đại diện (Icon / Emoji)</label>
+                    <label className="settings-form-label">Ảnh đại diện từ thiết bị</label>
+                    <p className="settings-section-caption" style={{ marginBottom: 12 }}>
+                      Tải ảnh từ máy tính để làm ảnh đại diện cá nhân (.png, .jpg, .jpeg, .webp, .gif tối đa 2MB).
+                    </p>
+
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      style={{ display: 'none' }}
+                      onChange={handleAvatarFileChange}
+                    />
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+                      <div 
+                        style={{
+                          width: 52,
+                          height: 52,
+                          borderRadius: '50%',
+                          backgroundColor: avatarColor,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden',
+                          fontSize: avatarIcon ? '24px' : '20px',
+                          fontWeight: 700,
+                          color: '#fff',
+                          flexShrink: 0,
+                          border: '2px solid rgba(255,255,255,0.15)',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                        }}
+                      >
+                        {avatarImage ? (
+                          <img src={avatarImage} alt="avatar preview" className="avatar-img-cover" />
+                        ) : (
+                          avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="settings-btn-primary"
+                          style={{ padding: '7px 14px', fontSize: '13px' }}
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <Upload size={14} style={{ marginRight: 6 }} />
+                          {avatarImage ? 'Thay đổi ảnh' : 'Tải ảnh lên'}
+                        </button>
+                        {avatarImage && (
+                          <button
+                            type="button"
+                            className="settings-btn-secondary"
+                            style={{ padding: '7px 14px', fontSize: '13px', color: '#f23f43' }}
+                            onClick={() => {
+                              setAvatarImage('');
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                          >
+                            <Trash2 size={14} style={{ marginRight: 6 }} />
+                            Xóa ảnh
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="settings-toggle-divider" style={{ margin: '14px 0 12px 0' }} />
+
+                    <label className="settings-form-label">Hoặc chọn Biểu tượng đại diện (Icon / Emoji)</label>
                     <div className="custom-icon-picker-row">
                       {AVATAR_ICONS.map((ic, idx) => (
                         <button
                           key={idx}
                           type="button"
-                          className={`custom-icon-chip ${avatarIcon === ic ? 'active' : ''}`}
+                          className={`custom-icon-chip ${!avatarImage && avatarIcon === ic ? 'active' : ''}`}
                           onClick={() => setAvatarIcon(ic)}
                           title={ic ? `Biểu tượng ${ic}` : 'Chữ cái đầu mặc định'}
                         >
@@ -850,7 +960,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
 
                     <div className="settings-toggle-divider" style={{ margin: '12px 0 8px 0' }} />
 
-                    <label className="settings-form-label">Màu ảnh đại diện</label>
+                    <label className="settings-form-label">Màu nền ảnh đại diện</label>
                     <div className="settings-color-swatches">
                       {AVATAR_COLORS.map(c => (
                         <button
@@ -1006,7 +1116,11 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                             fontSize: avatarIcon ? '30px' : undefined
                           }}
                         >
-                          {avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')}
+                          {avatarImage ? (
+                            <img src={avatarImage} alt="avatar" className="avatar-img-cover" />
+                          ) : (
+                            avatarIcon || (displayName ? displayName.charAt(0).toUpperCase() : 'U')
+                          )}
                         </div>
                         {/* Chấm trạng thái hiện diện */}
                         <div 

@@ -84,6 +84,10 @@ export const MemberSidebar: React.FC<Props> = ({
     const isSelected = activeProfile?.user.id === member.id;
 
     // Đồng bộ ảnh đại diện, màu sắc, biểu tượng và trạng thái cho chính mình (isMe)
+    const avatarImage = isMe
+      ? (currentUserStyle.avatarImage || member.avatarImage || '')
+      : (member.avatarImage || '');
+
     const avatarColor = isMe 
       ? (currentUserStyle.avatarColor || member.avatarColor || 'var(--accent)')
       : (member.avatarColor || undefined);
@@ -125,7 +129,11 @@ export const MemberSidebar: React.FC<Props> = ({
               fontSize: isEmoji ? '16px' : undefined
             }}
           >
-            {avatarChar}
+            {avatarImage ? (
+              <img src={avatarImage} alt="avatar" className="avatar-img-cover" />
+            ) : (
+              avatarChar
+            )}
           </div>
           <div 
             className={`status-dot ${presenceClass}`} 

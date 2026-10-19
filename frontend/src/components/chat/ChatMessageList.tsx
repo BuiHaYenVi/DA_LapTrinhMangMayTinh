@@ -233,6 +233,7 @@ export const ChatMessageList: React.FC<Props> = ({
           const msgReactions = reactionsMap[msg.id] || [];
 
           const mySettings = isMe ? loadStoredSettings() : null;
+          const avatarImage = isMe ? mySettings?.avatarImage : undefined;
           const avatarChar = isMe
             ? (mySettings?.avatarIcon || (Array.from(authorName.trim())[0]?.toUpperCase() || 'U'))
             : (Array.from(authorName.trim())[0]?.toUpperCase() || 'U');
@@ -266,7 +267,11 @@ export const ChatMessageList: React.FC<Props> = ({
                         fontSize: isAvatarEmoji ? '18px' : undefined
                       }}
                     >
-                      {avatarChar}
+                      {avatarImage ? (
+                        <img src={avatarImage} alt="avatar" className="avatar-img-cover" />
+                      ) : (
+                        avatarChar
+                      )}
                     </div>
                   </div>
                 ) : (

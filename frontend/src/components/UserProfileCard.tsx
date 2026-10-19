@@ -105,6 +105,10 @@ export const UserProfileCard: React.FC<Props> = ({
   }, [onClose]);
 
   // Determine avatar icon, avatar color, banner color, presence, custom status
+  const avatarImage = isMe
+    ? (storedSettings.avatarImage || '')
+    : (user.avatarImage || '');
+
   const avatarChar = isMe
     ? (storedSettings.avatarIcon || (user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'))
     : (user.avatarIcon || (user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'));
@@ -380,7 +384,11 @@ export const UserProfileCard: React.FC<Props> = ({
                   fontSize: isMe && storedSettings.avatarIcon ? '32px' : '26px'
                 }}
               >
-                {avatarChar}
+                {avatarImage ? (
+                  <img src={avatarImage} alt="avatar" className="avatar-img-cover" />
+                ) : (
+                  avatarChar
+                )}
               </div>
 
               {/* Chấm trạng thái có viền dày */}

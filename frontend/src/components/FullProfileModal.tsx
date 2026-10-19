@@ -151,12 +151,16 @@ export const FullProfileModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const stored = loadStoredSettings();
+  const avatarImage = isMe
+    ? (stored.avatarImage || '')
+    : (user.avatarImage || '');
+
   const avatarChar = isMe
     ? (stored.avatarIcon || (user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'))
     : (user.avatarIcon || (user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'));
 
   const avatarColor = isMe 
-    ? (stored.avatarColor || '#5865F2') 
+    ? (stored.avatarColor || '#2DD4BF') 
     : (user.avatarColor || '#2DD4BF');
 
   const bannerColor = isMe 
@@ -244,7 +248,11 @@ export const FullProfileModal: React.FC<Props> = ({
                 className="full-profile-avatar"
                 style={{ backgroundColor: avatarColor }}
               >
-                {avatarChar}
+                {avatarImage ? (
+                  <img src={avatarImage} alt="avatar" className="avatar-img-cover" />
+                ) : (
+                  avatarChar
+                )}
               </div>
               <div 
                 className={`full-profile-status-ring ${effectivePresence}`}

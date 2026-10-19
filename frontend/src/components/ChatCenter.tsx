@@ -821,6 +821,7 @@ export const ChatCenter: React.FC<Props> = ({
                 ? members.find(m => (msg.senderId && m.id === msg.senderId) || (msg.senderName && (m.displayName === msg.senderName || m.username === msg.senderName)))
                 : null;
               const mySettings = isMyMsg ? loadStoredSettings() : null;
+              const avatarImage = isMyMsg ? mySettings?.avatarImage : memberInfo?.avatarImage;
               const avatarChar = isMyMsg
                 ? (mySettings?.avatarIcon || (msg.senderName ? msg.senderName.charAt(0).toUpperCase() : 'U'))
                 : (memberInfo?.avatarIcon || (msg.senderName ? msg.senderName.charAt(0).toUpperCase() : 'U'));
@@ -856,7 +857,11 @@ export const ChatCenter: React.FC<Props> = ({
                             fontSize: isAvatarEmoji ? '18px' : undefined
                           }}
                         >
-                          {avatarChar}
+                          {avatarImage ? (
+                            <img src={avatarImage} alt="avatar" className="avatar-img-cover" />
+                          ) : (
+                            avatarChar
+                          )}
                         </div>
                       </div>
                     )}
