@@ -5610,15 +5610,34 @@ body {
   display: flex;
   align-items: center;
   background-color: var(--bg-3);
-  border-radius: 8px;
-  padding: 6px 8px 6px 16px;
-  border: 1px solid var(--border);
-  gap: 12px;
-  transition: border-color 0.15s ease;
+  border-radius: 10px;
+  padding: 6px 8px 6px 14px;
+  border: 1.5px solid var(--border);
+  gap: 10px;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  position: relative;
+}
+
+.add-friend-input-box:hover {
+  border-color: rgba(45, 212, 191, 0.4);
 }
 
 .add-friend-input-box:focus-within {
   border-color: var(--accent);
+  background-color: var(--bg-card);
+  box-shadow: 0 0 0 3px var(--accent-soft, rgba(45, 212, 191, 0.15)), 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.add-friend-search-icon {
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.add-friend-input-box:focus-within .add-friend-search-icon {
+  color: var(--accent);
+  transform: scale(1.08);
 }
 
 .add-friend-input-box input {
@@ -5627,11 +5646,154 @@ body {
   border: none;
   outline: none;
   font-size: 14px;
+  line-height: 20px;
   color: var(--text-1);
+  padding: 4px 0;
 }
 
 .add-friend-input-box input::placeholder {
   color: var(--text-3);
+  transition: opacity 0.2s ease;
+}
+
+.add-friend-input-box:focus-within input::placeholder {
+  opacity: 0.65;
+}
+
+/* Nút xóa nhanh text tìm kiếm */
+.add-friend-clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 2px;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.add-friend-clear-btn:hover {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.08));
+  color: var(--text-1);
+  transform: scale(1.1) rotate(90deg);
+}
+
+.add-friend-clear-btn:active {
+  transform: scale(0.95);
+}
+
+/* Nút Tìm kiếm hiện đại với animations mượt mà */
+.add-friend-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-3);
+  cursor: not-allowed;
+  outline: none;
+  user-select: none;
+  white-space: nowrap;
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.add-friend-submit-btn.active {
+  cursor: pointer;
+  background-color: var(--accent);
+  color: #042f2e;
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(45, 212, 191, 0.32);
+}
+
+.add-friend-submit-btn.active:hover {
+  background-color: var(--accent);
+  filter: brightness(1.08);
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 20px rgba(45, 212, 191, 0.45);
+}
+
+.add-friend-submit-btn.active:active {
+  transform: scale(0.97) translateY(0);
+  box-shadow: 0 2px 8px rgba(45, 212, 191, 0.25);
+}
+
+.add-friend-submit-btn.loading {
+  opacity: 0.85;
+  cursor: wait;
+}
+
+/* Hiệu ứng xoay spinner */
+.spin-animation {
+  animation: spinKeyframe 0.85s linear infinite;
+}
+
+@keyframes spinKeyframe {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Animation mượt cho danh sách kết quả tìm kiếm */
+.search-results-section {
+  animation: searchResultsFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes searchResultsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Cải tiến row kết quả tìm kiếm */
+.search-results-section .friend-row-item {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 8px;
+}
+
+.search-results-section .friend-row-item:hover {
+  background-color: var(--hover-bg);
+  transform: translateX(4px);
+  box-shadow: -2px 0 0 var(--accent);
+}
+
+/* Nút Gửi lời mời trong kết quả tìm kiếm */
+.friend-actions-right .btn-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--accent);
+  color: #042f2e;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(45, 212, 191, 0.25);
+}
+
+.friend-actions-right .btn-accent:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(45, 212, 191, 0.4);
+}
+
+.friend-actions-right .btn-accent:active {
+  transform: scale(0.96) translateY(0);
 }
 
 .badge-already-friend {

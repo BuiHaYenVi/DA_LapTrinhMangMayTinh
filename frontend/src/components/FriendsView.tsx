@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Friend, PendingFriendRequest, SearchUserResult } from '../types/chat';
 import { 
   Users, MessageSquare, UserPlus, Check, X, Search, 
-  Clock, Sparkles, UserCheck
+  Clock, Sparkles, UserCheck, Loader2
 } from 'lucide-react';
 
 export type FriendsTab = 'online' | 'all' | 'pending' | 'add_friend';
@@ -39,6 +39,13 @@ export const FriendsView: React.FC<Props> = ({
   const [searchUsernameQuery, setSearchUsernameQuery] = useState('');
   const [sentRequestUserIds, setSentRequestUserIds] = useState<number[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Tắt trạng thái loading khi có kết quả tìm kiếm mới
+  useEffect(() => {
+    setIsSearching(false);
+  }, [searchResults]);
 
   const onlineFriends = friends.filter(f => f.online);
   const displayedFriends = (currentTab === 'online' ? onlineFriends : friends).filter(f => {
@@ -49,10 +56,18 @@ export const FriendsView: React.FC<Props> = ({
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchUsernameQuery.trim()) {
+    if (searchUsernameQuery.trim() && !isSearching) {
       setHasSearched(true);
+      setIsSearching(true);
       onSearchUsers(searchUsernameQuery.trim());
+      // Tự động tắt loading sau 4s nếu server phản hồi chậm
+      setTimeout(() => setIsSearching(false), 4000);
     }
+  };
+
+  const handleClearSearch = () => {
+    setSearchUsernameQuery('');
+    searchInputRef.current?.focus();
   };
 
   const handleSendRequestClick = (userId: number) => {
@@ -327,19 +342,42 @@ export const FriendsView: React.FC<Props> = ({
 
             <form className="add-friend-form" onSubmit={handleSearchSubmit}>
               <div className="add-friend-input-box">
+                <Search size={18} className="add-friend-search-icon" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Nhập tên đăng nhập hoặc tên hiển thị của người dùng..."
                   value={searchUsernameQuery}
                   onChange={e => setSearchUsernameQuery(e.target.value)}
                   autoFocus
                 />
+                {searchUsernameQuery && (
+                  <button
+                    type="button"
+                    className="add-friend-clear-btn"
+                    onClick={handleClearSearch}
+                    title="Xóa tìm kiếm"
+                    aria-label="Xóa tìm kiếm"
+                  >
+                    <X size={15} />
+                  </button>
+                )}
                 <button
                   type="submit"
-                  disabled={!searchUsernameQuery.trim()}
-                  className="btn-accent"
+                  disabled={!searchUsernameQuery.trim() || isSearching}
+                  className={`add-friend-submit-btn ${searchUsernameQuery.trim() ? 'active' : ''} ${isSearching ? 'loading' : ''}`}
                 >
-                  Tìm kiếm
+                  {isSearching ? (
+                    <>
+                      <Loader2 size={15} className="spin-animation" />
+                      <span>Đang tìm...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={15} />
+                      <span>Tìm kiếm</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
