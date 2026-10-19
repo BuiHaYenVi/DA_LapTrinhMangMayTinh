@@ -27,6 +27,7 @@ import {
   toggleMessageReaction, 
   type ReactionsMap 
 } from './chat/reactionManager';
+import { ForumChannelView } from './chat/ForumChannelView';
 
 interface Props {
   currentRoom: Room | null;
@@ -193,6 +194,7 @@ export const ChatCenter: React.FC<Props> = ({
   currentUserId,
   currentUserName,
   currentUserRole,
+  currentUser,
   members = [],
   isMemberListOpen = true,
   onToggleMemberList,
@@ -540,6 +542,47 @@ export const ChatCenter: React.FC<Props> = ({
     );
   }
 
+  // 1b. MÀN HÌNH CHẾ ĐỘ KÊNH DIỄN ĐÀN (FORUM)
+  if (currentChannel?.type === 'forum') {
+    return (
+      <div className="chat-center" style={{ position: 'relative' }}>
+        <div className="chat-header">
+          <div className="chat-header-left">
+            <div className="chat-header-channel-wrap" title={`Kênh Diễn Đàn: #${currentChannel.name}`}>
+              <MessagesSquare size={22} className="channel-hash-icon" />
+              <div className="chat-header-title">
+                {currentChannel.name}
+              </div>
+            </div>
+            {currentRoom?.description && (
+              <>
+                <div className="chat-header-separator subtle" />
+                <div className="chat-header-desc" title={`Mô tả: ${currentRoom.description}`}>
+                  {currentRoom.description}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="chat-header-right">
+            {onToggleMemberList && (
+              <button 
+                type="button"
+                className={`header-icon-btn ${isMemberListOpen ? 'active' : ''}`}
+                title="Danh sách thành viên phòng"
+                onClick={onToggleMemberList}
+                aria-label="Danh sách thành viên phòng"
+              >
+                <Users size={20} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <ForumChannelView channel={currentChannel} currentUser={currentUser || null} />
+      </div>
+    );
+  }
+
   return (
     <div className="chat-center" style={{ position: 'relative' }}>
       {/* 1. Header Bar: Tiêu đề kênh chat (# tên-kênh) và các công cụ kênh */}
@@ -550,8 +593,6 @@ export const ChatCenter: React.FC<Props> = ({
               <Lock size={20} className="channel-lock-icon" style={{ color: 'var(--text-muted)' }} />
             ) : currentChannel?.type === 'voice' ? (
               <Volume2 size={22} className="channel-hash-icon" />
-            ) : currentChannel?.type === 'forum' ? (
-              <MessagesSquare size={22} className="channel-hash-icon" />
             ) : (
               <Hash size={22} className="channel-hash-icon" />
             )}

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { Room, Channel, User, Friend, MessageItem } from '../types/chat';
 import { 
   Hash, Plus, Settings, ChevronDown, ChevronUp, LogOut, 
-  UserPlus, Users, MessageSquare, X, Trash2, Lock
+  UserPlus, Users, MessageSquare, MessagesSquare, Volume2, X, Trash2, Lock
 } from 'lucide-react';
 import { formatTime } from './chat/chatShared';
 import {
@@ -631,6 +631,10 @@ export const RoomSidebar: React.FC<Props> = ({
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                           {isPrivate ? (
                             <Lock size={15} className="channel-lock-icon" style={{ color: 'var(--text-muted)' }} />
+                          ) : chType === 'forum' ? (
+                            <MessagesSquare size={17} className="channel-hash-icon" />
+                          ) : chType === 'voice' ? (
+                            <Volume2 size={17} className="channel-hash-icon" />
                           ) : (
                             <Hash size={18} className="channel-hash-icon" />
                           )}
