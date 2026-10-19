@@ -7,6 +7,7 @@ import { extractAttachmentFromContent } from './attachmentUtils';
 import { MessageAttachmentView } from './MessageAttachmentView';
 import { MessageReactionList } from './MessageReactionList';
 import { loadReactionsMap, toggleMessageReaction, type ReactionsMap } from './reactionManager';
+import { loadStoredSettings } from '../UserSettingsModal';
 
 interface Props {
   messages: MessageItem[];
@@ -231,6 +232,15 @@ export const ChatMessageList: React.FC<Props> = ({
           const canModify = isMe && msg.id > 0 && !isPending && !sticker && Boolean(cleanText);
           const msgReactions = reactionsMap[msg.id] || [];
 
+          const mySettings = isMe ? loadStoredSettings() : null;
+          const avatarChar = isMe
+            ? (mySettings?.avatarIcon || (Array.from(authorName.trim())[0]?.toUpperCase() || 'U'))
+            : (Array.from(authorName.trim())[0]?.toUpperCase() || 'U');
+          const avatarBg = isMe
+            ? (mySettings?.avatarColor || 'var(--accent)')
+            : undefined;
+          const isAvatarEmoji = isMe ? Boolean(mySettings?.avatarIcon) : false;
+
           return (
             <React.Fragment key={msg.id || `${curDateKey}-${index}`}>
               {/* Dòng phân cách ngày */}
@@ -249,8 +259,14 @@ export const ChatMessageList: React.FC<Props> = ({
               >
                 {!isGrouped ? (
                   <div className="msg-avatar-col">
-                    <div className={`user-avatar-circle ${isMe ? 'avatar-me' : ''}`}>
-                      {Array.from(authorName.trim())[0]?.toUpperCase() || 'U'}
+                    <div 
+                      className={`user-avatar-circle ${isMe ? 'avatar-me' : ''}`}
+                      style={{
+                        backgroundColor: avatarBg,
+                        fontSize: isAvatarEmoji ? '18px' : undefined
+                      }}
+                    >
+                      {avatarChar}
                     </div>
                   </div>
                 ) : (

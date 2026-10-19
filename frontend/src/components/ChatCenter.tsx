@@ -234,7 +234,7 @@ export const ChatCenter: React.FC<Props> = ({
   const currentRoomBg = currentRoomStyle.chatBackground || undefined;
 
   const chatMessagesRef = useRef<HTMLDivElement>(null);
-  const mainInputRef = useRef<HTMLInputElement>(null);
+  const mainInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Lắng nghe cập nhật reaction
@@ -334,11 +334,24 @@ export const ChatCenter: React.FC<Props> = ({
     setInputText('');
     setPendingAttachment(null);
     setShowEmojiPicker(false);
+    if (mainInputRef.current) {
+      mainInputRef.current.style.height = 'auto';
+    }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // Tự động co giãn chiều cao của textarea theo nội dung gõ
+  useEffect(() => {
+    if (mainInputRef.current) {
+      mainInputRef.current.style.height = 'auto';
+      const scrollH = mainInputRef.current.scrollHeight;
+      mainInputRef.current.style.height = `${Math.min(Math.max(scrollH, 24), 160)}px`;
+    }
+  }, [inputText]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
       const stored = loadStoredSettings();
+      // Nếu enterToSend bị tắt: Ctrl + Enter gửi, Enter xuống dòng
       if (stored.enterToSend === false) {
         if (e.ctrlKey) {
           e.preventDefault();
@@ -346,6 +359,7 @@ export const ChatCenter: React.FC<Props> = ({
         }
         return;
       }
+      // Mặc định enterToSend bật: Shift + Enter cho phép xuống dòng, Enter gửi tin
       if (!e.shiftKey) {
         e.preventDefault();
         handleSend();
@@ -829,6 +843,18 @@ export const ChatCenter: React.FC<Props> = ({
               const isPinned = currentPinnedIds.includes(msg.id);
               const msgReactions = reactionsMap[msg.id] || [];
 
+              const memberInfo = !isMyMsg && members 
+                ? members.find(m => (msg.senderId && m.id === msg.senderId) || (msg.senderName && (m.displayName === msg.senderName || m.username === msg.senderName)))
+                : null;
+              const mySettings = isMyMsg ? loadStoredSettings() : null;
+              const avatarChar = isMyMsg
+                ? (mySettings?.avatarIcon || (msg.senderName ? msg.senderName.charAt(0).toUpperCase() : 'U'))
+                : (memberInfo?.avatarIcon || (msg.senderName ? msg.senderName.charAt(0).toUpperCase() : 'U'));
+              const avatarColor = isMyMsg
+                ? (mySettings?.avatarColor || 'var(--accent)')
+                : (memberInfo?.avatarColor || undefined);
+              const isAvatarEmoji = isMyMsg ? Boolean(mySettings?.avatarIcon) : Boolean(memberInfo?.avatarIcon);
+
               return (
                 <React.Fragment key={msg.id || idx}>
                   {/* Ngăn cách ngày */}
@@ -849,8 +875,14 @@ export const ChatCenter: React.FC<Props> = ({
                       </span>
                     ) : (
                       <div className="msg-avatar-col">
-                        <div className="user-avatar-circle">
-                          {msg.senderName ? msg.senderName.charAt(0).toUpperCase() : 'U'}
+                        <div 
+                          className="user-avatar-circle"
+                          style={{
+                            backgroundColor: avatarColor,
+                            fontSize: isAvatarEmoji ? '18px' : undefined
+                          }}
+                        >
+                          {avatarChar}
                         </div>
                       </div>
                     )}
@@ -1081,8 +1113,9 @@ export const ChatCenter: React.FC<Props> = ({
             <PlusCircle size={22} />
           </button>
 
-          <input
+          <textarea
             ref={mainInputRef}
+            rows={1}
             placeholder={
               currentChannel 
                 ? `Gửi tin nhắn tới #${currentChannel.name}` 

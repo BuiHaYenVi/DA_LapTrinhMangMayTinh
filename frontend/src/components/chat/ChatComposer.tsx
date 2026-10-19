@@ -23,7 +23,7 @@ export const ChatComposer: React.FC<Props> = ({
   const [pendingAttachment, setPendingAttachment] = useState<FileAttachment | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [, setTick] = useState(0);
 
@@ -32,6 +32,15 @@ export const ChatComposer: React.FC<Props> = ({
     window.addEventListener('user_settings_updated', onUpdate);
     return () => window.removeEventListener('user_settings_updated', onUpdate);
   }, []);
+
+  // Tự động co giãn chiều cao của textarea theo nội dung gõ
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      const scrollH = inputRef.current.scrollHeight;
+      inputRef.current.style.height = `${Math.min(Math.max(scrollH, 24), 160)}px`;
+    }
+  }, [text]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,22 +79,23 @@ export const ChatComposer: React.FC<Props> = ({
     setPendingAttachment(null);
     setShowEmojiPicker(false);
     if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
       inputRef.current.focus();
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
       const stored = loadStoredSettings();
+      // Nếu enterToSend bị tắt: Ctrl + Enter gửi, Enter xuống dòng
       if (stored.enterToSend === false) {
         if (e.ctrlKey) {
           e.preventDefault();
           handleSubmit();
-        } else {
-          e.preventDefault();
         }
         return;
       }
+      // Mặc định enterToSend bật: Shift + Enter cho phép xuống dòng, Enter gửi tin
       if (!e.shiftKey) {
         e.preventDefault();
         handleSubmit();
@@ -146,9 +156,9 @@ export const ChatComposer: React.FC<Props> = ({
             <PlusCircle size={20} />
           </button>
 
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
+            rows={1}
             className="dm-composer-input"
             placeholder={placeholder}
             value={text}

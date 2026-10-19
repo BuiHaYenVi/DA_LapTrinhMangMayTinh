@@ -1598,7 +1598,8 @@ body {
   transform: scale(1.08);
 }
 
-.chat-input-pill input {
+.chat-input-pill input,
+.chat-input-pill textarea {
   flex: 1;
   background: transparent;
   border: none;
@@ -1608,14 +1609,19 @@ body {
   line-height: 1.375;
   font-family: inherit;
   padding: 10px 0;
+  resize: none;
+  overflow-y: auto;
+  max-height: 160px;
 }
 
-.chat-input-pill input::placeholder {
+.chat-input-pill input::placeholder,
+.chat-input-pill textarea::placeholder {
   color: var(--text-3);
   font-size: 15px;
 }
 
-.chat-input-pill input:disabled {
+.chat-input-pill input:disabled,
+.chat-input-pill textarea:disabled {
   cursor: not-allowed;
   color: var(--text-3);
 }
@@ -6746,6 +6752,7 @@ body {
   color: var(--text-1);
   line-height: 1.45;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
 /* Date separator: đường kẻ ngang ở giữa, chữ ngày nằm giữa đường kẻ */
@@ -6799,8 +6806,12 @@ body {
   outline: none;
   color: var(--text-1);
   font-size: 14.5px;
+  line-height: 1.4;
   padding: 8px 4px;
   font-family: inherit;
+  resize: none;
+  overflow-y: auto;
+  max-height: 160px;
 }
 .dm-composer-input::placeholder {
   color: var(--text-3);
