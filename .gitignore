@@ -1,31 +1,38 @@
-# ==========================================
-# GITIGNORE CHUẨN ĐỒ ÁN LẬP TRÌNH MẠNG
-# Dự án: Discord Mini (Java TCP Socket & Swing)
-# ==========================================
+# ==============================================================================
+# GITIGNORE CHUẨN ĐỒ ÁN LẬP TRÌNH MẠNG MÁY TÍNH (CMP180)
+# Tuân thủ: TÀI LIỆU HƯỚNG DẪN QUY TRÌNH VÀ RÀNG BUỘC THỰC HIỆN DỰ ÁN TRÊN GIT/GITHUB
+# Dự án: Discord Mini - Java TCP Socket Chat & React/TypeScript Web Bridge
+# ==============================================================================
 
-# 1. NetBeans & IDE Build
-build/
-**/build/
+# 1. Thư mục Build & Compiled Artifacts (Quy định 4: Nghiêm cấm commit thư mục build)
 bin/
 **/bin/
+target/
+**/target/
+out/
+**/out/
+build/
+**/build/
 dist/
 **/dist/
-nbproject/private/
-**/nbproject/private/
 nbbuild/
 nbdist/
 
-# 2. Java Compiled & Binary Artifacts (Quy chế: cấm commit file nhị phân lớn)
+# 2. File nhị phân, thư viện & file nén lớn (Quy định 4: Cấm commit .jar, .zip)
 *.class
 *.jar
-!Chatserver/lib/*.jar
 *.war
 *.ear
 *.zip
 *.tar.gz
 *.7z
+*.rar
+*.exe
+*.dll
+*.so
+*.dylib
 
-# 3. IDE & Editor Configs (Quy chế: cấm commit .idea, .vscode)
+# 3. Cấu hình cá nhân IDE & Editor (Quy định 4: Cấm commit .idea, .vscode)
 .idea/
 *.iml
 *.iws
@@ -35,8 +42,22 @@ nbdist/
 .settings/
 .project
 .classpath
+nbproject/private/
+**/nbproject/private/
 
-# 4. Node / Frontend dependencies & caches
+# 4. Bảo mật dữ liệu & Thông tin nhạy cảm (Cấm commit thông tin tài khoản, mật khẩu CSDL)
+db.properties
+**/db.properties
+*.local
+*.env
+*.env.local
+# Giữ lại các file mẫu cấu hình không chứa bí mật
+!db.properties.example
+!**/db.properties.example
+!**/project.properties
+!**/genfiles.properties
+
+# 5. Node / Frontend Dependencies, Artifacts & Caches
 node_modules/
 **/node_modules/
 frontend/dist/
@@ -44,8 +65,9 @@ frontend/.oxlint_cache/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.eslintcache
 
-# 5. OS & Temporary Files
+# 6. File rác hệ điều hành, tệp nháp & tệp tạm (Quy định 4 & 7: Vệ sinh mã nguồn)
 .DS_Store
 Thumbs.db
 desktop.ini
@@ -54,3 +76,6 @@ desktop.ini
 *.bak
 *.swp
 *~
+*Pasted*
+scratch/
+*.scratch
