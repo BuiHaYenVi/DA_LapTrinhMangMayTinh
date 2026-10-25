@@ -2025,6 +2025,7 @@ export const App: React.FC = () => {
         <RoomSettingsModal
           isOpen={Boolean(roomSettingsTarget)}
           onClose={() => setRoomSettingsTarget(null)}
+          onSaveSuccess={showToast}
           room={roomSettingsTarget}
           currentUser={currentUser}
           currentUserRole={

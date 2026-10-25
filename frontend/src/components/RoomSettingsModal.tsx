@@ -30,6 +30,7 @@ interface Props {
   onKickMember?: (roomId: number, userId: number) => void;
   onSetMemberRole?: (roomId: number, userId: number, role: string) => void;
   onTransferOwner?: (roomId: number, userId: number) => void;
+  onSaveSuccess?: (message: string) => void;
 }
 
 export const RoomSettingsModal: React.FC<Props> = ({
@@ -45,7 +46,8 @@ export const RoomSettingsModal: React.FC<Props> = ({
   onLeaveRoom,
   onKickMember,
   onSetMemberRole,
-  onTransferOwner
+  onTransferOwner,
+  onSaveSuccess
 }) => {
   const [activeTab, setActiveTab] = useState<RoomSettingsTab>('overview');
   const [roomName, setRoomName] = useState(room.name);
@@ -58,6 +60,8 @@ export const RoomSettingsModal: React.FC<Props> = ({
     type: 'delete_room' | 'leave_room' | 'kick' | 'transfer_owner';
     targetUser?: User;
   } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Phân quyền theo role
   const isOwner = currentUserRole === 'OWNER' || room.role === 'OWNER';
@@ -111,13 +115,14 @@ export const RoomSettingsModal: React.FC<Props> = ({
   };
 
   const handleSaveChanges = () => {
-    if (!canEdit) return;
+    if (!canEdit || isSaving) return;
+    setIsSaving(true);
     const finalName = roomName.trim() || room.name;
     saveRoomCustomStyle(room.id, finalName, {
       icon: roomIcon || undefined,
       color: roomColor || undefined,
       bannerColor: bannerColor || undefined,
-      chatBackground: undefined // Xóa bỏ hoàn toàn màu nền cục bộ để kế thừa theme chuẩn
+      chatBackground: undefined
     });
 
     if (finalName !== room.name) {
@@ -126,6 +131,18 @@ export const RoomSettingsModal: React.FC<Props> = ({
     if (roomDesc.trim() !== (room.description || '') && onSetRoomDesc) {
       onSetRoomDesc(room.id, roomDesc.trim());
     }
+
+    setSaveSuccess(true);
+    if (onSaveSuccess) {
+      onSaveSuccess('Đã lưu thay đổi máy chủ thành công!');
+    }
+
+    // Tự động đóng cửa sổ cài đặt sau khi lưu thành công
+    setTimeout(() => {
+      setIsSaving(false);
+      setSaveSuccess(false);
+      onClose();
+    }, 450);
   };
 
   if (!isOpen) return null;
@@ -388,8 +405,14 @@ export const RoomSettingsModal: React.FC<Props> = ({
                       <button type="button" className="btn-reset" onClick={handleResetChanges}>
                         Đặt lại
                       </button>
-                      <button type="button" className="btn-save" onClick={handleSaveChanges}>
-                        Lưu Thay Đổi
+                      <button 
+                        type="button" 
+                        className="btn-save" 
+                        onClick={handleSaveChanges}
+                        disabled={isSaving}
+                        style={saveSuccess ? { backgroundColor: '#23a55a', color: '#ffffff' } : undefined}
+                      >
+                        {saveSuccess ? '✓ Đã lưu thành công!' : isSaving ? 'Đang lưu...' : 'Lưu Thay Đổi'}
                       </button>
                     </div>
                   </div>
