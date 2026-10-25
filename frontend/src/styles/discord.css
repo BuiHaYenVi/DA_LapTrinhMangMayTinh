@@ -895,11 +895,14 @@ body {
   flex-direction: column;
   background-color: var(--bg-chat);
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
 .chat-header {
   height: 48px;
+  flex: 0 0 48px;
   padding: 0 16px;
   display: flex;
   align-items: center;
@@ -1079,9 +1082,9 @@ body {
 
 .messages-flow {
   min-height: 100%;
+  margin-top: auto;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   padding: 16px 0;
 }
 
@@ -1700,11 +1703,14 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
 .sidebar-simple-header {
   height: 48px;
+  flex: 0 0 48px;
   padding: 0 16px;
   display: flex;
   align-items: center;
@@ -1717,8 +1723,10 @@ body {
 }
 
 .member-list {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 8px 16px 8px;
   display: flex;
   flex-direction: column;
@@ -10479,39 +10487,46 @@ html[data-density="compact"] .dm-message-row {
 
 /* Thanh cuộn chuyên biệt cho khung tin nhắn chat */
 .chat-messages-container,
-.dm-scroll {
+.dm-scroll,
+.member-list {
   scroll-behavior: auto;
 }
 
 .chat-messages-container::-webkit-scrollbar,
-.dm-scroll::-webkit-scrollbar {
+.dm-scroll::-webkit-scrollbar,
+.member-list::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 .chat-messages-container::-webkit-scrollbar-track,
-.dm-scroll::-webkit-scrollbar-track {
+.dm-scroll::-webkit-scrollbar-track,
+.member-list::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .chat-messages-container::-webkit-scrollbar-thumb,
-.dm-scroll::-webkit-scrollbar-thumb {
+.dm-scroll::-webkit-scrollbar-thumb,
+.member-list::-webkit-scrollbar-thumb {
   background: rgba(120, 124, 133, 0.35);
   border-radius: 4px;
 }
 
 .chat-messages-container::-webkit-scrollbar-thumb:hover,
-.dm-scroll::-webkit-scrollbar-thumb:hover {
+.dm-scroll::-webkit-scrollbar-thumb:hover,
+.member-list::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 155, 164, 0.65);
 }
 
 :root[data-theme="light"] .chat-messages-container::-webkit-scrollbar-thumb,
-:root[data-theme="light"] .dm-scroll::-webkit-scrollbar-thumb {
+:root[data-theme="light"] .dm-scroll::-webkit-scrollbar-thumb,
+:root[data-theme="light"] .member-list::-webkit-scrollbar-thumb {
   background: rgba(100, 105, 115, 0.28);
 }
 
 :root[data-theme="light"] .chat-messages-container::-webkit-scrollbar-thumb:hover,
-:root[data-theme="light"] .dm-scroll::-webkit-scrollbar-thumb:hover {
+:root[data-theme="light"] .dm-scroll::-webkit-scrollbar-thumb:hover,
+:root[data-theme="light"] .member-list::-webkit-scrollbar-thumb:hover {
   background: rgba(80, 85, 95, 0.5);
 }
 
