@@ -2,11 +2,13 @@ import React, { useRef } from 'react';
 import type { Room } from '../../types/chat';
 import { RailTooltip } from './RailTooltip';
 import type { ContextMenuPosition } from './RoomContextMenu';
+import { chatBridge } from '../../services/chatBridge';
 
 export const ROOM_CUSTOM_STORAGE_KEY = 'discord_mini_room_custom_v1';
 
 export interface RoomCustomStyle {
   icon?: string;
+  image?: string; // URL hoặc data URI ảnh biểu tượng máy chủ
   color?: string;
   bannerColor?: string;
   chatBackground?: string; // Tùy chỉnh màu nền riêng cho khu vực tin nhắn của phòng
@@ -121,8 +123,25 @@ export const RoomRailItem: React.FC<Props> = ({
   React.useEffect(() => {
     const handleUpdate = () => setCustomTick(t => t + 1);
     window.addEventListener('room_custom_updated', handleUpdate);
-    return () => window.removeEventListener('room_custom_updated', handleUpdate);
-  }, []);
+
+    // Lắng nghe cập nhật ảnh avatar phòng từ server SSE theo thời gian thực
+    const unsubscribeAvatar = chatBridge.subscribe((event: string, data: any) => {
+      if (event !== 'ROOM_AVATAR_UPDATED') return;
+      if (data && data.roomId === room.id) {
+        const curStyle = getRoomCustomStyle(room.id, room.name);
+        saveRoomCustomStyle(room.id, room.name, {
+          ...curStyle,
+          image: data.avatarUrl ? data.avatarUrl : undefined
+        });
+        setCustomTick(t => t + 1);
+      }
+    });
+
+    return () => {
+      window.removeEventListener('room_custom_updated', handleUpdate);
+      unsubscribeAvatar();
+    };
+  }, [room.id, room.name]);
 
   const hasUnread = unreadCount > 0 && !isMuted;
   const customStyle = getRoomCustomStyle(room.id, room.name);
@@ -164,9 +183,24 @@ export const RoomRailItem: React.FC<Props> = ({
           aria-label={`Phòng ${room.name}`}
           aria-current={isSelected ? 'true' : undefined}
         >
-          <span className="room-acronym" style={customStyle.icon ? { fontSize: '20px' } : undefined}>
-            {acronym}
-          </span>
+          {customStyle.image ? (
+            <img
+              src={customStyle.image}
+              alt={room.name}
+              className="room-rail-avatar-img"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                borderRadius: 'inherit',
+                display: 'block'
+              }}
+            />
+          ) : (
+            <span className="room-acronym" style={customStyle.icon ? { fontSize: '20px' } : undefined}>
+              {acronym}
+            </span>
+          )}
 
           {hasUnread && (
             <span className="rail-unread-badge" aria-label={`${unreadCount} tin chưa đọc`}>

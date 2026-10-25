@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { Room, User } from '../types/chat';
 import { 
   X, Info, Users, ShieldCheck, Trash2, LogOut, 
   Crown, Shield, User as UserIcon, Search, AlertCircle, 
-  Check, UserMinus, ArrowRightLeft 
+  Check, UserMinus, ArrowRightLeft, Upload 
 } from 'lucide-react';
 import { 
   getRoomCustomStyle, 
@@ -53,6 +53,11 @@ export const RoomSettingsModal: React.FC<Props> = ({
   const [roomName, setRoomName] = useState(room.name);
   const [roomDesc, setRoomDesc] = useState(room.description || '');
   const [roomIcon, setRoomIcon] = useState('');
+  const [roomImage, setRoomImage] = useState('');
+  const [selectedFileName, setSelectedFileName] = useState('');
+  const [selectedFileType, setSelectedFileType] = useState('');
+  const [fileError, setFileError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [roomColor, setRoomColor] = useState('');
   const [bannerColor, setBannerColor] = useState('#1e1f22');
   const [memberSearch, setMemberSearch] = useState('');
@@ -75,6 +80,10 @@ export const RoomSettingsModal: React.FC<Props> = ({
       setRoomDesc(room.description || '');
       const st = getRoomCustomStyle(room.id, room.name);
       setRoomIcon(st.icon || '');
+      setRoomImage(st.image || '');
+      setSelectedFileName('');
+      setSelectedFileType('');
+      setFileError(null);
       setRoomColor(st.color || '');
       setBannerColor(st.bannerColor || '#1e1f22');
       setActiveTab('overview');
@@ -102,6 +111,7 @@ export const RoomSettingsModal: React.FC<Props> = ({
     roomName.trim() !== room.name ||
     roomDesc.trim() !== (room.description || '') ||
     roomIcon !== (initialStyle.icon || '') ||
+    roomImage !== (initialStyle.image || '') ||
     roomColor !== (initialStyle.color || '') ||
     bannerColor !== (initialStyle.bannerColor || '#1e1f22')
   );
@@ -110,16 +120,116 @@ export const RoomSettingsModal: React.FC<Props> = ({
     setRoomName(room.name);
     setRoomDesc(room.description || '');
     setRoomIcon(initialStyle.icon || '');
+    setRoomImage(initialStyle.image || '');
+    setSelectedFileName('');
+    setSelectedFileType('');
+    setFileError(null);
     setRoomColor(initialStyle.color || '');
     setBannerColor(initialStyle.bannerColor || '#1e1f22');
   };
 
-  const handleSaveChanges = () => {
+  // Chọn file ảnh và kiểm tra tính hợp lệ
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // RÀNG BUỘC QUYỀN (GIAO DIỆN): CHỈ CHỦ PHÒNG MỚI ĐƯỢC PHÉP ĐỔI AVATAR
+    if (!isOwner) {
+      setFileError('Chỉ chủ phòng mới có quyền thay đổi ảnh đại diện máy chủ.');
+      return;
+    }
+
+    const validExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+    const fileName = file.name.toLowerCase();
+    const hasValidExt = validExtensions.some(ext => fileName.endsWith(ext));
+    const validMimes = ['image/png', 'image/jpeg', 'image/webp'];
+    const hasValidMime = validMimes.includes(file.type.toLowerCase()) || hasValidExt;
+
+    if (!hasValidExt || !hasValidMime) {
+      setFileError('Định dạng ảnh không hợp lệ. Chỉ chấp nhận các tệp PNG, JPG, JPEG hoặc WEBP.');
+      return;
+    }
+
+    const MAX_SIZE = 2 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setFileError('Dung lượng ảnh vượt quá 2MB. Vui lòng chọn ảnh nhẹ hơn.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setRoomImage(reader.result);
+        setSelectedFileName(file.name);
+        setSelectedFileType(file.type || 'image/png');
+        setFileError(null);
+      }
+    };
+    reader.onerror = () => {
+      setFileError('Không thể đọc file ảnh từ máy tính.');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleRemoveImage = () => {
+    if (!isOwner) return;
+    setRoomImage('');
+    setSelectedFileName('');
+    setSelectedFileType('');
+    setFileError(null);
+  };
+
+  const handleSaveChanges = async () => {
     if (!canEdit || isSaving) return;
     setIsSaving(true);
+    let finalImageUrl: string | undefined = roomImage || undefined;
+
+    if (isOwner) {
+      try {
+        if (roomImage && roomImage.startsWith('data:image/')) {
+          const resp = await fetch('/api/rooms/avatar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              roomId: room.id,
+              action: 'upload',
+              name: selectedFileName || `room_${room.id}_avatar.png`,
+              data: roomImage,
+              type: selectedFileType || 'image/png'
+            })
+          });
+          const result = await resp.json();
+          if (!resp.ok || !result.success) {
+            setFileError(result.message || 'Lỗi khi tải ảnh lên máy chủ.');
+            setIsSaving(false);
+            return;
+          }
+          finalImageUrl = result.url;
+        } else if (!roomImage && initialStyle.image) {
+          await fetch('/api/rooms/avatar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              roomId: room.id,
+              action: 'delete'
+            })
+          });
+          finalImageUrl = undefined;
+        }
+      } catch (err) {
+        console.error('Lỗi khi cập nhật avatar phòng:', err);
+        setFileError('Không thể kết nối đến máy chủ để cập nhật ảnh.');
+        setIsSaving(false);
+        return;
+      }
+    }
+
     const finalName = roomName.trim() || room.name;
     saveRoomCustomStyle(room.id, finalName, {
       icon: roomIcon || undefined,
+      image: finalImageUrl,
       color: roomColor || undefined,
       bannerColor: bannerColor || undefined,
       chatBackground: undefined
@@ -137,7 +247,6 @@ export const RoomSettingsModal: React.FC<Props> = ({
       onSaveSuccess('Đã lưu thay đổi máy chủ thành công!');
     }
 
-    // Tự động đóng cửa sổ cài đặt sau khi lưu thành công
     setTimeout(() => {
       setIsSaving(false);
       setSaveSuccess(false);
@@ -290,14 +399,52 @@ export const RoomSettingsModal: React.FC<Props> = ({
                     <div className="settings-field-box">
                       <label className="settings-field-label">Biểu tượng máy chủ</label>
                       <p className="settings-field-hint">
-                        Chọn biểu tượng hoặc màu nền đại diện cho phòng trên thanh bên trái.
+                        Tải ảnh từ máy tính, chọn biểu tượng emoji hoặc màu nền đại diện cho phòng.
                       </p>
+
+                      {/* Input chọn file ẩn */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
+                        style={{ display: 'none' }}
+                        onChange={handleFileSelect}
+                        disabled={!isOwner}
+                      />
+
                       <div className="room-icon-selector-grid">
+                        {/* Lựa chọn tải ảnh lên từ máy */}
+                        <button
+                          type="button"
+                          className={`room-icon-choice-btn room-upload-choice-btn ${roomImage ? 'active' : ''}`}
+                          onClick={() => isOwner && fileInputRef.current?.click()}
+                          disabled={!isOwner}
+                          title={isOwner ? 'Tải ảnh từ máy tính lên (tối đa 2MB)' : 'Chỉ chủ phòng mới có quyền thay đổi ảnh đại diện'}
+                          style={!isOwner ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                        >
+                          <Upload size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '5px' }} />
+                          <span>{roomImage ? 'Đổi ảnh khác' : 'Tải ảnh lên'}</span>
+                        </button>
+
+                        {/* Nút xóa ảnh để quay về Chữ/Màu */}
+                        {roomImage && isOwner && (
+                          <button
+                            type="button"
+                            className="room-icon-choice-btn room-remove-img-btn"
+                            onClick={handleRemoveImage}
+                            title="Xóa ảnh và dùng lại kiểu Chữ/Màu"
+                            style={{ color: '#f23f43', borderColor: 'rgba(242, 63, 67, 0.4)' }}
+                          >
+                            <Trash2 size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+                            <span>Xóa ảnh</span>
+                          </button>
+                        )}
+
                         {ROOM_ICON_PRESETS.map((ic, idx) => (
                           <button
                             key={idx}
                             type="button"
-                            className={`room-icon-choice-btn ${roomIcon === ic ? 'active' : ''}`}
+                            className={`room-icon-choice-btn ${roomIcon === ic && !roomImage ? 'active' : ''}`}
                             onClick={() => canEdit && setRoomIcon(ic)}
                             disabled={!canEdit}
                           >
@@ -305,6 +452,14 @@ export const RoomSettingsModal: React.FC<Props> = ({
                           </button>
                         ))}
                       </div>
+
+                      {/* Hiển thị lỗi file tiếng Việt nếu có */}
+                      {fileError && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f23f43', fontSize: '13px', marginTop: '6px', marginBottom: '8px' }}>
+                          <AlertCircle size={15} />
+                          <span>{fileError}</span>
+                        </div>
+                      )}
 
                       <div className="room-avatar-color-strip">
                         {ROOM_COLOR_PRESETS.map((colHex, idx) => (
@@ -359,9 +514,20 @@ export const RoomSettingsModal: React.FC<Props> = ({
                       <div className="server-preview-body">
                         <div 
                           className="server-preview-avatar"
-                          style={{ backgroundColor: roomColor || '#5865f2' }}
+                          style={{ backgroundColor: roomColor || '#5865f2', overflow: 'hidden' }}
                         >
-                          {roomIcon ? (
+                          {roomImage ? (
+                            <img
+                              src={roomImage}
+                              alt="Avatar máy chủ"
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                display: 'block'
+                              }}
+                            />
+                          ) : roomIcon ? (
                             <span className="server-preview-avatar-icon">{roomIcon}</span>
                           ) : (
                             <span className="server-preview-avatar-text">

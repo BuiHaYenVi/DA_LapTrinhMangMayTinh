@@ -1237,6 +1237,30 @@ export const App: React.FC = () => {
   };
 
   // Gửi yêu cầu kết bạn
+  const handleRemoveFriend = (friendId: number) => {
+    const friend = friends.find(f => f.id === friendId);
+    setActionModal({
+      isOpen: true,
+      title: 'Hủy kết bạn',
+      message: `Bạn có chắc chắn muốn hủy kết bạn với "${friend?.displayName || friend?.username || 'người này'}" không?`,
+      confirmText: 'Hủy kết bạn',
+      cancelText: 'Giữ lại',
+      isDanger: true,
+      onConfirm: () => {
+        chatBridge.removeFriend(friendId).then(() => {
+          showToast('Đã hủy kết bạn thành công.');
+          if (currentDirectUser?.id === friendId) {
+            setCurrentDirectUser(null);
+          }
+          chatBridge.refreshFriends().catch(() => {});
+        }).catch((err: any) => {
+          showToast('Không thể hủy kết bạn: ' + (err?.message || 'Lỗi'));
+        });
+        setActionModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
   const handleSendFriendRequest = (targetUserId: number) => {
     chatBridge.sendFriendRequest(targetUserId).then(() => {
       showToast('Đã gửi lời mời kết bạn thành công!');
@@ -1880,6 +1904,8 @@ export const App: React.FC = () => {
               onRejectRequest={handleRejectFriendRequest}
               onSearchUsers={handleSearchUsers}
               onSendFriendRequest={handleSendFriendRequest}
+              onRemoveFriend={handleRemoveFriend}
+              onShowToast={showToast}
             />
           )
         ) : (

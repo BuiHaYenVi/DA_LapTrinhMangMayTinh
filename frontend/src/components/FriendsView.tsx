@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Friend, PendingFriendRequest, SearchUserResult } from '../types/chat';
+import { FriendContextMenu, type FriendContextMenuPosition } from './FriendContextMenu';
+import { FullProfileModal } from './FullProfileModal';
 import { 
   Users, MessageSquare, UserPlus, Check, X, Search, 
   Clock, Sparkles, UserCheck, Loader2
@@ -19,6 +21,8 @@ interface Props {
   onRejectRequest: (requestId: number) => void;
   onSearchUsers: (query: string) => void;
   onSendFriendRequest: (userId: number) => void;
+  onRemoveFriend?: (friendId: number) => void;
+  onShowToast?: (msg: string) => void;
 }
 
 export const FriendsView: React.FC<Props> = ({
@@ -32,7 +36,9 @@ export const FriendsView: React.FC<Props> = ({
   onAcceptRequest,
   onRejectRequest,
   onSearchUsers,
-  onSendFriendRequest
+  onSendFriendRequest,
+  onRemoveFriend,
+  onShowToast
 }) => {
   const [currentTab, setCurrentTab] = useState<FriendsTab>(initialTab);
   const [filterQuery, setFilterQuery] = useState('');
@@ -41,6 +47,8 @@ export const FriendsView: React.FC<Props> = ({
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [friendContextMenu, setFriendContextMenu] = useState<{ friend: Friend; position: FriendContextMenuPosition } | null>(null);
+  const [profileFriend, setProfileFriend] = useState<Friend | null>(null);
 
   // Tắt trạng thái loading khi có kết quả tìm kiếm mới
   useEffect(() => {
@@ -207,6 +215,14 @@ export const FriendsView: React.FC<Props> = ({
                     key={friend.id} 
                     className="friend-row-item"
                     onClick={() => onSelectDirectUser(friend)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setFriendContextMenu({
+                        friend,
+                        position: { x: e.clientX, y: e.clientY }
+                      });
+                    }}
                   >
                     <div className="friend-info-left">
                       <div className="user-avatar-wrap">
@@ -270,8 +286,8 @@ export const FriendsView: React.FC<Props> = ({
                 <p>Tuyệt vời! Bạn đã xử lý hết mọi lời mời kết bạn.</p>
                 <button
                   type="button"
-                  className="btn-accent"
-                  style={{ marginTop: '14px', padding: '8px 18px', fontSize: '13px' }}
+                  className="friends-find-new-btn btn-accent"
+                  style={{ marginTop: '14px', padding: '9px 20px', fontSize: '13.5px' }}
                   onClick={() => setCurrentTab('add_friend')}
                 >
                   <UserPlus size={15} style={{ marginRight: '6px' }} />
@@ -458,6 +474,43 @@ export const FriendsView: React.FC<Props> = ({
           </div>
         )}
       </div>
+
+      {/* Context Menu khi click chuột phải vào bạn bè */}
+      {friendContextMenu && (
+        <FriendContextMenu
+          friend={friendContextMenu.friend}
+          position={friendContextMenu.position}
+          isDirectSidebar={false}
+          onClose={() => setFriendContextMenu(null)}
+          onSelectDirectUser={onSelectDirectUser}
+          onOpenProfile={(f) => setProfileFriend(f)}
+          onOpenInviteModal={onOpenInviteModal}
+          onRemoveFriend={(f) => {
+            if (onRemoveFriend) onRemoveFriend(f.id);
+          }}
+          onShowToast={onShowToast}
+        />
+      )}
+
+      {/* Modal hồ sơ bạn bè khi chọn Xem hồ sơ */}
+      {profileFriend && (
+        <FullProfileModal
+          isOpen={Boolean(profileFriend)}
+          onClose={() => setProfileFriend(null)}
+          user={{
+            id: profileFriend.id,
+            username: profileFriend.username,
+            displayName: profileFriend.displayName,
+            online: profileFriend.online
+          }}
+          currentUserId={currentUserId}
+          friends={friends}
+          onDirectMessage={() => {
+            onSelectDirectUser(profileFriend);
+            setProfileFriend(null);
+          }}
+        />
+      )}
     </div>
   );
 };

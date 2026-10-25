@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Room, Channel, User, Friend, MessageItem } from '../types/chat';
+import { FriendContextMenu, type FriendContextMenuPosition } from './FriendContextMenu';
+import { FullProfileModal } from './FullProfileModal';
 import { 
   Hash, Plus, Settings, ChevronDown, ChevronRight, ChevronUp, LogOut, 
   UserPlus, Users, MessageSquare, MessagesSquare, Volume2, X, Trash2, Lock
@@ -27,6 +29,9 @@ interface Props {
   directUnreadMap?: Record<number, number>;
   directMessagesMap?: Record<number, MessageItem[]>;
   onOpenAddFriend?: () => void;
+  onRemoveFriend?: (friendId: number) => void;
+  onOpenInviteModal?: (friend: Friend) => void;
+  onShowToast?: (msg: string) => void;
   onSelectChannel: (channel: Channel) => void;
   onCreateChannel: () => void;
   onRenameRoom?: (roomId: number, name: string) => void;
@@ -101,6 +106,9 @@ export const RoomSidebar: React.FC<Props> = ({
   directUnreadMap = {},
   directMessagesMap = {},
   onOpenAddFriend,
+  onRemoveFriend,
+  onOpenInviteModal,
+  onShowToast,
   onSelectChannel,
   onCreateChannel,
   onRenameRoom,
@@ -184,6 +192,8 @@ export const RoomSidebar: React.FC<Props> = ({
   };
 
   const serverMenuRef = useRef<HTMLDivElement>(null);
+  const [friendContextMenu, setFriendContextMenu] = useState<{ friend: Friend; position: FriendContextMenuPosition } | null>(null);
+  const [profileFriend, setProfileFriend] = useState<Friend | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -477,6 +487,52 @@ export const RoomSidebar: React.FC<Props> = ({
             })()}
           </div>
         </div>
+
+
+        {/* Menu ngữ cảnh chuột phải bạn bè ở thanh Direct Messages */}
+        {friendContextMenu && (
+          <FriendContextMenu
+            friend={friendContextMenu.friend}
+            position={friendContextMenu.position}
+            isDirectSidebar={true}
+            onClose={() => setFriendContextMenu(null)}
+            onSelectDirectUser={onSelectDirectUser}
+            onOpenProfile={(f) => setProfileFriend(f)}
+            onOpenInviteModal={onOpenInviteModal}
+            onCloseConversation={(f) => {
+              const friendMsgs = directMessagesMap?.[f.id] || [];
+              const lastMsg = friendMsgs[friendMsgs.length - 1];
+              setHiddenFriendMap(prev => ({
+                ...prev,
+                [f.id]: lastMsg?.id || 0
+              }));
+            }}
+            onRemoveFriend={(f) => {
+              if (onRemoveFriend) onRemoveFriend(f.id);
+            }}
+            onShowToast={onShowToast}
+          />
+        )}
+
+        {/* Modal xem hồ sơ bạn bè khi click từ chuột phải */}
+        {profileFriend && (
+          <FullProfileModal
+            isOpen={Boolean(profileFriend)}
+            onClose={() => setProfileFriend(null)}
+            user={{
+              id: profileFriend.id,
+              username: profileFriend.username,
+              displayName: profileFriend.displayName,
+              online: profileFriend.online
+            }}
+            currentUserId={currentUser?.id}
+            friends={friends}
+            onDirectMessage={() => {
+              if (onSelectDirectUser) onSelectDirectUser(profileFriend);
+              setProfileFriend(null);
+            }}
+          />
+        )}
 
         {renderUserProfileBar()}
       </div>

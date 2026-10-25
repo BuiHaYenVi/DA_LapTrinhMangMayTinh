@@ -152,6 +152,7 @@ public class UiBridgeServer {
         server.createContext("/api/rooms/desc", new SetRoomDescHandler());
         server.createContext("/api/rooms/transfer", new TransferOwnerHandler());
         server.createContext("/api/rooms/role", new SetMemberRoleHandler());
+        server.createContext("/api/rooms/avatar", new RoomAvatarHandler());
         server.createContext("/api/messages/send", new SendMessageHandler());
         server.createContext("/api/messages/edit", new EditMessageHandler());
         server.createContext("/api/messages/delete", new DeleteMessageHandler());
@@ -2313,6 +2314,156 @@ public class UiBridgeServer {
                     session.socketClient.sendCommand("SET_MEMBER_ROLE", String.valueOf(roomId), String.valueOf(targetUserId), role.trim());
                 }
                 sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class RoomAvatarHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                try {
+                    Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                    Object rIdObj = body.get("roomId");
+                    if (rIdObj == null) {
+                        sendJson(exchange, 400, Map.of("success", false, "message", "Thiếu mã định danh phòng (roomId)"));
+                        return;
+                    }
+                    int roomId = ((Number) rIdObj).intValue();
+
+                    // RÀNG BUỘC QUYỀN (SERVER-SIDE): CHỈ CHỦ PHÒNG (OWNER) MỚI ĐƯỢC PHÉP ĐỔI / XÓA AVATAR
+                    boolean isOwner = false;
+                    for (Map<String, Object> r : session.roomCache) {
+                        Object idObj = r.get("id");
+                        if (idObj instanceof Number && ((Number) idObj).intValue() == roomId) {
+                            Object roleObj = r.get("role");
+                            if (roleObj != null && "OWNER".equalsIgnoreCase(roleObj.toString())) {
+                                isOwner = true;
+                            }
+                            break;
+                        }
+                    }
+                    if (!isOwner && session.currentRoomId != null && session.currentRoomId == roomId) {
+                        for (Map<String, Object> mem : session.memberCache) {
+                            Object idObj = mem.get("id");
+                            if (idObj instanceof Number && ((Number) idObj).intValue() == session.userId) {
+                                Object roleObj = mem.get("role");
+                                if (roleObj != null && "OWNER".equalsIgnoreCase(roleObj.toString())) {
+                                    isOwner = true;
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!isOwner) {
+                        sendJson(exchange, 403, Map.of(
+                            "success", false,
+                            "message", "Bạn không có quyền thực hiện thao tác này. Chỉ chủ phòng mới có thể tải lên hoặc xóa ảnh đại diện máy chủ."
+                        ));
+                        return;
+                    }
+
+                    String action = (String) body.get("action");
+                    boolean isDelete = "delete".equalsIgnoreCase(action) || Boolean.TRUE.equals(body.get("delete"));
+
+                    if (isDelete) {
+                        // Phát SSE đồng bộ realtime tới tất cả các client đang online
+                        Map<String, Object> ssePayload = new HashMap<>();
+                        ssePayload.put("roomId", roomId);
+                        ssePayload.put("avatarUrl", "");
+                        for (UserSession s : sessions.values()) {
+                            s.broadcastSse("ROOM_AVATAR_UPDATED", ssePayload);
+                        }
+                        sendJson(exchange, 200, Map.of("success", true, "message", "Đã xóa ảnh biểu tượng máy chủ", "url", ""));
+                        return;
+                    }
+
+                    // Xử lý tải ảnh lên
+                    String name = (String) body.get("name");
+                    String data = (String) body.get("data");
+                    String type = (String) body.get("type");
+
+                    if (data == null || data.isBlank()) {
+                        sendJson(exchange, 400, Map.of("success", false, "message", "Dữ liệu ảnh không hợp lệ hoặc bị trống."));
+                        return;
+                    }
+
+                    // Kiểm tra đuôi mở rộng và loại MIME
+                    String ext = "";
+                    if (name != null && name.contains(".")) {
+                        ext = name.substring(name.lastIndexOf('.')).toLowerCase();
+                    }
+                    boolean validExt = ext.equals(".png") || ext.equals(".jpg") || ext.equals(".jpeg") || ext.equals(".webp");
+                    boolean validType = type == null || type.isBlank()
+                            || type.equalsIgnoreCase("image/png")
+                            || type.equalsIgnoreCase("image/jpeg")
+                            || type.equalsIgnoreCase("image/jpg")
+                            || type.equalsIgnoreCase("image/webp");
+
+                    if (!validExt && !validType) {
+                        sendJson(exchange, 400, Map.of("success", false, "message", "Định dạng ảnh không hợp lệ. Chỉ chấp nhận các định dạng PNG, JPG, JPEG, WEBP."));
+                        return;
+                    }
+
+                    if (ext.isBlank()) {
+                        if ("image/png".equalsIgnoreCase(type)) ext = ".png";
+                        else if ("image/webp".equalsIgnoreCase(type)) ext = ".webp";
+                        else ext = ".jpg";
+                    }
+
+                    // Tách Base64 nếu có data URI header
+                    String base64Data = data;
+                    if (base64Data.contains(",")) {
+                        base64Data = base64Data.substring(base64Data.indexOf(",") + 1);
+                    }
+
+                    byte[] fileBytes = Base64.getDecoder().decode(base64Data);
+
+                    // Validate dung lượng file (tối đa 2MB)
+                    if (fileBytes.length > 2 * 1024 * 1024) {
+                        sendJson(exchange, 400, Map.of("success", false, "message", "Dung lượng ảnh vượt quá 2MB. Vui lòng chọn ảnh nhẹ hơn."));
+                        return;
+                    }
+
+                    File uploadDir = resolveUploadsDir();
+                    if (!uploadDir.exists()) uploadDir.mkdirs();
+
+                    String uniqueName = "room_avatar_" + roomId + "_" + System.currentTimeMillis() + ext;
+                    File targetFile = new File(uploadDir, uniqueName);
+
+                    try (FileOutputStream fos = new FileOutputStream(targetFile)) {
+                        fos.write(fileBytes);
+                    }
+
+                    String downloadUrl = "/api/files/download/" + uniqueName;
+
+                    // Phát SSE thông báo cho tất cả client đang online để cập nhật realtime
+                    Map<String, Object> ssePayload = new HashMap<>();
+                    ssePayload.put("roomId", roomId);
+                    ssePayload.put("avatarUrl", downloadUrl);
+                    for (UserSession s : sessions.values()) {
+                        s.broadcastSse("ROOM_AVATAR_UPDATED", ssePayload);
+                    }
+
+                    sendJson(exchange, 200, Map.of(
+                        "success", true,
+                        "url", downloadUrl,
+                        "message", "Cập nhật ảnh đại diện máy chủ thành công!"
+                    ));
+                } catch (Exception ex) {
+                    sendJson(exchange, 500, Map.of("success", false, "message", "Lỗi xử lý ảnh: " + ex.getMessage()));
+                }
+            } else {
+                exchange.sendResponseHeaders(405, -1);
             }
         }
     }
