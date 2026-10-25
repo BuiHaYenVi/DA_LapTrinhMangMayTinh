@@ -175,3 +175,25 @@ export function shouldGroupWithPrevious(
 
   return current.timestamp === previous.timestamp;
 }
+
+/**
+ * Định dạng thời điểm chỉnh sửa tin nhắn chuẩn phong cách Discord:
+ * Ví dụ: "lúc 21:52 Chủ Nhật, 25 tháng 10, 2026"
+ */
+export function formatEditedTimestamp(raw?: string | number | null): string {
+  if (raw === null || raw === undefined || raw === '') return 'Đã chỉnh sửa';
+  const d = parseDate(raw);
+  if (isNaN(d.getTime())) return 'Đã chỉnh sửa';
+
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+
+  const dayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+  const dayName = dayNames[d.getDay()];
+
+  const day = d.getDate();
+  const month = d.getMonth() + 1;
+  const year = d.getFullYear();
+
+  return `lúc ${hours}:${minutes} ${dayName}, ${day} tháng ${month}, ${year}`;
+}

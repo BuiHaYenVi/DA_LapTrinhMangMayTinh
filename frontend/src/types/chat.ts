@@ -55,6 +55,7 @@ export interface MessageItem {
   date?: string;
   isMe?: boolean;
   isEdited?: boolean;
+  editedAt?: string | number;
   isDirect?: boolean;
   targetId?: number;
   status?: 'sending' | 'sent' | 'failed';

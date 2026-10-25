@@ -28,6 +28,7 @@ import {
   type ReactionsMap 
 } from './chat/reactionManager';
 import { ForumChannelView } from './chat/ForumChannelView';
+import { formatEditedTimestamp } from './chat/chatShared';
 
 interface Props {
   currentRoom: Room | null;
@@ -956,7 +957,12 @@ export const ChatCenter: React.FC<Props> = ({
                           {cleanText ? (
                             <div className="msg-body">
                               {cleanText}
-                              {msg.isEdited && <span className="edited-badge" title="Tin nhắn đã chỉnh sửa">(đã chỉnh sửa)</span>}
+                              {msg.isEdited && (
+                                <span className="edited-badge-wrap">
+                                  <span className="edited-badge">(đã chỉnh sửa)</span>
+                                  <span className="edited-tooltip">{formatEditedTimestamp(msg.editedAt || msg.timestamp)}</span>
+                                </span>
+                              )}
                             </div>
                           ) : null}
 

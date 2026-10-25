@@ -1586,7 +1586,8 @@ public class ClientHandler implements Runnable {
         }
 
         connection.send("OK|EDIT_DM|" + messageId);
-        String packet = "DM_EDITED|" + messageId + "|" + user.getId() + "|" + receiverId + "|" + ProtocolHandler.encode(newContent);
+        long nowMs = System.currentTimeMillis();
+        String packet = "DM_EDITED|" + messageId + "|" + user.getId() + "|" + receiverId + "|" + ProtocolHandler.encode(newContent) + "|" + nowMs;
         connection.send(packet);
 
         User targetUser = server.getUserDAO().findById(receiverId);
@@ -1681,7 +1682,8 @@ public class ClientHandler implements Runnable {
         boolean ok = server.getChatService().editMessage(messageId, user.getId(), newContent);
         if (ok) {
             connection.send("OK|EDIT_MESSAGE|" + messageId);
-            String packet = "MESSAGE_EDITED|" + msg.getRoomId() + "|" + messageId + "|" + ProtocolHandler.encode(newContent);
+            long nowMs = System.currentTimeMillis();
+            String packet = "MESSAGE_EDITED|" + msg.getRoomId() + "|" + messageId + "|" + ProtocolHandler.encode(newContent) + "|" + nowMs;
             broadcastToRoom(msg.getRoomId(), packet);
         } else {
             sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể cập nhật tin nhắn.");

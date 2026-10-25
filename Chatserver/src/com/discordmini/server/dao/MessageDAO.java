@@ -38,7 +38,7 @@ public class MessageDAO {
         try (Statement st = conn.createStatement()) {
             st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS channel_id INT REFERENCES channels(id) ON DELETE CASCADE");
             st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE CASCADE");
-            st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE");
+            st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE; ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ");
             st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
         } catch (Exception e) {
             System.err.println("[MessageDAO] Kiểm tra cột bảng messages: " + e.getMessage());
@@ -387,7 +387,7 @@ public class MessageDAO {
     public boolean editMessage(int messageId, int senderId, String newContent) {
         if (newContent == null || newContent.isBlank()) return false;
         ensureSchemaChecked();
-        String sql = "UPDATE messages SET content = ?, is_edited = true WHERE id = ? AND sender_id = ?";
+        String sql = "UPDATE messages SET content = ?, is_edited = true, edited_at = CURRENT_TIMESTAMP WHERE id = ? AND sender_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, MessageEncryptionUtil.encrypt(newContent.trim()));

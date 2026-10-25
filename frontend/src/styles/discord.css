@@ -8943,7 +8943,7 @@ html[data-density="compact"] .dm-message-row {
   align-items: center;
   gap: 16px;
   padding: 16px 20px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .full-profile-tab-btn {
@@ -9156,8 +9156,8 @@ html[data-density="compact"] .dm-message-row {
 
 /* Khung xem trước tệp đính kèm trước khi gửi */
 .discord-attachment-preview-box {
-  background: #2b2d31;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px 8px 0 0;
   padding: 8px 12px;
   display: flex;
@@ -9488,7 +9488,7 @@ html[data-density="compact"] .dm-message-row {
   justify-content: space-between;
   padding: 12px 16px;
   background: #2b2d31;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .discord-lightbox-title {
@@ -9567,7 +9567,7 @@ html[data-density="compact"] .dm-message-row {
   display: flex;
   align-items: center;
   gap: 2px;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid var(--border);
   padding-right: 4px;
   margin-right: 4px;
 }
@@ -9587,7 +9587,7 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .quick-reaction-item-btn:hover {
-  background: #35373c;
+  background: var(--bg-hover);
   transform: scale(1.25);
 }
 
@@ -9667,8 +9667,8 @@ html[data-density="compact"] .dm-message-row {
   top: -10px;
   right: 16px;
   transform: translateY(-100%);
-  background: #2b2d31;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
   width: 280px;
@@ -9684,13 +9684,13 @@ html[data-density="compact"] .dm-message-row {
   justify-content: space-between;
   margin-bottom: 8px;
   padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .discord-reaction-picker-title {
   font-size: 13px;
   font-weight: 700;
-  color: #f2f3f5;
+  color: var(--text-1);
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -9705,23 +9705,23 @@ html[data-density="compact"] .dm-message-row {
 .discord-reaction-search-icon {
   position: absolute;
   left: 8px;
-  color: #949ba4;
+  color: var(--text-3);
   pointer-events: none;
 }
 
 .discord-reaction-picker-search input {
   width: 100%;
-  background: #1e1f22;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px 10px 6px 28px;
   font-size: 12px;
-  color: #f2f3f5;
+  color: var(--text-1);
   outline: none;
 }
 
 .discord-reaction-picker-search input:focus {
-  border-color: #5865f2;
+  border-color: var(--accent);
 }
 
 .discord-reaction-picker-grid {
@@ -9747,7 +9747,7 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .discord-reaction-grid-btn:hover {
-  background: #35373c;
+  background: var(--bg-hover);
   transform: scale(1.2);
 }
 
@@ -9881,7 +9881,7 @@ html[data-density="compact"] .dm-message-row {
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 14px;
-  color: #f2f3f5;
+  color: var(--text-1);
   outline: none;
   transition: border-color 0.15s ease;
 }
@@ -9904,7 +9904,7 @@ html[data-density="compact"] .dm-message-row {
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 14px;
-  color: #f2f3f5;
+  color: var(--text-1);
   outline: none;
   resize: vertical;
   font-family: inherit;
@@ -9926,8 +9926,8 @@ html[data-density="compact"] .dm-message-row {
 .room-icon-choice-btn {
   padding: 6px 12px;
   border-radius: 6px;
-  background: #2b2d31;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   color: #f2f3f5;
   font-size: 14px;
   cursor: pointer;
@@ -10201,7 +10201,7 @@ html[data-density="compact"] .dm-message-row {
 .members-tab-search-bar .search-icon {
   position: absolute;
   left: 10px;
-  color: #949ba4;
+  color: var(--text-3);
   pointer-events: none;
 }
 
@@ -10212,12 +10212,12 @@ html[data-density="compact"] .dm-message-row {
   border-radius: 6px;
   padding: 8px 12px 8px 32px;
   font-size: 13.5px;
-  color: #f2f3f5;
+  color: var(--text-1);
   outline: none;
 }
 
 .members-tab-search-bar input:focus {
-  border-color: #5865f2;
+  border-color: var(--accent);
 }
 
 .members-management-list {

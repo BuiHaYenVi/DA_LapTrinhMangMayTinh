@@ -20,7 +20,7 @@ public class DirectMessageDAO {
                     try (Connection conn = DatabaseConnection.getConnection()) {
                         if (conn != null) {
                             try (Statement st = conn.createStatement()) {
-                                st.executeUpdate("ALTER TABLE direct_messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE");
+                                st.executeUpdate("ALTER TABLE direct_messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE; ALTER TABLE direct_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ");
                             } catch (Exception ignored) {}
                             schemaChecked = true;
                         }
@@ -176,7 +176,7 @@ public class DirectMessageDAO {
      */
     public int editMessage(long messageId, int senderId, String newContent) {
         if (newContent == null || newContent.isBlank()) return -1;
-        String sql = "UPDATE direct_messages SET content = ?, is_edited = TRUE WHERE id = ? AND sender_id = ? RETURNING receiver_id";
+        String sql = "UPDATE direct_messages SET content = ?, is_edited = TRUE, edited_at = CURRENT_TIMESTAMP WHERE id = ? AND sender_id = ? RETURNING receiver_id";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, MessageEncryptionUtil.encrypt(newContent.trim()));

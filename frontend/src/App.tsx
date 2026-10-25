@@ -602,15 +602,16 @@ export const App: React.FC = () => {
         }
         case 'MESSAGE_EDITED': {
           const targetChannelId = payload.channelId || currentChannelRef.current?.id;
+          const editedAt = payload.editedAt || new Date().toISOString();
           if (targetChannelId && messagesByChannelRef.current[targetChannelId]) {
             messagesByChannelRef.current[targetChannelId] = messagesByChannelRef.current[targetChannelId].map((m) =>
-              m.id === payload.messageId ? { ...m, content: payload.content, isEdited: true } : m
+              m.id === payload.messageId ? { ...m, content: payload.content, isEdited: true, editedAt } : m
             );
           }
           setMessages((prev) =>
             prev.map((m) =>
               m.id === payload.messageId
-                ? { ...m, content: payload.content, isEdited: true }
+                ? { ...m, content: payload.content, isEdited: true, editedAt }
                 : m
             )
           );
@@ -849,12 +850,13 @@ export const App: React.FC = () => {
         case 'DM_EDITED': {
           const mId = Number(payload.messageId);
           const newContent = String(payload.content || '');
+          const editedAt = payload.editedAt || new Date().toISOString();
           if (mId) {
             setDirectMessagesMap((prev) => {
               const next: Record<number, MessageItem[]> = {};
               for (const [peerKey, list] of Object.entries(prev)) {
                 next[Number(peerKey)] = list.map((m) =>
-                  m.id === mId ? { ...m, content: newContent, isEdited: true } : m
+                  m.id === mId ? { ...m, content: newContent, isEdited: true, editedAt } : m
                 );
               }
               return next;
@@ -1186,12 +1188,13 @@ export const App: React.FC = () => {
   const handleEditDirectMessage = (messageId: number, content: string) => {
     const trimmed = content.trim();
     if (!trimmed) return;
+    const editedAt = new Date().toISOString();
     // Cập nhật giao diện ngay lập tức (optimistic update)
     setDirectMessagesMap((prev) => {
       const next: Record<number, MessageItem[]> = {};
       for (const [peerKey, list] of Object.entries(prev)) {
         next[Number(peerKey)] = list.map((m) =>
-          m.id === messageId ? { ...m, content: trimmed, isEdited: true } : m
+          m.id === messageId ? { ...m, content: trimmed, isEdited: true, editedAt } : m
         );
       }
       return next;
