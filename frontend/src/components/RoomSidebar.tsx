@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Room, Channel, User, Friend, MessageItem } from '../types/chat';
 import { 
-  Hash, Plus, Settings, ChevronDown, ChevronUp, LogOut, 
+  Hash, Plus, Settings, ChevronDown, ChevronRight, ChevronUp, LogOut, 
   UserPlus, Users, MessageSquare, MessagesSquare, Volume2, X, Trash2, Lock
 } from 'lucide-react';
 import { formatTime } from './chat/chatShared';
@@ -123,6 +123,7 @@ export const RoomSidebar: React.FC<Props> = ({
   onClearExternalDeleteRoom
 }) => {
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [isChannelsCollapsed, setIsChannelsCollapsed] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [roomIcon, setRoomIcon] = useState('');
@@ -591,14 +592,28 @@ export const RoomSidebar: React.FC<Props> = ({
       <div className="room-section">
         {currentRoom ? (
           <>
-            <div className="section-title">
-              <span>▾ KÊNH CHAT</span>
+            <div 
+              className="section-title section-title-collapsible"
+              onClick={() => setIsChannelsCollapsed(prev => !prev)}
+              title={isChannelsCollapsed ? "Xổ ra danh sách kênh chat" : "Thu gọn danh sách kênh chat"}
+            >
+              <div className="section-title-left">
+                {isChannelsCollapsed ? (
+                  <ChevronRight size={13} className="category-chevron-icon" />
+                ) : (
+                  <ChevronDown size={13} className="category-chevron-icon" />
+                )}
+                <span>KÊNH CHAT</span>
+              </div>
               {isManager && (
                 <button 
                   type="button"
                   className="add-btn" 
                   title={`Tạo kênh chat trong ${currentRoom.name}`} 
-                  onClick={onCreateChannel}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreateChannel();
+                  }}
                   aria-label="Tạo kênh chat"
                 >
                   <Plus size={16} />
@@ -606,7 +621,7 @@ export const RoomSidebar: React.FC<Props> = ({
               )}
             </div>
 
-            {(() => {
+            {!isChannelsCollapsed && (() => {
               const visibleChannels = channels.filter(ch => {
                 if (ch.isPrivate && currentUserRole === 'MEMBER') {
                   return false;
