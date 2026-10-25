@@ -321,13 +321,22 @@ public class UiBridgeServer {
                 case "ROOMS" -> {
                     roomCache.clear();
                     for (int i = 1; i < p.length; i++) {
-                        String[] x = p[i].split(",", 4);
+                        String[] x = p[i].split(",", 5);
                         if (x.length >= 2) {
                             Map<String, Object> r = new HashMap<>();
                             r.put("id", Integer.parseInt(x[0]));
                             r.put("name", ProtocolHandler.decode(x[1]));
                             r.put("description", x.length >= 3 ? ProtocolHandler.decode(x[2]) : "");
                             r.put("role", x.length >= 4 ? x[3] : "MEMBER");
+                            List<Integer> mIds = new ArrayList<>();
+                            if (x.length >= 5 && !x[4].isBlank()) {
+                                for (String idStr : x[4].split(";")) {
+                                    if (!idStr.isBlank()) {
+                                        try { mIds.add(Integer.parseInt(idStr.trim())); } catch (Exception ignored) {}
+                                    }
+                                }
+                            }
+                            r.put("memberIds", mIds);
                             roomCache.add(r);
                         }
                     }

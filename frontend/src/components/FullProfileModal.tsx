@@ -200,10 +200,32 @@ export const FullProfileModal: React.FC<Props> = ({
     setTimeout(() => setReportSuccess(false), 3000);
   };
 
-  // Danh sách các phòng chung
-  const mutualRooms = rooms.length > 0 
-    ? rooms 
-    : (roomName ? [{ id: 1, name: roomName, role: targetRole }] : []);
+  // Danh sách các phòng chung: Lọc chỉ những phòng mà user đang xem hồ sơ thực sự là thành viên
+  const mutualRooms = React.useMemo(() => {
+    if (!rooms || rooms.length === 0) {
+      if (roomName && roomRole && roomRole !== 'GUEST') {
+        return [{ id: 0, name: roomName, role: targetRole }];
+      }
+      return [];
+    }
+    
+    // 1. Kiểm tra qua memberIds của từng phòng (chuẩn xác nhất)
+    const matchingRooms = rooms.filter(
+      (r) => Array.isArray(r.memberIds) && r.memberIds.length > 0 && r.memberIds.includes(user.id)
+    );
+    if (matchingRooms.length > 0) {
+      return matchingRooms;
+    }
+
+    // 2. Nếu phòng chưa có memberIds: chỉ fallback phòng hiện tại NẾU user đang mở từ danh sách thành viên của phòng đó
+    if (roomName && roomRole && roomRole !== 'GUEST') {
+      const cur = rooms.find((r) => r.name === roomName);
+      if (cur) return [cur];
+      return [{ id: 0, name: roomName, role: targetRole }];
+    }
+
+    return [];
+  }, [rooms, user.id, roomName, roomRole, targetRole]);
 
   return (
     <div className="full-profile-backdrop" onClick={onClose}>
@@ -435,22 +457,29 @@ export const FullProfileModal: React.FC<Props> = ({
             <div className="full-profile-tabs-content">
               {activeTab === 'rooms' && (
                 <div className="mutual-rooms-list">
-                  {mutualRooms.map((rm, idx) => {
-                    const initials = rm.name ? rm.name.slice(0, 3).toUpperCase() : 'HUD';
-                    return (
-                      <div key={rm.id || idx} className="mutual-room-item">
-                        <div className="mutual-room-icon">
-                          {initials}
-                        </div>
-                        <div className="mutual-room-details">
-                          <div className="mutual-room-name">{rm.name}</div>
-                          <div className="mutual-room-sub">
-                            {rm.memberCount ? `${rm.memberCount} thành viên` : 'Phòng chat'}
+                  {mutualRooms.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
+                      <p style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 600 }}>Không có máy chủ chung</p>
+                      <span style={{ fontSize: '12px', opacity: 0.8 }}>Hai bạn chưa cùng tham gia bất kỳ máy chủ nào.</span>
+                    </div>
+                  ) : (
+                    mutualRooms.map((rm, idx) => {
+                      const initials = rm.name ? rm.name.slice(0, 3).toUpperCase() : 'HUD';
+                      return (
+                        <div key={rm.id || idx} className="mutual-room-item">
+                          <div className="mutual-room-icon">
+                            {initials}
+                          </div>
+                          <div className="mutual-room-details">
+                            <div className="mutual-room-name">{rm.name}</div>
+                            <div className="mutual-room-sub">
+                              {rm.memberCount ? `${rm.memberCount} thành viên` : 'Phòng chat'}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               )}
 

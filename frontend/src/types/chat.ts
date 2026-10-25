@@ -24,6 +24,7 @@ export interface Room {
   role?: string;
   unreadCount?: number;
   memberCount?: number;
+  memberIds?: number[];
 }
 
 export type ChannelType = 'text' | 'voice' | 'forum';

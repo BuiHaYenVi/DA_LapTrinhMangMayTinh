@@ -561,7 +561,7 @@ public class ClientHandler implements Runnable {
                 + (message.isEdited() ? "EDITED" : "NORMAL") + "|"
                 + message.getSenderId();
 
-        broadcastRoom(packet, true);
+        broadcastToRoomMembers(currentRoomId, packet, true);
     }
 
     private void handleSendPrivateMessage(String[] parts) {
@@ -953,6 +953,18 @@ public class ClientHandler implements Runnable {
         for (Room r : rooms) {
             String role = (user != null) ? r.getUserRole() : "MEMBER";
             if (role == null || role.isBlank()) role = "MEMBER";
+
+            java.util.Set<Integer> mIds = r.getMemberIds();
+            StringBuilder mIdSb = new StringBuilder();
+            if (mIds != null && !mIds.isEmpty()) {
+                boolean first = true;
+                for (Integer mid : mIds) {
+                    if (!first) mIdSb.append(';');
+                    mIdSb.append(mid);
+                    first = false;
+                }
+            }
+
             sb.append('|')
                     .append(r.getId())
                     .append(',')
@@ -960,7 +972,9 @@ public class ClientHandler implements Runnable {
                     .append(',')
                     .append(ProtocolHandler.encode(r.getDescription()))
                     .append(',')
-                    .append(role);
+                    .append(role)
+                    .append(',')
+                    .append(mIdSb.toString());
         }
 
         connection.send(sb.toString());
@@ -1026,6 +1040,17 @@ public class ClientHandler implements Runnable {
         for (ClientHandler c :
                 server.getRoomManager().clientsIn(currentRoomId)) {
             if (includeSelf || c != this) {
+                c.connection.send(packet);
+            }
+        }
+    }
+
+    private void broadcastToRoomMembers(int roomId, String packet, boolean includeSelf) {
+        if (roomId <= 0) return;
+        for (ClientHandler c : server.getClientManager().all()) {
+            if (c.getUser() == null) continue;
+            if (!includeSelf && c == this) continue;
+            if (server.getRoomService().isMember(roomId, c.getUser().getId())) {
                 c.connection.send(packet);
             }
         }
@@ -1251,13 +1276,9 @@ public class ClientHandler implements Runnable {
                     + ProtocolHandler.encode(sysMsg.getTimestamp()) + "|"
                     + "NORMAL|"
                     + sysMsg.getSenderId();
-            for (ClientHandler c : roomClients) {
-                c.connection.send(packet);
-            }
+            broadcastToRoomMembers(roomId, packet, true);
         } else {
-            for (ClientHandler c : roomClients) {
-                c.connection.send("SYSTEM|" + ProtocolHandler.encode(targetUser.getDisplayName() + " đã được " + user.getDisplayName() + " mời vào phòng."));
-            }
+            broadcastToRoomMembers(roomId, "SYSTEM|" + ProtocolHandler.encode(targetUser.getDisplayName() + " đã được " + user.getDisplayName() + " mời vào phòng."), true);
         }
 
         // Cập nhật lại danh sách thành viên cho tất cả các client đang xem phòng
@@ -1684,7 +1705,7 @@ public class ClientHandler implements Runnable {
             connection.send("OK|EDIT_MESSAGE|" + messageId);
             long nowMs = System.currentTimeMillis();
             String packet = "MESSAGE_EDITED|" + msg.getRoomId() + "|" + messageId + "|" + ProtocolHandler.encode(newContent) + "|" + nowMs;
-            broadcastToRoom(msg.getRoomId(), packet);
+            broadcastToRoomMembers(msg.getRoomId(), packet, true);
         } else {
             sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể cập nhật tin nhắn.");
         }
@@ -1714,7 +1735,7 @@ public class ClientHandler implements Runnable {
         if (ok) {
             connection.send("OK|DELETE_MESSAGE|" + messageId);
             String packet = "MESSAGE_DELETED|" + msg.getRoomId() + "|" + messageId;
-            broadcastToRoom(msg.getRoomId(), packet);
+            broadcastToRoomMembers(msg.getRoomId(), packet, true);
         } else {
             sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể xóa tin nhắn.");
         }
