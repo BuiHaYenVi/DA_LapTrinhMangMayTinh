@@ -1,6 +1,7 @@
 package com.discordmini.server.dao;
 
 import com.discordmini.server.model.Message;
+import com.discordmini.server.security.MessageEncryptionUtil;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -115,7 +116,7 @@ public class MessageDAO {
                 } else {
                     ps.setNull(3, Types.INTEGER);
                 }
-                ps.setString(4, content.trim());
+                ps.setString(4, MessageEncryptionUtil.encrypt(content.trim()));
 
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
@@ -172,7 +173,7 @@ public class MessageDAO {
                             rs.getInt("channel_id"),
                             rs.getInt("sender_id"),
                             rs.getString("display_name"),
-                            rs.getString("content"),
+                            MessageEncryptionUtil.decrypt(rs.getString("content")),
                             timeStr,
                             isEdited
                         ));
@@ -228,7 +229,7 @@ public class MessageDAO {
                             rs.getInt("channel_id"),
                             rs.getInt("sender_id"),
                             rs.getString("display_name"),
-                            rs.getString("content"),
+                            MessageEncryptionUtil.decrypt(rs.getString("content")),
                             timeStr,
                             isEdited
                         ));
@@ -260,7 +261,7 @@ public class MessageDAO {
                                     rs.getInt("channel_id"),
                                     rs.getInt("sender_id"),
                                     rs.getString("display_name"),
-                                    rs.getString("content"),
+                                    MessageEncryptionUtil.decrypt(rs.getString("content")),
                                     timeStr,
                                     false
                                 ));
@@ -315,7 +316,7 @@ public class MessageDAO {
                         rs.getInt("channel_id"),
                         rs.getInt("sender_id"),
                         rs.getString("display_name"),
-                        rs.getString("content"),
+                        MessageEncryptionUtil.decrypt(rs.getString("content")),
                         timeStr,
                         isEdited
                     ));
@@ -368,7 +369,7 @@ public class MessageDAO {
                         rs.getInt("room_id"),
                         rs.getInt("sender_id"),
                         rs.getString("display_name"),
-                        rs.getString("content"),
+                        MessageEncryptionUtil.decrypt(rs.getString("content")),
                         timeStr,
                         isEdited
                     ));
@@ -389,7 +390,7 @@ public class MessageDAO {
         String sql = "UPDATE messages SET content = ?, is_edited = true WHERE id = ? AND sender_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, newContent.trim());
+            ps.setString(1, MessageEncryptionUtil.encrypt(newContent.trim()));
             ps.setInt(2, messageId);
             ps.setInt(3, senderId);
             return ps.executeUpdate() > 0;
@@ -440,7 +441,7 @@ public class MessageDAO {
                         rs.getInt("channel_id"),
                         rs.getInt("sender_id"),
                         rs.getString("display_name"),
-                        rs.getString("content"),
+                        MessageEncryptionUtil.decrypt(rs.getString("content")),
                         ts != null ? ts.toString() : "",
                         isEdited
                     );

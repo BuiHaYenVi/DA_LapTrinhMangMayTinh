@@ -4,6 +4,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import com.discordmini.server.config.DatabaseConnection;
+import com.discordmini.server.security.MessageEncryptionUtil;
 
 /**
  * Data Access Object quản lý tin nhắn riêng 1-1 (Direct Messages).
@@ -73,7 +74,7 @@ public class DirectMessageDAO {
              PreparedStatement ps = conn.prepareStatement(insertSql)) {
             ps.setInt(1, senderId);
             ps.setInt(2, receiverId);
-            ps.setString(3, content);
+            ps.setString(3, MessageEncryptionUtil.encrypt(content));
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -157,7 +158,7 @@ public class DirectMessageDAO {
                             rs.getInt("receiver_id"),
                             rs.getString("r_user"),
                             rs.getString("r_name"),
-                            rs.getString("content"),
+                            MessageEncryptionUtil.decrypt(rs.getString("content")),
                             rs.getTimestamp("sent_at"),
                             rs.getBoolean("is_read"),
                             isEdited
@@ -178,7 +179,7 @@ public class DirectMessageDAO {
         String sql = "UPDATE direct_messages SET content = ?, is_edited = TRUE WHERE id = ? AND sender_id = ? RETURNING receiver_id";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, newContent.trim());
+            ps.setString(1, MessageEncryptionUtil.encrypt(newContent.trim()));
             ps.setLong(2, messageId);
             ps.setInt(3, senderId);
             try (ResultSet rs = ps.executeQuery()) {
