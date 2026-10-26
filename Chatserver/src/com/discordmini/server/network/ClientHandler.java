@@ -561,7 +561,7 @@ public class ClientHandler implements Runnable {
                 + (message.isEdited() ? "EDITED" : "NORMAL") + "|"
                 + message.getSenderId();
 
-        broadcastRoom(packet, true);
+        broadcastToRoomMembers(currentRoomId, packet, true);
     }
 
     private void handleSendPrivateMessage(String[] parts) {
@@ -708,6 +708,8 @@ public class ClientHandler implements Runnable {
 
         int roomId = parseId(parts[1], "ID phòng");
         String channelName = ProtocolHandler.decode(parts[2]).trim();
+        String channelType = decodeOptionalField(parts, 3);
+        boolean isPrivate = parsePrivateFlag(decodeOptionalField(parts, 4));
 
         if (channelName.isBlank()) {
             sendError(ProtocolErrorCode.BAD_REQUEST, "Tên kênh không được để trống.");
@@ -732,7 +734,9 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        com.discordmini.server.model.Channel channel = server.getRoomService().createChannel(roomId, channelName, user.getId());
+        com.discordmini.server.model.Channel channel = server.getRoomService().createChannel(
+                roomId, channelName, user.getId(), channelType, isPrivate
+        );
         if (channel == null) {
             sendError(ProtocolErrorCode.BAD_REQUEST, "Không thể tạo kênh.");
             return;
@@ -745,6 +749,10 @@ public class ClientHandler implements Runnable {
                         + channel.getId()
                         + "|"
                         + ProtocolHandler.encode(channel.getName())
+                        + "|"
+                        + channel.getType()
+                        + "|"
+                        + (channel.isPrivate() ? "1" : "0")
         );
 
         // Đồng bộ danh sách kênh cho tất cả client trong phòng
@@ -774,7 +782,11 @@ public class ClientHandler implements Runnable {
             sb.append('|')
                     .append(ch.getId())
                     .append(',')
-                    .append(ProtocolHandler.encode(ch.getName()));
+                    .append(ProtocolHandler.encode(ch.getName()))
+                    .append(',')
+                    .append(ch.getType())
+                    .append(',')
+                    .append(ch.isPrivate() ? "1" : "0");
         }
         connection.send(sb.toString());
     }
@@ -822,6 +834,10 @@ public class ClientHandler implements Runnable {
                         + channelId
                         + "|"
                         + ProtocolHandler.encode(ch.getName())
+                        + "|"
+                        + ch.getType()
+                        + "|"
+                        + (ch.isPrivate() ? "1" : "0")
         );
 
         handleHistory(channelId);
@@ -937,6 +953,18 @@ public class ClientHandler implements Runnable {
         for (Room r : rooms) {
             String role = (user != null) ? r.getUserRole() : "MEMBER";
             if (role == null || role.isBlank()) role = "MEMBER";
+
+            java.util.Set<Integer> mIds = r.getMemberIds();
+            StringBuilder mIdSb = new StringBuilder();
+            if (mIds != null && !mIds.isEmpty()) {
+                boolean first = true;
+                for (Integer mid : mIds) {
+                    if (!first) mIdSb.append(';');
+                    mIdSb.append(mid);
+                    first = false;
+                }
+            }
+
             sb.append('|')
                     .append(r.getId())
                     .append(',')
@@ -944,7 +972,9 @@ public class ClientHandler implements Runnable {
                     .append(',')
                     .append(ProtocolHandler.encode(r.getDescription()))
                     .append(',')
-                    .append(role);
+                    .append(role)
+                    .append(',')
+                    .append(mIdSb.toString());
         }
 
         connection.send(sb.toString());
@@ -1015,6 +1045,17 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    private void broadcastToRoomMembers(int roomId, String packet, boolean includeSelf) {
+        if (roomId <= 0) return;
+        for (ClientHandler c : server.getClientManager().all()) {
+            if (c.getUser() == null) continue;
+            if (!includeSelf && c == this) continue;
+            if (server.getRoomService().isMember(roomId, c.getUser().getId())) {
+                c.connection.send(packet);
+            }
+        }
+    }
+
     private void broadcastGlobal(String packet) {
         for (ClientHandler c : server.getClientManager().all()) {
             c.connection.send(packet);
@@ -1069,6 +1110,17 @@ public class ClientHandler implements Runnable {
             connection.close();
         } catch (IOException ignored) {
         }
+    }
+
+    private String decodeOptionalField(String[] parts, int index) {
+        if (parts == null || index < 0 || index >= parts.length) return "";
+        if (ProtocolHandler.REQUEST_ID_MARKER.equals(parts[index])) return "";
+        return ProtocolHandler.decode(parts[index]).trim();
+    }
+
+    private boolean parsePrivateFlag(String value) {
+        if (value == null || value.isBlank()) return false;
+        return "1".equals(value) || "true".equalsIgnoreCase(value);
     }
 
     private int parseId(String value, String fieldName) {
@@ -1224,13 +1276,9 @@ public class ClientHandler implements Runnable {
                     + ProtocolHandler.encode(sysMsg.getTimestamp()) + "|"
                     + "NORMAL|"
                     + sysMsg.getSenderId();
-            for (ClientHandler c : roomClients) {
-                c.connection.send(packet);
-            }
+            broadcastToRoomMembers(roomId, packet, true);
         } else {
-            for (ClientHandler c : roomClients) {
-                c.connection.send("SYSTEM|" + ProtocolHandler.encode(targetUser.getDisplayName() + " đã được " + user.getDisplayName() + " mời vào phòng."));
-            }
+            broadcastToRoomMembers(roomId, "SYSTEM|" + ProtocolHandler.encode(targetUser.getDisplayName() + " đã được " + user.getDisplayName() + " mời vào phòng."), true);
         }
 
         // Cập nhật lại danh sách thành viên cho tất cả các client đang xem phòng
@@ -1559,7 +1607,8 @@ public class ClientHandler implements Runnable {
         }
 
         connection.send("OK|EDIT_DM|" + messageId);
-        String packet = "DM_EDITED|" + messageId + "|" + user.getId() + "|" + receiverId + "|" + ProtocolHandler.encode(newContent);
+        long nowMs = System.currentTimeMillis();
+        String packet = "DM_EDITED|" + messageId + "|" + user.getId() + "|" + receiverId + "|" + ProtocolHandler.encode(newContent) + "|" + nowMs;
         connection.send(packet);
 
         User targetUser = server.getUserDAO().findById(receiverId);
@@ -1654,8 +1703,9 @@ public class ClientHandler implements Runnable {
         boolean ok = server.getChatService().editMessage(messageId, user.getId(), newContent);
         if (ok) {
             connection.send("OK|EDIT_MESSAGE|" + messageId);
-            String packet = "MESSAGE_EDITED|" + msg.getRoomId() + "|" + messageId + "|" + ProtocolHandler.encode(newContent);
-            broadcastToRoom(msg.getRoomId(), packet);
+            long nowMs = System.currentTimeMillis();
+            String packet = "MESSAGE_EDITED|" + msg.getRoomId() + "|" + messageId + "|" + ProtocolHandler.encode(newContent) + "|" + nowMs;
+            broadcastToRoomMembers(msg.getRoomId(), packet, true);
         } else {
             sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể cập nhật tin nhắn.");
         }
@@ -1685,7 +1735,7 @@ public class ClientHandler implements Runnable {
         if (ok) {
             connection.send("OK|DELETE_MESSAGE|" + messageId);
             String packet = "MESSAGE_DELETED|" + msg.getRoomId() + "|" + messageId;
-            broadcastToRoom(msg.getRoomId(), packet);
+            broadcastToRoomMembers(msg.getRoomId(), packet, true);
         } else {
             sendError(ProtocolErrorCode.INTERNAL_ERROR, "Không thể xóa tin nhắn.");
         }

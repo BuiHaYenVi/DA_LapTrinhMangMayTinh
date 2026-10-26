@@ -152,6 +152,7 @@ public class UiBridgeServer {
         server.createContext("/api/rooms/desc", new SetRoomDescHandler());
         server.createContext("/api/rooms/transfer", new TransferOwnerHandler());
         server.createContext("/api/rooms/role", new SetMemberRoleHandler());
+        server.createContext("/api/rooms/avatar", new RoomAvatarHandler());
         server.createContext("/api/messages/send", new SendMessageHandler());
         server.createContext("/api/messages/edit", new EditMessageHandler());
         server.createContext("/api/messages/delete", new DeleteMessageHandler());
@@ -320,13 +321,22 @@ public class UiBridgeServer {
                 case "ROOMS" -> {
                     roomCache.clear();
                     for (int i = 1; i < p.length; i++) {
-                        String[] x = p[i].split(",", 4);
+                        String[] x = p[i].split(",", 5);
                         if (x.length >= 2) {
                             Map<String, Object> r = new HashMap<>();
                             r.put("id", Integer.parseInt(x[0]));
                             r.put("name", ProtocolHandler.decode(x[1]));
                             r.put("description", x.length >= 3 ? ProtocolHandler.decode(x[2]) : "");
                             r.put("role", x.length >= 4 ? x[3] : "MEMBER");
+                            List<Integer> mIds = new ArrayList<>();
+                            if (x.length >= 5 && !x[4].isBlank()) {
+                                for (String idStr : x[4].split(";")) {
+                                    if (!idStr.isBlank()) {
+                                        try { mIds.add(Integer.parseInt(idStr.trim())); } catch (Exception ignored) {}
+                                    }
+                                }
+                            }
+                            r.put("memberIds", mIds);
                             roomCache.add(r);
                         }
                     }
@@ -336,13 +346,17 @@ public class UiBridgeServer {
                     int rId = Integer.parseInt(p[1]);
                     List<Map<String, Object>> list = new ArrayList<>();
                     for (int i = 2; i < p.length; i++) {
-                        String[] x = p[i].split(",", 2);
+                        String[] x = p[i].split(",", 4);
                         if (x.length >= 2) {
-                            Map<String, Object> ch = new HashMap<>();
-                            ch.put("id", Integer.parseInt(x[0]));
-                            ch.put("roomId", rId);
-                            ch.put("name", ProtocolHandler.decode(x[1]));
-                            list.add(ch);
+                            String chType = x.length >= 3 ? x[2] : "text";
+                            boolean chPrivate = x.length >= 4 && parsePrivateFlag(x[3]);
+                            list.add(channelJson(
+                                    Integer.parseInt(x[0]),
+                                    rId,
+                                    ProtocolHandler.decode(x[1]),
+                                    chType,
+                                    chPrivate
+                            ));
                         }
                     }
                     channelCacheByRoom.put(rId, list);
@@ -378,10 +392,7 @@ public class UiBridgeServer {
                         Map<String, Object> data = new HashMap<>();
                         data.put("room", roomObj);
                         if (currentChannelId != null && currentChannelId > 0) {
-                            Map<String, Object> defCh = new HashMap<>();
-                            defCh.put("id", currentChannelId);
-                            defCh.put("roomId", currentRoomId);
-                            defCh.put("name", currentChannelName);
+                            Map<String, Object> defCh = channelJson(currentChannelId, currentRoomId, currentChannelName, "text", false);
                             data.put("channel", defCh);
                             channelCache.add(defCh);
                             List<Map<String, Object>> rChs = channelCacheByRoom.computeIfAbsent(currentRoomId, k -> new CopyOnWriteArrayList<>());
@@ -394,16 +405,23 @@ public class UiBridgeServer {
                         int rId = Integer.parseInt(p[2]);
                         int cId = Integer.parseInt(p[3]);
                         String cName = ProtocolHandler.decode(p[4]);
+                        String cType = (p.length > 5) ? normalizeChannelType(p[5]) : "text";
+                        boolean cPrivate = p.length > 6 && parsePrivateFlag(p[6]);
                         currentRoomId = rId;
                         currentChannelId = cId;
                         currentChannelName = cName;
                         messageCache.clear();
-                        broadcastSse("CHANNEL_JOINED", Map.of("roomId", rId, "channel", Map.of("id", cId, "roomId", rId, "name", cName)));
+                        broadcastSse("CHANNEL_JOINED", Map.of(
+                                "roomId", rId,
+                                "channel", channelJson(cId, rId, cName, cType, cPrivate)
+                        ));
                     } else if (p.length > 1 && "CHANNEL_CREATED".equals(p[1])) {
                         int rId = Integer.parseInt(p[2]);
                         int cId = Integer.parseInt(p[3]);
                         String cName = ProtocolHandler.decode(p[4]);
-                        Map<String, Object> ch = Map.of("id", cId, "roomId", rId, "name", cName);
+                        String cType = (p.length > 5) ? normalizeChannelType(p[5]) : "text";
+                        boolean cPrivate = p.length > 6 && parsePrivateFlag(p[6]);
+                        Map<String, Object> ch = channelJson(cId, rId, cName, cType, cPrivate);
                         CompletableFuture<Map<String, Object>> cf = pendingRequests.remove("CREATE_CHANNEL");
                         if (cf != null) {
                             cf.complete(Map.of("success", true, "channel", ch));
@@ -1680,6 +1698,28 @@ public class UiBridgeServer {
         }
     }
 
+    private static String normalizeChannelType(String type) {
+        if (type == null || type.isBlank() || ProtocolHandler.REQUEST_ID_MARKER.equals(type)) return "text";
+        String t = type.trim().toLowerCase();
+        if ("forum".equals(t) || "voice".equals(t) || "text".equals(t)) return t;
+        return "text";
+    }
+
+    private static boolean parsePrivateFlag(String value) {
+        if (value == null || value.isBlank() || ProtocolHandler.REQUEST_ID_MARKER.equals(value)) return false;
+        return "1".equals(value) || "true".equalsIgnoreCase(value);
+    }
+
+    private static Map<String, Object> channelJson(int id, int roomId, String name, String type, boolean isPrivate) {
+        Map<String, Object> ch = new LinkedHashMap<>();
+        ch.put("id", id);
+        ch.put("roomId", roomId);
+        ch.put("name", name);
+        ch.put("type", normalizeChannelType(type));
+        ch.put("isPrivate", isPrivate);
+        return ch;
+    }
+
     private static int parseJsonInt(Map<String, Object> body, String key, int defaultValue) {
         if (body == null || !body.containsKey(key)) return defaultValue;
         Object val = body.get(key);
@@ -1763,10 +1803,13 @@ public class UiBridgeServer {
                     sendJson(exchange, 400, Map.of("success", false, "message", "Tên kênh không được vượt quá 50 ký tự."));
                     return;
                 }
+                String channelType = normalizeChannelType(body.get("type") instanceof String s ? s : "text");
+                boolean isPrivate = Boolean.TRUE.equals(body.get("isPrivate"))
+                        || parsePrivateFlag(String.valueOf(body.getOrDefault("isPrivate", "false")));
 
                 CompletableFuture<Map<String, Object>> cf = new CompletableFuture<>();
                 session.pendingRequests.put("CREATE_CHANNEL", cf);
-                session.roomService.createChannel(roomId, trimmedName);
+                session.roomService.createChannel(roomId, trimmedName, channelType, isPrivate);
                 try {
                     Map<String, Object> res = cf.get(10, TimeUnit.SECONDS);
                     boolean success = Boolean.TRUE.equals(res.get("success"));
@@ -2280,6 +2323,156 @@ public class UiBridgeServer {
                     session.socketClient.sendCommand("SET_MEMBER_ROLE", String.valueOf(roomId), String.valueOf(targetUserId), role.trim());
                 }
                 sendJson(exchange, 200, Map.of("success", true));
+            }
+        }
+    }
+
+    private class RoomAvatarHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            UserSession session = requireSession(exchange);
+            if (session == null) return;
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                try {
+                    Map<String, Object> body = JsonHelper.parseObject(readBody(exchange));
+                    Object rIdObj = body.get("roomId");
+                    if (rIdObj == null) {
+                        sendJson(exchange, 400, Map.of("success", false, "message", "Thiếu mã định danh phòng (roomId)"));
+                        return;
+                    }
+                    int roomId = ((Number) rIdObj).intValue();
+
+                    // RÀNG BUỘC QUYỀN (SERVER-SIDE): CHỈ CHỦ PHÒNG (OWNER) MỚI ĐƯỢC PHÉP ĐỔI / XÓA AVATAR
+                    boolean isOwner = false;
+                    for (Map<String, Object> r : session.roomCache) {
+                        Object idObj = r.get("id");
+                        if (idObj instanceof Number && ((Number) idObj).intValue() == roomId) {
+                            Object roleObj = r.get("role");
+                            if (roleObj != null && "OWNER".equalsIgnoreCase(roleObj.toString())) {
+                                isOwner = true;
+                            }
+                            break;
+                        }
+                    }
+                    if (!isOwner && session.currentRoomId != null && session.currentRoomId == roomId) {
+                        for (Map<String, Object> mem : session.memberCache) {
+                            Object idObj = mem.get("id");
+                            if (idObj instanceof Number && ((Number) idObj).intValue() == session.userId) {
+                                Object roleObj = mem.get("role");
+                                if (roleObj != null && "OWNER".equalsIgnoreCase(roleObj.toString())) {
+                                    isOwner = true;
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!isOwner) {
+                        sendJson(exchange, 403, Map.of(
+                            "success", false,
+                            "message", "Bạn không có quyền thực hiện thao tác này. Chỉ chủ phòng mới có thể tải lên hoặc xóa ảnh đại diện máy chủ."
+                        ));
+                        return;
+                    }
+
+                    String action = (String) body.get("action");
+                    boolean isDelete = "delete".equalsIgnoreCase(action) || Boolean.TRUE.equals(body.get("delete"));
+
+                    if (isDelete) {
+                        // Phát SSE đồng bộ realtime tới tất cả các client đang online
+                        Map<String, Object> ssePayload = new HashMap<>();
+                        ssePayload.put("roomId", roomId);
+                        ssePayload.put("avatarUrl", "");
+                        for (UserSession s : sessions.values()) {
+                            s.broadcastSse("ROOM_AVATAR_UPDATED", ssePayload);
+                        }
+                        sendJson(exchange, 200, Map.of("success", true, "message", "Đã xóa ảnh biểu tượng máy chủ", "url", ""));
+                        return;
+                    }
+
+                    // Xử lý tải ảnh lên
+                    String name = (String) body.get("name");
+                    String data = (String) body.get("data");
+                    String type = (String) body.get("type");
+
+                    if (data == null || data.isBlank()) {
+                        sendJson(exchange, 400, Map.of("success", false, "message", "Dữ liệu ảnh không hợp lệ hoặc bị trống."));
+                        return;
+                    }
+
+                    // Kiểm tra đuôi mở rộng và loại MIME
+                    String ext = "";
+                    if (name != null && name.contains(".")) {
+                        ext = name.substring(name.lastIndexOf('.')).toLowerCase();
+                    }
+                    boolean validExt = ext.equals(".png") || ext.equals(".jpg") || ext.equals(".jpeg") || ext.equals(".webp");
+                    boolean validType = type == null || type.isBlank()
+                            || type.equalsIgnoreCase("image/png")
+                            || type.equalsIgnoreCase("image/jpeg")
+                            || type.equalsIgnoreCase("image/jpg")
+                            || type.equalsIgnoreCase("image/webp");
+
+                    if (!validExt && !validType) {
+                        sendJson(exchange, 400, Map.of("success", false, "message", "Định dạng ảnh không hợp lệ. Chỉ chấp nhận các định dạng PNG, JPG, JPEG, WEBP."));
+                        return;
+                    }
+
+                    if (ext.isBlank()) {
+                        if ("image/png".equalsIgnoreCase(type)) ext = ".png";
+                        else if ("image/webp".equalsIgnoreCase(type)) ext = ".webp";
+                        else ext = ".jpg";
+                    }
+
+                    // Tách Base64 nếu có data URI header
+                    String base64Data = data;
+                    if (base64Data.contains(",")) {
+                        base64Data = base64Data.substring(base64Data.indexOf(",") + 1);
+                    }
+
+                    byte[] fileBytes = Base64.getDecoder().decode(base64Data);
+
+                    // Validate dung lượng file (tối đa 2MB)
+                    if (fileBytes.length > 2 * 1024 * 1024) {
+                        sendJson(exchange, 400, Map.of("success", false, "message", "Dung lượng ảnh vượt quá 2MB. Vui lòng chọn ảnh nhẹ hơn."));
+                        return;
+                    }
+
+                    File uploadDir = resolveUploadsDir();
+                    if (!uploadDir.exists()) uploadDir.mkdirs();
+
+                    String uniqueName = "room_avatar_" + roomId + "_" + System.currentTimeMillis() + ext;
+                    File targetFile = new File(uploadDir, uniqueName);
+
+                    try (FileOutputStream fos = new FileOutputStream(targetFile)) {
+                        fos.write(fileBytes);
+                    }
+
+                    String downloadUrl = "/api/files/download/" + uniqueName;
+
+                    // Phát SSE thông báo cho tất cả client đang online để cập nhật realtime
+                    Map<String, Object> ssePayload = new HashMap<>();
+                    ssePayload.put("roomId", roomId);
+                    ssePayload.put("avatarUrl", downloadUrl);
+                    for (UserSession s : sessions.values()) {
+                        s.broadcastSse("ROOM_AVATAR_UPDATED", ssePayload);
+                    }
+
+                    sendJson(exchange, 200, Map.of(
+                        "success", true,
+                        "url", downloadUrl,
+                        "message", "Cập nhật ảnh đại diện máy chủ thành công!"
+                    ));
+                } catch (Exception ex) {
+                    sendJson(exchange, 500, Map.of("success", false, "message", "Lỗi xử lý ảnh: " + ex.getMessage()));
+                }
+            } else {
+                exchange.sendResponseHeaders(405, -1);
             }
         }
     }

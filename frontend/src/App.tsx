@@ -31,14 +31,26 @@ export const App: React.FC = () => {
   const [prefilledSuccessMsg, setPrefilledSuccessMsg] = useState<string>('');
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const currentUserRef = useRef<User | null>(null);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
 
   // Quản lý Phòng (Rooms)
   const [rooms, setRooms] = useState<Room[]>([]);
+  const roomsRef = useRef<Room[]>([]);
+  useEffect(() => {
+    roomsRef.current = rooms;
+  }, [rooms]);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const currentRoomRef = useRef<Room | null>(null);
 
   // Quản lý Kênh (Channels) của phòng hiện tại
   const [channels, setChannels] = useState<Channel[]>([]);
+  const channelsRef = useRef<Channel[]>([]);
+  useEffect(() => {
+    channelsRef.current = channels;
+  }, [channels]);
   const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
   const currentChannelRef = useRef<Channel | null>(null);
 
@@ -557,7 +569,8 @@ export const App: React.FC = () => {
           const targetChannelId = payload.channelId || payload.message?.channelId;
           const targetRoomId = payload.roomId || payload.message?.roomId;
           const senderId = Number(payload.message?.senderId || 0);
-          const isOtherSender = senderId > 0 && (!currentUser || senderId !== currentUser.id);
+          const myUserId = currentUserRef.current?.id || currentUser?.id;
+          const isOtherSender = senderId > 0 && (!myUserId || senderId !== myUserId);
 
           // Cập nhật bộ nhớ đệm cache của channel nhận tin nhắn (Background Cache Update)
           if (targetChannelId && payload.message) {
@@ -569,16 +582,34 @@ export const App: React.FC = () => {
             }
           }
 
-          // Nếu tin nhắn thuộc phòng khác hoặc đang ở chế độ tin nhắn riêng -> tăng unread
+          // Nếu tin nhắn thuộc phòng khác hoặc đang ở chế độ tin nhắn riêng -> tăng unread và hiện thông báo
           if (targetRoomId && (isDirectMessageModeRef.current || !currentRoomRef.current || targetRoomId !== currentRoomRef.current.id)) {
             incrementRoomUnread(targetRoomId);
-            if (isOtherSender) playNotificationSound();
+            if (isOtherSender) {
+              playNotificationSound();
+              const targetRoom = roomsRef.current.find((r) => r.id === targetRoomId);
+              const roomName = targetRoom ? targetRoom.name : 'Phòng chat';
+              const sender = payload.message?.senderName || 'Ai đó';
+              const rawText = payload.message?.content || '';
+              const text = rawText.startsWith('ENC:') ? 'Đã gửi một tin nhắn' : rawText;
+              const shortText = text.length > 35 ? text.substring(0, 35) + '...' : text;
+              showToast(`💬 [${roomName}] ${sender}: ${shortText}`);
+            }
             break;
           }
 
           // Kiểm tra cách ly tin nhắn: chỉ hiển thị nếu thuộc kênh đang chọn
           if (currentChannelRef.current && targetChannelId && targetChannelId !== currentChannelRef.current.id) {
-            if (isOtherSender) playNotificationSound();
+            if (isOtherSender) {
+              playNotificationSound();
+              const targetChannel = channelsRef.current.find((c) => c.id === targetChannelId);
+              const channelName = targetChannel ? targetChannel.name : 'kênh khác';
+              const sender = payload.message?.senderName || 'Ai đó';
+              const rawText = payload.message?.content || '';
+              const text = rawText.startsWith('ENC:') ? 'Đã gửi một tin nhắn' : rawText;
+              const shortText = text.length > 35 ? text.substring(0, 35) + '...' : text;
+              showToast(`💬 [#${channelName}] ${sender}: ${shortText}`);
+            }
             break;
           }
 
@@ -602,15 +633,16 @@ export const App: React.FC = () => {
         }
         case 'MESSAGE_EDITED': {
           const targetChannelId = payload.channelId || currentChannelRef.current?.id;
+          const editedAt = payload.editedAt || new Date().toISOString();
           if (targetChannelId && messagesByChannelRef.current[targetChannelId]) {
             messagesByChannelRef.current[targetChannelId] = messagesByChannelRef.current[targetChannelId].map((m) =>
-              m.id === payload.messageId ? { ...m, content: payload.content, isEdited: true } : m
+              m.id === payload.messageId ? { ...m, content: payload.content, isEdited: true, editedAt } : m
             );
           }
           setMessages((prev) =>
             prev.map((m) =>
               m.id === payload.messageId
-                ? { ...m, content: payload.content, isEdited: true }
+                ? { ...m, content: payload.content, isEdited: true, editedAt }
                 : m
             )
           );
@@ -849,12 +881,13 @@ export const App: React.FC = () => {
         case 'DM_EDITED': {
           const mId = Number(payload.messageId);
           const newContent = String(payload.content || '');
+          const editedAt = payload.editedAt || new Date().toISOString();
           if (mId) {
             setDirectMessagesMap((prev) => {
               const next: Record<number, MessageItem[]> = {};
               for (const [peerKey, list] of Object.entries(prev)) {
                 next[Number(peerKey)] = list.map((m) =>
-                  m.id === mId ? { ...m, content: newContent, isEdited: true } : m
+                  m.id === mId ? { ...m, content: newContent, isEdited: true, editedAt } : m
                 );
               }
               return next;
@@ -1186,12 +1219,13 @@ export const App: React.FC = () => {
   const handleEditDirectMessage = (messageId: number, content: string) => {
     const trimmed = content.trim();
     if (!trimmed) return;
+    const editedAt = new Date().toISOString();
     // Cập nhật giao diện ngay lập tức (optimistic update)
     setDirectMessagesMap((prev) => {
       const next: Record<number, MessageItem[]> = {};
       for (const [peerKey, list] of Object.entries(prev)) {
         next[Number(peerKey)] = list.map((m) =>
-          m.id === messageId ? { ...m, content: trimmed, isEdited: true } : m
+          m.id === messageId ? { ...m, content: trimmed, isEdited: true, editedAt } : m
         );
       }
       return next;
@@ -1234,6 +1268,30 @@ export const App: React.FC = () => {
   };
 
   // Gửi yêu cầu kết bạn
+  const handleRemoveFriend = (friendId: number) => {
+    const friend = friends.find(f => f.id === friendId);
+    setActionModal({
+      isOpen: true,
+      title: 'Hủy kết bạn',
+      message: `Bạn có chắc chắn muốn hủy kết bạn với "${friend?.displayName || friend?.username || 'người này'}" không?`,
+      confirmText: 'Hủy kết bạn',
+      cancelText: 'Giữ lại',
+      isDanger: true,
+      onConfirm: () => {
+        chatBridge.removeFriend(friendId).then(() => {
+          showToast('Đã hủy kết bạn thành công.');
+          if (currentDirectUser?.id === friendId) {
+            setCurrentDirectUser(null);
+          }
+          chatBridge.refreshFriends().catch(() => {});
+        }).catch((err: any) => {
+          showToast('Không thể hủy kết bạn: ' + (err?.message || 'Lỗi'));
+        });
+        setActionModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
   const handleSendFriendRequest = (targetUserId: number) => {
     chatBridge.sendFriendRequest(targetUserId).then(() => {
       showToast('Đã gửi lời mời kết bạn thành công!');
@@ -1877,6 +1935,8 @@ export const App: React.FC = () => {
               onRejectRequest={handleRejectFriendRequest}
               onSearchUsers={handleSearchUsers}
               onSendFriendRequest={handleSendFriendRequest}
+              onRemoveFriend={handleRemoveFriend}
+              onShowToast={showToast}
             />
           )
         ) : (
@@ -2022,6 +2082,7 @@ export const App: React.FC = () => {
         <RoomSettingsModal
           isOpen={Boolean(roomSettingsTarget)}
           onClose={() => setRoomSettingsTarget(null)}
+          onSaveSuccess={showToast}
           room={roomSettingsTarget}
           currentUser={currentUser}
           currentUserRole={

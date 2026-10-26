@@ -107,11 +107,22 @@ public class RoomService {
     }
 
     public String createChannel(int roomId, String channelName) {
+        return createChannel(roomId, channelName, "text", false);
+    }
+
+    public String createChannel(int roomId, String channelName, String type, boolean isPrivate) {
         if (channelName == null || channelName.isBlank() || !client.isConnected() || roomId <= 0) {
             notifyListeners(l -> l.onRoomError("Tên kênh không hợp lệ."));
             return null;
         }
-        return client.sendCommandWithId("CREATE_CHANNEL", String.valueOf(roomId), channelName.trim());
+        String normalizedType = (type == null || type.isBlank()) ? "text" : type.trim().toLowerCase();
+        return client.sendCommandWithId(
+                "CREATE_CHANNEL",
+                String.valueOf(roomId),
+                channelName.trim(),
+                normalizedType,
+                isPrivate ? "1" : "0"
+        );
     }
 
     public void listChannels(int roomId) {
@@ -271,11 +282,13 @@ public class RoomService {
             int roomId = Integer.parseInt(parts[1]);
             List<com.discordmini.client.model.Channel> channels = new ArrayList<>();
             for (int i = 2; i < parts.length; i++) {
-                String[] x = parts[i].split(",", 2);
+                String[] x = parts[i].split(",", 4);
                 if (x.length >= 2) {
                     int chId = Integer.parseInt(x[0]);
                     String chName = ProtocolHandler.decode(x[1]);
-                    channels.add(new com.discordmini.client.model.Channel(chId, roomId, chName));
+                    String chType = x.length >= 3 && !x[2].isBlank() ? x[2] : "text";
+                    boolean chPrivate = x.length >= 4 && ("1".equals(x[3]) || "true".equalsIgnoreCase(x[3]));
+                    channels.add(new com.discordmini.client.model.Channel(chId, roomId, chName, chType, chPrivate));
                 }
             }
             cachedChannels.put(roomId, channels);
@@ -321,7 +334,10 @@ public class RoomService {
             int roomId = Integer.parseInt(parts[2]);
             int chId = Integer.parseInt(parts[3]);
             String chName = ProtocolHandler.decode(parts[4]);
-            com.discordmini.client.model.Channel ch = new com.discordmini.client.model.Channel(chId, roomId, chName);
+            String chType = (parts.length > 5 && !ProtocolHandler.REQUEST_ID_MARKER.equals(parts[5])) ? parts[5] : "text";
+            boolean chPrivate = parts.length > 6 && !ProtocolHandler.REQUEST_ID_MARKER.equals(parts[6])
+                    && ("1".equals(parts[6]) || "true".equalsIgnoreCase(parts[6]));
+            com.discordmini.client.model.Channel ch = new com.discordmini.client.model.Channel(chId, roomId, chName, chType, chPrivate);
             List<com.discordmini.client.model.Channel> chList = cachedChannels.computeIfAbsent(roomId, k -> new CopyOnWriteArrayList<>());
             chList.add(ch);
             notifyListeners(l -> l.onChannelCreated(roomId, ch));
@@ -330,7 +346,10 @@ public class RoomService {
             int roomId = Integer.parseInt(parts[2]);
             int chId = Integer.parseInt(parts[3]);
             String chName = ProtocolHandler.decode(parts[4]);
-            this.currentChannel = new com.discordmini.client.model.Channel(chId, roomId, chName);
+            String chType = (parts.length > 5 && !ProtocolHandler.REQUEST_ID_MARKER.equals(parts[5])) ? parts[5] : "text";
+            boolean chPrivate = parts.length > 6 && !ProtocolHandler.REQUEST_ID_MARKER.equals(parts[6])
+                    && ("1".equals(parts[6]) || "true".equalsIgnoreCase(parts[6]));
+            this.currentChannel = new com.discordmini.client.model.Channel(chId, roomId, chName, chType, chPrivate);
             notifyListeners(l -> l.onChannelJoined(roomId, this.currentChannel));
         } else if ("JOIN_ROOM".equals(action) && parts.length >= 4) {
             int id = Integer.parseInt(parts[2]);

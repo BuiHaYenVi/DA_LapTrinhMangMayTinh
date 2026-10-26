@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import type { MessageItem } from '../../types/chat';
 import { RotateCw, Edit3, Trash2, Smile, ChevronDown, Loader2 } from 'lucide-react';
-import { formatDateLabel, getDateKey, shouldGroupWithPrevious, formatTime } from './chatShared';
+import { formatDateLabel, getDateKey, shouldGroupWithPrevious, formatTime, formatEditedTimestamp } from './chatShared';
 import { extractStickerFromContent, MessageReactionPicker } from './EmojiStickerPicker';
 import { extractAttachmentFromContent } from './attachmentUtils';
 import { MessageAttachmentView } from './MessageAttachmentView';
@@ -314,7 +314,12 @@ export const ChatMessageList: React.FC<Props> = ({
                       {cleanText ? (
                         <div className="msg-text-content">
                           {cleanText}
-                          {msg.isEdited && <span className="edited-badge">(đã chỉnh sửa)</span>}
+                          {msg.isEdited && (
+                            <span className="edited-badge-wrap">
+                              <span className="edited-badge">(đã chỉnh sửa)</span>
+                              <span className="edited-tooltip">{formatEditedTimestamp(msg.editedAt || msg.timestamp)}</span>
+                            </span>
+                          )}
                         </div>
                       ) : null}
 

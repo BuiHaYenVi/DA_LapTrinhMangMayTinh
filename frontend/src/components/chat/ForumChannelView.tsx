@@ -50,39 +50,13 @@ export const ForumChannelView: React.FC<Props> = ({ channel, currentUser }) => {
       if (raw) {
         const allPosts: ForumPost[] = JSON.parse(raw);
         const channelPosts = allPosts.filter(p => p.channelId === channel.id);
-        if (channelPosts.length > 0) {
-          setPosts(channelPosts);
-          return;
-        }
+        setPosts(channelPosts);
+        return;
       }
     } catch {
       // ignore
     }
-
-    // Dữ liệu mẫu khởi đầu hữu ích cho diễn đàn
-    const samplePosts: ForumPost[] = [
-      {
-        id: `post_${channel.id}_1`,
-        channelId: channel.id,
-        title: `Chào mừng bạn đến với Diễn đàn #${channel.name}!`,
-        content: 'Đây là không gian thảo luận có tổ chức. Mọi người có thể tạo các chủ đề bài viết riêng biệt thay vì chat trôi tin nhắn để cùng nhau giải quyết vấn đề và chia sẻ tài liệu.',
-        authorId: 1,
-        authorName: 'Quản trị viên',
-        tag: 'Thông báo',
-        createdAt: 'Hôm nay lúc 09:30',
-        comments: [
-          {
-            id: 'c_1',
-            authorId: 2,
-            authorName: 'Thành viên',
-            content: 'Tính năng diễn đàn rất hữu ích và trực quan, giúp các chủ đề thảo luận không bị trôi như kênh chat thông thường!',
-            createdAt: 'Hôm nay lúc 09:35'
-          }
-        ]
-      }
-    ];
-    setPosts(samplePosts);
-    saveAllPosts(samplePosts);
+    setPosts([]);
   }, [channel.id]);
 
   const saveAllPosts = (updatedChannelPosts: ForumPost[]) => {

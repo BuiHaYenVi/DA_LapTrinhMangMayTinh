@@ -24,6 +24,7 @@ export interface Room {
   role?: string;
   unreadCount?: number;
   memberCount?: number;
+  memberIds?: number[];
 }
 
 export type ChannelType = 'text' | 'voice' | 'forum';
@@ -55,6 +56,7 @@ export interface MessageItem {
   date?: string;
   isMe?: boolean;
   isEdited?: boolean;
+  editedAt?: string | number;
   isDirect?: boolean;
   targetId?: number;
   status?: 'sending' | 'sent' | 'failed';

@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Friend, PendingFriendRequest, SearchUserResult } from '../types/chat';
+import { FriendContextMenu, type FriendContextMenuPosition } from './FriendContextMenu';
+import { FullProfileModal } from './FullProfileModal';
 import { 
   Users, MessageSquare, UserPlus, Check, X, Search, 
-  Clock, Sparkles, UserCheck
+  Clock, Sparkles, UserCheck, Loader2
 } from 'lucide-react';
 
 export type FriendsTab = 'online' | 'all' | 'pending' | 'add_friend';
@@ -19,6 +21,8 @@ interface Props {
   onRejectRequest: (requestId: number) => void;
   onSearchUsers: (query: string) => void;
   onSendFriendRequest: (userId: number) => void;
+  onRemoveFriend?: (friendId: number) => void;
+  onShowToast?: (msg: string) => void;
 }
 
 export const FriendsView: React.FC<Props> = ({
@@ -32,13 +36,24 @@ export const FriendsView: React.FC<Props> = ({
   onAcceptRequest,
   onRejectRequest,
   onSearchUsers,
-  onSendFriendRequest
+  onSendFriendRequest,
+  onRemoveFriend,
+  onShowToast
 }) => {
   const [currentTab, setCurrentTab] = useState<FriendsTab>(initialTab);
   const [filterQuery, setFilterQuery] = useState('');
   const [searchUsernameQuery, setSearchUsernameQuery] = useState('');
   const [sentRequestUserIds, setSentRequestUserIds] = useState<number[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [friendContextMenu, setFriendContextMenu] = useState<{ friend: Friend; position: FriendContextMenuPosition } | null>(null);
+  const [profileFriend, setProfileFriend] = useState<Friend | null>(null);
+
+  // Tắt trạng thái loading khi có kết quả tìm kiếm mới
+  useEffect(() => {
+    setIsSearching(false);
+  }, [searchResults]);
 
   const onlineFriends = friends.filter(f => f.online);
   const displayedFriends = (currentTab === 'online' ? onlineFriends : friends).filter(f => {
@@ -49,10 +64,18 @@ export const FriendsView: React.FC<Props> = ({
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchUsernameQuery.trim()) {
+    if (searchUsernameQuery.trim() && !isSearching) {
       setHasSearched(true);
+      setIsSearching(true);
       onSearchUsers(searchUsernameQuery.trim());
+      // Tự động tắt loading sau 4s nếu server phản hồi chậm
+      setTimeout(() => setIsSearching(false), 4000);
     }
+  };
+
+  const handleClearSearch = () => {
+    setSearchUsernameQuery('');
+    searchInputRef.current?.focus();
   };
 
   const handleSendRequestClick = (userId: number) => {
@@ -192,6 +215,14 @@ export const FriendsView: React.FC<Props> = ({
                     key={friend.id} 
                     className="friend-row-item"
                     onClick={() => onSelectDirectUser(friend)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setFriendContextMenu({
+                        friend,
+                        position: { x: e.clientX, y: e.clientY }
+                      });
+                    }}
                   >
                     <div className="friend-info-left">
                       <div className="user-avatar-wrap">
@@ -255,8 +286,8 @@ export const FriendsView: React.FC<Props> = ({
                 <p>Tuyệt vời! Bạn đã xử lý hết mọi lời mời kết bạn.</p>
                 <button
                   type="button"
-                  className="btn-accent"
-                  style={{ marginTop: '14px', padding: '8px 18px', fontSize: '13px' }}
+                  className="friends-find-new-btn btn-accent"
+                  style={{ marginTop: '14px', padding: '9px 20px', fontSize: '13.5px' }}
                   onClick={() => setCurrentTab('add_friend')}
                 >
                   <UserPlus size={15} style={{ marginRight: '6px' }} />
@@ -327,19 +358,42 @@ export const FriendsView: React.FC<Props> = ({
 
             <form className="add-friend-form" onSubmit={handleSearchSubmit}>
               <div className="add-friend-input-box">
+                <Search size={18} className="add-friend-search-icon" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Nhập tên đăng nhập hoặc tên hiển thị của người dùng..."
                   value={searchUsernameQuery}
                   onChange={e => setSearchUsernameQuery(e.target.value)}
                   autoFocus
                 />
+                {searchUsernameQuery && (
+                  <button
+                    type="button"
+                    className="add-friend-clear-btn"
+                    onClick={handleClearSearch}
+                    title="Xóa tìm kiếm"
+                    aria-label="Xóa tìm kiếm"
+                  >
+                    <X size={15} />
+                  </button>
+                )}
                 <button
                   type="submit"
-                  disabled={!searchUsernameQuery.trim()}
-                  className="btn-accent"
+                  disabled={!searchUsernameQuery.trim() || isSearching}
+                  className={`add-friend-submit-btn ${searchUsernameQuery.trim() ? 'active' : ''} ${isSearching ? 'loading' : ''}`}
                 >
-                  Tìm kiếm
+                  {isSearching ? (
+                    <>
+                      <Loader2 size={15} className="spin-animation" />
+                      <span>Đang tìm...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search size={15} />
+                      <span>Tìm kiếm</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -420,6 +474,43 @@ export const FriendsView: React.FC<Props> = ({
           </div>
         )}
       </div>
+
+      {/* Context Menu khi click chuột phải vào bạn bè */}
+      {friendContextMenu && (
+        <FriendContextMenu
+          friend={friendContextMenu.friend}
+          position={friendContextMenu.position}
+          isDirectSidebar={false}
+          onClose={() => setFriendContextMenu(null)}
+          onSelectDirectUser={onSelectDirectUser}
+          onOpenProfile={(f) => setProfileFriend(f)}
+          onOpenInviteModal={onOpenInviteModal}
+          onRemoveFriend={(f) => {
+            if (onRemoveFriend) onRemoveFriend(f.id);
+          }}
+          onShowToast={onShowToast}
+        />
+      )}
+
+      {/* Modal hồ sơ bạn bè khi chọn Xem hồ sơ */}
+      {profileFriend && (
+        <FullProfileModal
+          isOpen={Boolean(profileFriend)}
+          onClose={() => setProfileFriend(null)}
+          user={{
+            id: profileFriend.id,
+            username: profileFriend.username,
+            displayName: profileFriend.displayName,
+            online: profileFriend.online
+          }}
+          currentUserId={currentUserId}
+          friends={friends}
+          onDirectMessage={() => {
+            onSelectDirectUser(profileFriend);
+            setProfileFriend(null);
+          }}
+        />
+      )}
     </div>
   );
 };

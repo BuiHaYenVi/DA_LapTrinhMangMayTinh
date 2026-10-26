@@ -78,6 +78,7 @@ public class DatabaseMigration {
                 """);
                 st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE CASCADE");
                 st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE");
+                st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ");
                 st.executeUpdate("ALTER TABLE messages ADD COLUMN IF NOT EXISTS sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
 
                 st.executeUpdate("""
@@ -103,6 +104,8 @@ public class DatabaseMigration {
                         CONSTRAINT uq_room_channel_name UNIQUE (room_id, name)
                     )
                 """);
+                st.executeUpdate("ALTER TABLE channels ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'text'");
+                st.executeUpdate("ALTER TABLE channels ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE");
                 System.out.println("[MIGRATION] Đã kiểm tra/khởi tạo bảng 'channels'.");
 
                 // 2. Thêm cột channel_id vào messages
@@ -128,6 +131,7 @@ public class DatabaseMigration {
                     )
                 """);
                 st.executeUpdate("ALTER TABLE direct_messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE");
+                st.executeUpdate("ALTER TABLE direct_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ");
                 st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_dm_pair ON direct_messages(sender_id, receiver_id)");
                 st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_dm_recv ON direct_messages(receiver_id, is_read)");
 

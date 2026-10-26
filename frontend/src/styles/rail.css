@@ -159,23 +159,25 @@
 /* 6. Huy hiệu tin chưa đọc (Unread Badge) */
 .rail-unread-badge {
   position: absolute;
-  bottom: -2px;
-  right: -2px;
-  min-width: 18px;
+  bottom: -4px;
+  right: -4px;
+  min-width: 16px;
   height: 18px;
   border-radius: 9px;
   padding: 0 4px;
-  background-color: var(--danger);
+  background-color: var(--danger, #f23f43);
   color: #ffffff;
   font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--bg-0);
+  border: 3px solid var(--bg-0);
   line-height: 1;
   pointer-events: none;
   box-sizing: content-box;
+  z-index: 5;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 /* ==========================================================================

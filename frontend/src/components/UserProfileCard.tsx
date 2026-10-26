@@ -138,7 +138,18 @@ export const UserProfileCard: React.FC<Props> = ({
     : (user.displayName ? user.displayName.toLowerCase().replace(/\s+/g, '') : `user_${user.id}`);
 
   const friendDate = getFriendDate(user.id, isFriend);
-  const mutualRoomsCount = rooms.length > 0 ? rooms.length : 1;
+  const mutualRoomsCount = React.useMemo(() => {
+    if (!rooms || rooms.length === 0) {
+      if (roomName && roomRole && roomRole !== 'GUEST') return 1;
+      return 0;
+    }
+    const matchingRooms = rooms.filter(
+      (r) => Array.isArray(r.memberIds) && r.memberIds.length > 0 && r.memberIds.includes(user.id)
+    );
+    if (matchingRooms.length > 0) return matchingRooms.length;
+    if (roomName && roomRole && roomRole !== 'GUEST') return 1;
+    return 0;
+  }, [rooms, user.id, roomName, roomRole]);
 
   // Calculate Popover Position (float left of anchor, align vertically, clamp within viewport)
   const cardWidth = 320;

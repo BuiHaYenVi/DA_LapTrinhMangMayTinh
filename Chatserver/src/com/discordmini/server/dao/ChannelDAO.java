@@ -9,7 +9,14 @@ import java.util.List;
 
 public class ChannelDAO {
 
+    private static final String CHANNEL_COLUMNS =
+            "id, room_id, name, created_at, COALESCE(type, 'text') AS type, COALESCE(is_private, FALSE) AS is_private";
+
     public Channel createChannel(int roomId, String channelName) {
+        return createChannel(roomId, channelName, "text", false);
+    }
+
+    public Channel createChannel(int roomId, String channelName, String type, boolean isPrivate) {
         if (channelName == null || channelName.isBlank() || roomId <= 0) {
             return null;
         }
@@ -18,21 +25,23 @@ public class ChannelDAO {
             return null;
         }
 
-        // Kiểm tra tên kênh trùng lặp trong cùng một phòng (case-insensitive)
         if (existsByName(roomId, trimmedName)) {
             return null;
         }
 
-        String sql = "INSERT INTO channels (room_id, name) VALUES (?, ?) RETURNING id, created_at";
+        String normalizedType = Channel.normalizeType(type);
+        String sql = "INSERT INTO channels (room_id, name, type, is_private) VALUES (?, ?, ?, ?) RETURNING id, created_at";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, roomId);
             ps.setString(2, trimmedName);
+            ps.setString(3, normalizedType);
+            ps.setBoolean(4, isPrivate);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     int id = rs.getInt("id");
                     Timestamp createdAt = rs.getTimestamp("created_at");
-                    return new Channel(id, roomId, trimmedName, createdAt);
+                    return new Channel(id, roomId, trimmedName, createdAt, normalizedType, isPrivate);
                 }
             }
         } catch (SQLException e) {
@@ -45,18 +54,13 @@ public class ChannelDAO {
         List<Channel> channels = new ArrayList<>();
         if (roomId <= 0) return channels;
 
-        String sql = "SELECT id, room_id, name, created_at FROM channels WHERE room_id = ? ORDER BY id ASC";
+        String sql = "SELECT " + CHANNEL_COLUMNS + " FROM channels WHERE room_id = ? ORDER BY id ASC";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, roomId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    channels.add(new Channel(
-                            rs.getInt("id"),
-                            rs.getInt("room_id"),
-                            rs.getString("name"),
-                            rs.getTimestamp("created_at")
-                    ));
+                    channels.add(mapRow(rs));
                 }
             }
         } catch (SQLException e) {
@@ -67,18 +71,13 @@ public class ChannelDAO {
 
     public Channel findById(int channelId) {
         if (channelId <= 0) return null;
-        String sql = "SELECT id, room_id, name, created_at FROM channels WHERE id = ?";
+        String sql = "SELECT " + CHANNEL_COLUMNS + " FROM channels WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, channelId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return new Channel(
-                            rs.getInt("id"),
-                            rs.getInt("room_id"),
-                            rs.getString("name"),
-                            rs.getTimestamp("created_at")
-                    );
+                    return mapRow(rs);
                 }
             }
         } catch (SQLException e) {
@@ -89,19 +88,14 @@ public class ChannelDAO {
 
     public Channel findByName(int roomId, String name) {
         if (roomId <= 0 || name == null || name.isBlank()) return null;
-        String sql = "SELECT id, room_id, name, created_at FROM channels WHERE room_id = ? AND LOWER(name) = LOWER(?) LIMIT 1";
+        String sql = "SELECT " + CHANNEL_COLUMNS + " FROM channels WHERE room_id = ? AND LOWER(name) = LOWER(?) LIMIT 1";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, roomId);
             ps.setString(2, name.trim());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return new Channel(
-                            rs.getInt("id"),
-                            rs.getInt("room_id"),
-                            rs.getString("name"),
-                            rs.getTimestamp("created_at")
-                    );
+                    return mapRow(rs);
                 }
             }
         } catch (SQLException e) {
@@ -116,16 +110,13 @@ public class ChannelDAO {
 
     public Channel getDefaultChannel(int roomId) {
         if (roomId <= 0) return null;
-        // Ưu tiên tìm kênh có tên 'chung'
         Channel defaultCh = findByName(roomId, "chung");
         if (defaultCh != null) return defaultCh;
 
-        // Nếu không có 'chung', lấy kênh đầu tiên theo id tăng dần
         List<Channel> all = getChannelsByRoomId(roomId);
         if (!all.isEmpty()) return all.get(0);
 
-        // Nếu phòng chưa có bất kỳ kênh nào (phòng cũ), tự động khởi tạo kênh mặc định 'chung'
-        return createChannel(roomId, "chung");
+        return createChannel(roomId, "chung", "text", false);
     }
 
     public boolean renameChannel(int channelId, String newName) {
@@ -171,5 +162,16 @@ public class ChannelDAO {
             System.err.println("[ChannelDAO LỖI] countChannelsInRoom: " + e.getMessage());
         }
         return 0;
+    }
+
+    private Channel mapRow(ResultSet rs) throws SQLException {
+        return new Channel(
+                rs.getInt("id"),
+                rs.getInt("room_id"),
+                rs.getString("name"),
+                rs.getTimestamp("created_at"),
+                rs.getString("type"),
+                rs.getBoolean("is_private")
+        );
     }
 }

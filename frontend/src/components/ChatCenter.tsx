@@ -27,6 +27,8 @@ import {
   toggleMessageReaction, 
   type ReactionsMap 
 } from './chat/reactionManager';
+import { ForumChannelView } from './chat/ForumChannelView';
+import { formatEditedTimestamp } from './chat/chatShared';
 
 interface Props {
   currentRoom: Room | null;
@@ -58,7 +60,11 @@ const QUICK_REACTIONS = ['👍', '😭', '💯'];
 // 1. Định dạng giờ tin nhắn theo 24h hoặc 12h từ cài đặt người dùng
 function formatMessageTime(rawTime: string): { short: string; full: string } {
   if (!rawTime) return { short: 'Vừa xong', full: '' };
-  const normalized = rawTime.includes('T') ? rawTime : rawTime.replace(' ', 'T');
+  let normalized = rawTime.includes('T') ? rawTime : rawTime.replace(' ', 'T');
+  // Server gửi timestamp UTC không có suffix timezone — thêm Z để trình duyệt tự chuyển sang giờ địa phương
+  if (normalized.includes('T') && !normalized.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(normalized)) {
+    normalized += 'Z';
+  }
   const d = new Date(normalized);
 
   let use12h = false;
@@ -106,7 +112,11 @@ function formatMessageTime(rawTime: string): { short: string; full: string } {
 // 2. Lấy khóa ngày YYYY-MM-DD để xác định thời điểm đổi ngày
 function getDateKey(rawTime: string): string {
   if (!rawTime) return '';
-  const normalized = rawTime.includes('T') ? rawTime : rawTime.replace(' ', 'T');
+  let normalized = rawTime.includes('T') ? rawTime : rawTime.replace(' ', 'T');
+  // Server gửi timestamp UTC không có suffix timezone — thêm Z để trình duyệt tự chuyển sang giờ địa phương
+  if (normalized.includes('T') && !normalized.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(normalized)) {
+    normalized += 'Z';
+  }
   const d = new Date(normalized);
   if (isNaN(d.getTime())) {
     const m = rawTime.match(/^\d{4}-\d{2}-\d{2}/);
@@ -185,6 +195,7 @@ export const ChatCenter: React.FC<Props> = ({
   currentUserId,
   currentUserName,
   currentUserRole,
+  currentUser,
   members = [],
   isMemberListOpen = true,
   onToggleMemberList,
@@ -532,6 +543,47 @@ export const ChatCenter: React.FC<Props> = ({
     );
   }
 
+  // 1b. MÀN HÌNH CHẾ ĐỘ KÊNH DIỄN ĐÀN (FORUM)
+  if (currentChannel?.type === 'forum') {
+    return (
+      <div className="chat-center" style={{ position: 'relative' }}>
+        <div className="chat-header">
+          <div className="chat-header-left">
+            <div className="chat-header-channel-wrap" title={`Kênh Diễn Đàn: #${currentChannel.name}`}>
+              <MessagesSquare size={22} className="channel-hash-icon" />
+              <div className="chat-header-title">
+                {currentChannel.name}
+              </div>
+            </div>
+            {currentRoom?.description && (
+              <>
+                <div className="chat-header-separator subtle" />
+                <div className="chat-header-desc" title={`Mô tả: ${currentRoom.description}`}>
+                  {currentRoom.description}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="chat-header-right">
+            {onToggleMemberList && (
+              <button 
+                type="button"
+                className={`header-icon-btn ${isMemberListOpen ? 'active' : ''}`}
+                title="Danh sách thành viên phòng"
+                onClick={onToggleMemberList}
+                aria-label="Danh sách thành viên phòng"
+              >
+                <Users size={20} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <ForumChannelView channel={currentChannel} currentUser={currentUser || null} />
+      </div>
+    );
+  }
+
   return (
     <div className="chat-center" style={{ position: 'relative' }}>
       {/* 1. Header Bar: Tiêu đề kênh chat (# tên-kênh) và các công cụ kênh */}
@@ -542,8 +594,6 @@ export const ChatCenter: React.FC<Props> = ({
               <Lock size={20} className="channel-lock-icon" style={{ color: 'var(--text-muted)' }} />
             ) : currentChannel?.type === 'voice' ? (
               <Volume2 size={22} className="channel-hash-icon" />
-            ) : currentChannel?.type === 'forum' ? (
-              <MessagesSquare size={22} className="channel-hash-icon" />
             ) : (
               <Hash size={22} className="channel-hash-icon" />
             )}
@@ -907,7 +957,12 @@ export const ChatCenter: React.FC<Props> = ({
                           {cleanText ? (
                             <div className="msg-body">
                               {cleanText}
-                              {msg.isEdited && <span className="edited-badge" title="Tin nhắn đã chỉnh sửa">(đã chỉnh sửa)</span>}
+                              {msg.isEdited && (
+                                <span className="edited-badge-wrap">
+                                  <span className="edited-badge">(đã chỉnh sửa)</span>
+                                  <span className="edited-tooltip">{formatEditedTimestamp(msg.editedAt || msg.timestamp)}</span>
+                                </span>
+                              )}
                             </div>
                           ) : null}
 

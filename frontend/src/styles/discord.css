@@ -895,11 +895,14 @@ body {
   flex-direction: column;
   background-color: var(--bg-chat);
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
 .chat-header {
   height: 48px;
+  flex: 0 0 48px;
   padding: 0 16px;
   display: flex;
   align-items: center;
@@ -1079,9 +1082,9 @@ body {
 
 .messages-flow {
   min-height: 100%;
+  margin-top: auto;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   padding: 16px 0;
 }
 
@@ -1381,11 +1384,75 @@ body {
   white-space: pre-wrap;
 }
 
-.edited-badge {
-  font-size: 11px;
-  color: var(--text-3);
+/* BADGE & TOOLTIP ĐÃ CHỈNH SỬA (DISCORD STYLE) */
+.edited-badge-wrap {
+  position: relative;
+  display: inline-block;
   margin-left: 4px;
+  cursor: pointer;
   user-select: none;
+  vertical-align: baseline;
+  line-height: normal;
+}
+
+.discord-message-row:has(.edited-badge-wrap:hover),
+.dm-message-row:has(.edited-badge-wrap:hover) {
+  z-index: 50;
+}
+
+.edited-badge-wrap:hover {
+  z-index: 100;
+}
+
+.edited-badge {
+  font-size: 0.625rem;
+  line-height: 1;
+  color: var(--text-3, #949ba4);
+  user-select: none;
+  display: inline-block;
+}
+
+.edited-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--tooltip-bg, #111214);
+  color: var(--tooltip-text, #f2f3f5);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  word-break: normal;
+  width: max-content;
+  max-width: 200px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s cubic-bezier(0.16, 1, 0.3, 1), transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 99999;
+}
+
+.edited-tooltip::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: var(--tooltip-bg, #111214);
+  border-radius: 1px;
+}
+
+.edited-badge-wrap:hover .edited-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* TOOLBAR THAO TÁC SỬA / XÓA TIN NHẮN HOVER */
@@ -1700,11 +1767,14 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
 .sidebar-simple-header {
   height: 48px;
+  flex: 0 0 48px;
   padding: 0 16px;
   display: flex;
   align-items: center;
@@ -1717,8 +1787,10 @@ body {
 }
 
 .member-list {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 8px 16px 8px;
   display: flex;
   flex-direction: column;
@@ -5346,20 +5418,28 @@ body {
 }
 
 .friends-tab-btn.add-friend-tab {
-  color: var(--on-accent);
   background-color: var(--accent);
   padding: 5px 14px;
   font-weight: 700;
+  border-radius: 4px;
+  transition: all 0.18s ease;
+}
+
+:root[data-theme="dark"] .friends-tab-btn.add-friend-tab {
+  color: #04201c !important;
+}
+
+:root[data-theme="light"] .friends-tab-btn.add-friend-tab {
+  color: #ffffff !important;
 }
 
 .friends-tab-btn.add-friend-tab:hover {
-  background-color: var(--accent-hover);
-  color: var(--on-accent);
+  filter: brightness(1.08);
+  opacity: 0.95;
 }
 
 .friends-tab-btn.add-friend-tab.active {
-  background-color: var(--accent-hover);
-  color: var(--on-accent);
+  filter: brightness(1.12);
 }
 
 .friends-badge-count {
@@ -5610,15 +5690,47 @@ body {
   display: flex;
   align-items: center;
   background-color: var(--bg-3);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 6px 8px 6px 16px;
-  border: 1px solid var(--border);
-  gap: 12px;
-  transition: border-color 0.15s ease;
+  border: 1.5px solid var(--border);
+  gap: 10px;
+  min-height: 48px;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  position: relative;
+}
+
+:root[data-theme="light"] .add-friend-input-box {
+  background-color: #ffffff;
+  border-color: #D5DEDE;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.add-friend-input-box:hover {
+  border-color: var(--accent);
 }
 
 .add-friend-input-box:focus-within {
   border-color: var(--accent);
+  background-color: var(--bg-card);
+  box-shadow: 0 0 0 3px var(--accent-soft, rgba(45, 212, 191, 0.15)), 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme="light"] .add-friend-input-box:focus-within {
+  background-color: #ffffff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.18), 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.add-friend-search-icon {
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.add-friend-input-box:focus-within .add-friend-search-icon {
+  color: var(--accent);
+  transform: scale(1.08);
 }
 
 .add-friend-input-box input {
@@ -5627,11 +5739,235 @@ body {
   border: none;
   outline: none;
   font-size: 14px;
+  line-height: 20px;
   color: var(--text-1);
+  padding: 4px 0;
 }
 
 .add-friend-input-box input::placeholder {
   color: var(--text-3);
+  transition: opacity 0.2s ease;
+}
+
+.add-friend-input-box:focus-within input::placeholder {
+  opacity: 0.65;
+}
+
+/* Nút xóa nhanh text tìm kiếm */
+.add-friend-clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 2px;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.add-friend-clear-btn:hover {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.08));
+  color: var(--text-1);
+  transform: scale(1.1) rotate(90deg);
+}
+
+.add-friend-clear-btn:active {
+  transform: scale(0.95);
+}
+
+/* Nút Tìm kiếm hiện đại với animations mượt mà & đồng bộ 2 theme */
+.add-friend-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  border-radius: 8px;
+  outline: none;
+  user-select: none;
+  white-space: nowrap;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: not-allowed;
+  border: 1px solid transparent;
+}
+
+/* Trạng thái chưa nhập (disabled / inactive) ở Dark Theme */
+:root[data-theme="dark"] .add-friend-submit-btn {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-3, #7F9593);
+}
+
+/* Trạng thái chưa nhập (disabled / inactive) ở Light Theme */
+:root[data-theme="light"] .add-friend-submit-btn {
+  background-color: #E2E8E8;
+  border-color: #D5DEDE;
+  color: #6B7F7E;
+}
+
+/* Trạng thái đã nhập nội dung (ACTIVE) */
+.add-friend-submit-btn.active {
+  cursor: pointer;
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Màu chữ của nút active ở Dark Theme */
+:root[data-theme="dark"] .add-friend-submit-btn.active {
+  background-color: var(--accent);
+  color: #04201c !important;
+  box-shadow: 0 4px 14px rgba(45, 212, 191, 0.32);
+}
+
+/* Màu chữ của nút active ở Light Theme */
+:root[data-theme="light"] .add-friend-submit-btn.active {
+  background-color: var(--accent);
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.28);
+}
+
+/* Hiệu ứng Hover khi active */
+.add-friend-submit-btn.active:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1.5px);
+}
+
+:root[data-theme="dark"] .add-friend-submit-btn.active:hover {
+  box-shadow: 0 6px 20px rgba(45, 212, 191, 0.45);
+}
+
+:root[data-theme="light"] .add-friend-submit-btn.active:hover {
+  box-shadow: 0 6px 18px rgba(15, 118, 110, 0.35);
+}
+
+/* Hiệu ứng Bấm chuột (Active / Press) */
+.add-friend-submit-btn.active:active {
+  transform: scale(0.96) translateY(0);
+}
+
+.add-friend-submit-btn.loading {
+  opacity: 0.85;
+  cursor: wait;
+}
+
+.add-friend-submit-btn svg {
+  color: inherit;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.add-friend-submit-btn.active:hover svg {
+  transform: scale(1.1);
+}
+
+/* Hiệu ứng xoay spinner */
+.spin-animation {
+  animation: spinKeyframe 0.85s linear infinite;
+}
+
+@keyframes spinKeyframe {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Animation mượt cho danh sách kết quả tìm kiếm */
+.search-results-section {
+  animation: searchResultsFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes searchResultsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Cải tiến row kết quả tìm kiếm */
+.search-results-section .friend-row-item {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 8px;
+}
+
+.search-results-section .friend-row-item:hover {
+  background-color: var(--hover-bg);
+  transform: translateX(4px);
+  box-shadow: -2px 0 0 var(--accent);
+}
+
+/* Nút Accent đồng bộ chuẩn Dark & Light Theme */
+.btn-accent,
+.friends-find-new-btn,
+.friends-empty-card .btn-accent,
+.friend-actions-right .btn-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background-color: var(--accent);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-theme="dark"] .btn-accent,
+:root[data-theme="dark"] .friends-find-new-btn,
+:root[data-theme="dark"] .friends-empty-card .btn-accent,
+:root[data-theme="dark"] .friend-actions-right .btn-accent {
+  background-color: var(--accent);
+  color: #04201c !important;
+  box-shadow: 0 4px 14px rgba(45, 212, 191, 0.28);
+}
+
+:root[data-theme="light"] .btn-accent,
+:root[data-theme="light"] .friends-find-new-btn,
+:root[data-theme="light"] .friends-empty-card .btn-accent,
+:root[data-theme="light"] .friend-actions-right .btn-accent {
+  background-color: var(--accent);
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.25);
+}
+
+.btn-accent:hover,
+.friends-find-new-btn:hover,
+.friends-empty-card .btn-accent:hover,
+.friend-actions-right .btn-accent:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1.5px);
+}
+
+:root[data-theme="dark"] .btn-accent:hover,
+:root[data-theme="dark"] .friends-find-new-btn:hover,
+:root[data-theme="dark"] .friends-empty-card .btn-accent:hover,
+:root[data-theme="dark"] .friend-actions-right .btn-accent:hover {
+  box-shadow: 0 6px 20px rgba(45, 212, 191, 0.42);
+}
+
+:root[data-theme="light"] .btn-accent:hover,
+:root[data-theme="light"] .friends-find-new-btn:hover,
+:root[data-theme="light"] .friends-empty-card .btn-accent:hover,
+:root[data-theme="light"] .friend-actions-right .btn-accent:hover {
+  box-shadow: 0 6px 18px rgba(15, 118, 110, 0.35);
+}
+
+.btn-accent:active,
+.friends-find-new-btn:active,
+.friends-empty-card .btn-accent:active,
+.friend-actions-right .btn-accent:active {
+  transform: scale(0.97) translateY(0);
 }
 
 .badge-already-friend {
@@ -8781,7 +9117,7 @@ html[data-density="compact"] .dm-message-row {
   align-items: center;
   gap: 16px;
   padding: 16px 20px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .full-profile-tab-btn {
@@ -8994,8 +9330,8 @@ html[data-density="compact"] .dm-message-row {
 
 /* Khung xem trước tệp đính kèm trước khi gửi */
 .discord-attachment-preview-box {
-  background: #2b2d31;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px 8px 0 0;
   padding: 8px 12px;
   display: flex;
@@ -9326,7 +9662,7 @@ html[data-density="compact"] .dm-message-row {
   justify-content: space-between;
   padding: 12px 16px;
   background: #2b2d31;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .discord-lightbox-title {
@@ -9405,7 +9741,7 @@ html[data-density="compact"] .dm-message-row {
   display: flex;
   align-items: center;
   gap: 2px;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid var(--border);
   padding-right: 4px;
   margin-right: 4px;
 }
@@ -9425,7 +9761,7 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .quick-reaction-item-btn:hover {
-  background: #35373c;
+  background: var(--bg-hover);
   transform: scale(1.25);
 }
 
@@ -9505,8 +9841,8 @@ html[data-density="compact"] .dm-message-row {
   top: -10px;
   right: 16px;
   transform: translateY(-100%);
-  background: #2b2d31;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
   width: 280px;
@@ -9522,13 +9858,13 @@ html[data-density="compact"] .dm-message-row {
   justify-content: space-between;
   margin-bottom: 8px;
   padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .discord-reaction-picker-title {
   font-size: 13px;
   font-weight: 700;
-  color: #f2f3f5;
+  color: var(--text-1);
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -9543,23 +9879,23 @@ html[data-density="compact"] .dm-message-row {
 .discord-reaction-search-icon {
   position: absolute;
   left: 8px;
-  color: #949ba4;
+  color: var(--text-3);
   pointer-events: none;
 }
 
 .discord-reaction-picker-search input {
   width: 100%;
-  background: #1e1f22;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px 10px 6px 28px;
   font-size: 12px;
-  color: #f2f3f5;
+  color: var(--text-1);
   outline: none;
 }
 
 .discord-reaction-picker-search input:focus {
-  border-color: #5865f2;
+  border-color: var(--accent);
 }
 
 .discord-reaction-picker-grid {
@@ -9585,7 +9921,7 @@ html[data-density="compact"] .dm-message-row {
 }
 
 .discord-reaction-grid-btn:hover {
-  background: #35373c;
+  background: var(--bg-hover);
   transform: scale(1.2);
 }
 
@@ -9719,7 +10055,7 @@ html[data-density="compact"] .dm-message-row {
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 14px;
-  color: #f2f3f5;
+  color: var(--text-1);
   outline: none;
   transition: border-color 0.15s ease;
 }
@@ -9742,7 +10078,7 @@ html[data-density="compact"] .dm-message-row {
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 14px;
-  color: #f2f3f5;
+  color: var(--text-1);
   outline: none;
   resize: vertical;
   font-family: inherit;
@@ -9764,8 +10100,8 @@ html[data-density="compact"] .dm-message-row {
 .room-icon-choice-btn {
   padding: 6px 12px;
   border-radius: 6px;
-  background: #2b2d31;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   color: #f2f3f5;
   font-size: 14px;
   cursor: pointer;
@@ -10039,7 +10375,7 @@ html[data-density="compact"] .dm-message-row {
 .members-tab-search-bar .search-icon {
   position: absolute;
   left: 10px;
-  color: #949ba4;
+  color: var(--text-3);
   pointer-events: none;
 }
 
@@ -10050,12 +10386,12 @@ html[data-density="compact"] .dm-message-row {
   border-radius: 6px;
   padding: 8px 12px 8px 32px;
   font-size: 13.5px;
-  color: #f2f3f5;
+  color: var(--text-1);
   outline: none;
 }
 
 .members-tab-search-bar input:focus {
-  border-color: #5865f2;
+  border-color: var(--accent);
 }
 
 .members-management-list {
@@ -10317,39 +10653,46 @@ html[data-density="compact"] .dm-message-row {
 
 /* Thanh cuộn chuyên biệt cho khung tin nhắn chat */
 .chat-messages-container,
-.dm-scroll {
+.dm-scroll,
+.member-list {
   scroll-behavior: auto;
 }
 
 .chat-messages-container::-webkit-scrollbar,
-.dm-scroll::-webkit-scrollbar {
+.dm-scroll::-webkit-scrollbar,
+.member-list::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 .chat-messages-container::-webkit-scrollbar-track,
-.dm-scroll::-webkit-scrollbar-track {
+.dm-scroll::-webkit-scrollbar-track,
+.member-list::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .chat-messages-container::-webkit-scrollbar-thumb,
-.dm-scroll::-webkit-scrollbar-thumb {
+.dm-scroll::-webkit-scrollbar-thumb,
+.member-list::-webkit-scrollbar-thumb {
   background: rgba(120, 124, 133, 0.35);
   border-radius: 4px;
 }
 
 .chat-messages-container::-webkit-scrollbar-thumb:hover,
-.dm-scroll::-webkit-scrollbar-thumb:hover {
+.dm-scroll::-webkit-scrollbar-thumb:hover,
+.member-list::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 155, 164, 0.65);
 }
 
 :root[data-theme="light"] .chat-messages-container::-webkit-scrollbar-thumb,
-:root[data-theme="light"] .dm-scroll::-webkit-scrollbar-thumb {
+:root[data-theme="light"] .dm-scroll::-webkit-scrollbar-thumb,
+:root[data-theme="light"] .member-list::-webkit-scrollbar-thumb {
   background: rgba(100, 105, 115, 0.28);
 }
 
 :root[data-theme="light"] .chat-messages-container::-webkit-scrollbar-thumb:hover,
-:root[data-theme="light"] .dm-scroll::-webkit-scrollbar-thumb:hover {
+:root[data-theme="light"] .dm-scroll::-webkit-scrollbar-thumb:hover,
+:root[data-theme="light"] .member-list::-webkit-scrollbar-thumb:hover {
   background: rgba(80, 85, 95, 0.5);
 }
 
@@ -11207,3 +11550,112 @@ html[data-density="compact"] .dm-message-row {
 
 
 
+
+
+/* ==========================================================================
+   MENU CHUỘT PHẢI BẠN BÈ (FRIEND CONTEXT MENU)
+   ========================================================================== */
+.friend-context-menu {
+  position: fixed;
+  width: 220px;
+  background-color: var(--bg-1, #1e1f22);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  outline: none;
+  animation: friendContextMenuFadeIn 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-theme="light"] .friend-context-menu {
+  background-color: #ffffff;
+  border: 1px solid #d5dede;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+@keyframes friendContextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.friend-context-menu .context-menu-header {
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-context-menu .context-menu-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-context-menu .context-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.friend-context-menu .context-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.12s ease;
+  font-family: inherit;
+  outline: none;
+}
+
+.friend-context-menu .context-menu-item:hover,
+.friend-context-menu .context-menu-item.active {
+  background-color: var(--accent);
+  color: var(--on-accent, #ffffff);
+}
+
+:root[data-theme="light"] .friend-context-menu .context-menu-item:hover,
+:root[data-theme="light"] .friend-context-menu .context-menu-item.active {
+  background-color: var(--accent);
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .friend-context-menu .context-menu-item:hover,
+:root[data-theme="dark"] .friend-context-menu .context-menu-item.active {
+  background-color: var(--accent);
+  color: #04201c !important;
+}
+
+.friend-context-menu .context-menu-item.danger {
+  color: var(--danger, #da373c);
+}
+
+.friend-context-menu .context-menu-item.danger:hover,
+.friend-context-menu .context-menu-item.danger.active {
+  background-color: var(--danger, #da373c) !important;
+  color: #ffffff !important;
+}

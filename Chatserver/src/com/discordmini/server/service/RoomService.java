@@ -24,6 +24,16 @@ public class RoomService {
     }
 
     public com.discordmini.server.model.Channel createChannel(int roomId, String name, int requestedByUserId) {
+        return createChannel(roomId, name, requestedByUserId, "text", false);
+    }
+
+    public com.discordmini.server.model.Channel createChannel(
+            int roomId,
+            String name,
+            int requestedByUserId,
+            String type,
+            boolean isPrivate
+    ) {
         if (roomId <= 0 || name == null || name.isBlank() || requestedByUserId <= 0) {
             return null;
         }
@@ -35,7 +45,7 @@ public class RoomService {
             return null;
         }
 
-        return channelDAO.createChannel(roomId, name.trim());
+        return channelDAO.createChannel(roomId, name.trim(), type, isPrivate);
     }
 
     public List<com.discordmini.server.model.Channel> listChannels(int roomId, int requestedByUserId) {

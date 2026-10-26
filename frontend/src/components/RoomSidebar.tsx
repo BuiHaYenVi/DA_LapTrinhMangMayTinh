@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Room, Channel, User, Friend, MessageItem } from '../types/chat';
+import { FriendContextMenu, type FriendContextMenuPosition } from './FriendContextMenu';
+import { FullProfileModal } from './FullProfileModal';
 import { 
-  Hash, Plus, Settings, ChevronDown, ChevronUp, LogOut, 
-  UserPlus, Users, MessageSquare, X, Trash2, Lock
+  Hash, Plus, Settings, ChevronDown, ChevronRight, ChevronUp, LogOut, 
+  UserPlus, Users, MessageSquare, MessagesSquare, Volume2, X, Trash2, Lock
 } from 'lucide-react';
 import { formatTime } from './chat/chatShared';
 import {
@@ -27,6 +29,9 @@ interface Props {
   directUnreadMap?: Record<number, number>;
   directMessagesMap?: Record<number, MessageItem[]>;
   onOpenAddFriend?: () => void;
+  onRemoveFriend?: (friendId: number) => void;
+  onOpenInviteModal?: (friend: Friend) => void;
+  onShowToast?: (msg: string) => void;
   onSelectChannel: (channel: Channel) => void;
   onCreateChannel: () => void;
   onRenameRoom?: (roomId: number, name: string) => void;
@@ -101,6 +106,9 @@ export const RoomSidebar: React.FC<Props> = ({
   directUnreadMap = {},
   directMessagesMap = {},
   onOpenAddFriend,
+  onRemoveFriend,
+  onOpenInviteModal,
+  onShowToast,
   onSelectChannel,
   onCreateChannel,
   onRenameRoom,
@@ -123,6 +131,7 @@ export const RoomSidebar: React.FC<Props> = ({
   onClearExternalDeleteRoom
 }) => {
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [isChannelsCollapsed, setIsChannelsCollapsed] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [roomIcon, setRoomIcon] = useState('');
@@ -183,6 +192,8 @@ export const RoomSidebar: React.FC<Props> = ({
   };
 
   const serverMenuRef = useRef<HTMLDivElement>(null);
+  const [friendContextMenu, setFriendContextMenu] = useState<{ friend: Friend; position: FriendContextMenuPosition } | null>(null);
+  const [profileFriend, setProfileFriend] = useState<Friend | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -477,6 +488,52 @@ export const RoomSidebar: React.FC<Props> = ({
           </div>
         </div>
 
+
+        {/* Menu ngữ cảnh chuột phải bạn bè ở thanh Direct Messages */}
+        {friendContextMenu && (
+          <FriendContextMenu
+            friend={friendContextMenu.friend}
+            position={friendContextMenu.position}
+            isDirectSidebar={true}
+            onClose={() => setFriendContextMenu(null)}
+            onSelectDirectUser={onSelectDirectUser}
+            onOpenProfile={(f) => setProfileFriend(f)}
+            onOpenInviteModal={onOpenInviteModal}
+            onCloseConversation={(f) => {
+              const friendMsgs = directMessagesMap?.[f.id] || [];
+              const lastMsg = friendMsgs[friendMsgs.length - 1];
+              setHiddenFriendMap(prev => ({
+                ...prev,
+                [f.id]: lastMsg?.id || 0
+              }));
+            }}
+            onRemoveFriend={(f) => {
+              if (onRemoveFriend) onRemoveFriend(f.id);
+            }}
+            onShowToast={onShowToast}
+          />
+        )}
+
+        {/* Modal xem hồ sơ bạn bè khi click từ chuột phải */}
+        {profileFriend && (
+          <FullProfileModal
+            isOpen={Boolean(profileFriend)}
+            onClose={() => setProfileFriend(null)}
+            user={{
+              id: profileFriend.id,
+              username: profileFriend.username,
+              displayName: profileFriend.displayName,
+              online: profileFriend.online
+            }}
+            currentUserId={currentUser?.id}
+            friends={friends}
+            onDirectMessage={() => {
+              if (onSelectDirectUser) onSelectDirectUser(profileFriend);
+              setProfileFriend(null);
+            }}
+          />
+        )}
+
         {renderUserProfileBar()}
       </div>
     );
@@ -591,14 +648,28 @@ export const RoomSidebar: React.FC<Props> = ({
       <div className="room-section">
         {currentRoom ? (
           <>
-            <div className="section-title">
-              <span>▾ KÊNH CHAT</span>
+            <div 
+              className="section-title section-title-collapsible"
+              onClick={() => setIsChannelsCollapsed(prev => !prev)}
+              title={isChannelsCollapsed ? "Xổ ra danh sách kênh chat" : "Thu gọn danh sách kênh chat"}
+            >
+              <div className="section-title-left">
+                {isChannelsCollapsed ? (
+                  <ChevronRight size={13} className="category-chevron-icon" />
+                ) : (
+                  <ChevronDown size={13} className="category-chevron-icon" />
+                )}
+                <span>KÊNH CHAT</span>
+              </div>
               {isManager && (
                 <button 
                   type="button"
                   className="add-btn" 
                   title={`Tạo kênh chat trong ${currentRoom.name}`} 
-                  onClick={onCreateChannel}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreateChannel();
+                  }}
                   aria-label="Tạo kênh chat"
                 >
                   <Plus size={16} />
@@ -606,7 +677,7 @@ export const RoomSidebar: React.FC<Props> = ({
               )}
             </div>
 
-            {(() => {
+            {!isChannelsCollapsed && (() => {
               const visibleChannels = channels.filter(ch => {
                 if (ch.isPrivate && currentUserRole === 'MEMBER') {
                   return false;
@@ -631,6 +702,10 @@ export const RoomSidebar: React.FC<Props> = ({
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                           {isPrivate ? (
                             <Lock size={15} className="channel-lock-icon" style={{ color: 'var(--text-muted)' }} />
+                          ) : chType === 'forum' ? (
+                            <MessagesSquare size={17} className="channel-hash-icon" />
+                          ) : chType === 'voice' ? (
+                            <Volume2 size={17} className="channel-hash-icon" />
                           ) : (
                             <Hash size={18} className="channel-hash-icon" />
                           )}
